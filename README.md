@@ -33,12 +33,44 @@ python3 dev/bin/agent-packs show frontend-engineer
 python3 dev/bin/agent-packs install frontend-engineer --target ./sandbox
 ```
 
+## Specifying Plugins And Skills
+
+Plugins and skills are declared as entries in `capabilities`. Plugin entries must include `format` and `install` metadata so an installer can resolve the marketplace/package/command. Skill entries must include `format` and `entry` so an installer can locate the `SKILL.md` file.
+
+```json
+{
+  "type": "plugin",
+  "name": "Anthropic Claude Code code-review plugin",
+  "source": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review",
+  "format": "anthropic-plugin",
+  "entry": ".claude-plugin/plugin.json",
+  "install": {
+    "method": "claude-marketplace",
+    "marketplace": "claude-plugins-official",
+    "package": "code-review",
+    "command": "claude plugin install code-review@claude-plugins-official"
+  }
+}
+```
+
+```json
+{
+  "type": "skill",
+  "name": "Microsoft Azure Agent Skills",
+  "source": "https://github.com/MicrosoftDocs/Agent-Skills/tree/main/skills",
+  "format": "agent-skill",
+  "entry": "SKILL.md",
+  "targets": [".claude/skills/", ".codex/skills/", ".github/skills/"]
+}
+```
+
 ## Examples
 
 Example manifests live in `dev/schemas/examples/`:
 
 - `minimal-pack.json`: the smallest valid pack manifest.
 - `full-pack.json`: a complete manifest showing every supported capability type.
+- `real-world-pack.json`: examples based on public Claude Code plugin and Agent Skills repositories.
 
 ## Tests
 

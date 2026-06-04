@@ -4,12 +4,24 @@
   "version": "0.1.0",
   "description": "A starter pack for coding agents building polished frontend applications.",
   "license": "Apache-2.0",
-  "tags": ["frontend", "ui", "react", "design"],
+  "tags": [
+    "frontend",
+    "ui",
+    "react",
+    "design"
+  ],
   "capabilities": [
     {
       "type": "skill",
       "name": "Frontend implementation guidance",
-      "source": "public-skill-placeholder"
+      "source": "public-skill-placeholder",
+      "format": "agent-skill",
+      "entry": "SKILL.md",
+      "targets": [
+        ".claude/skills/",
+        ".codex/skills/",
+        ".agents/skills/"
+      ]
     },
     {
       "type": "tool",

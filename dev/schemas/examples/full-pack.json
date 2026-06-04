@@ -4,47 +4,72 @@
   "version": "1.0.0",
   "description": "A complete example showing every supported capability type.",
   "license": "Apache-2.0",
-  "tags": ["review", "full-stack", "github", "ci"],
+  "tags": [
+    "review",
+    "full-stack",
+    "github",
+    "ci"
+  ],
   "capabilities": [
     {
       "type": "skill",
       "name": "Code review workflow",
-      "source": "https://example.com/skills/code-review/SKILL.md"
+      "source": "https://example.com/skills/code-review/SKILL.md",
+      "format": "agent-skill",
+      "entry": "SKILL.md",
+      "targets": [
+        ".claude/skills/",
+        ".codex/skills/"
+      ]
     },
     {
       "type": "plugin",
       "name": "Claude Code review plugin",
-      "source": "https://example.com/plugins/claude-code-review"
+      "source": "https://example.com/plugins/claude-code-review",
+      "format": "anthropic-plugin",
+      "entry": ".claude-plugin/plugin.json",
+      "install": {
+        "method": "claude-marketplace",
+        "marketplace": "example-marketplace",
+        "package": "claude-code-review",
+        "command": "claude plugin install claude-code-review@example-marketplace"
+      }
     },
     {
       "type": "mcp",
       "name": "GitHub MCP server",
-      "source": "https://example.com/mcp/github"
+      "source": "https://example.com/mcp/github",
+      "format": "mcp-server"
     },
     {
       "type": "command",
       "name": "Run repository tests",
-      "source": "npm test"
+      "source": "npm test",
+      "format": "shell-command"
     },
     {
       "type": "hook",
       "name": "Pre-review setup hook",
-      "source": "https://example.com/hooks/pre-review.sh"
+      "source": "https://example.com/hooks/pre-review.sh",
+      "format": "shell-command"
     },
     {
       "type": "prompt",
       "name": "Review summary prompt",
-      "source": "https://example.com/prompts/review-summary.md"
+      "source": "https://example.com/prompts/review-summary.md",
+      "format": "markdown-prompt"
     },
     {
       "type": "template",
       "name": "Pull request report template",
-      "source": "https://example.com/templates/pr-report.md"
+      "source": "https://example.com/templates/pr-report.md",
+      "format": "template"
     },
     {
       "type": "tool",
       "name": "Browser verification tool",
-      "source": "https://example.com/tools/browser-verify"
+      "source": "https://example.com/tools/browser-verify",
+      "format": "other"
     }
   ]
 }

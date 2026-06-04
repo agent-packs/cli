@@ -53,8 +53,10 @@ def validate_pack(pack, schema):
                 errors.append(f"tags[{index}] must be a string")
 
     capabilities = pack.get("capabilities")
-    capability_schema = properties["capabilities"]["items"]
+    capability_schema = schema["$defs"]["capability"]
     valid_capability_types = set(capability_schema["properties"]["type"]["enum"])
+    valid_formats = set(capability_schema["properties"]["format"]["enum"])
+    valid_install_methods = set(schema["$defs"]["install"]["properties"]["method"]["enum"])
 
     if isinstance(capabilities, list):
         for index, capability in enumerate(capabilities):
@@ -66,13 +68,55 @@ def validate_pack(pack, schema):
                 if field not in capability:
                     errors.append(f"capabilities[{index}] missing required field: {field}")
 
-            for field in ("type", "name", "source"):
+            string_fields = ("type", "name", "source", "format", "version", "entry", "homepage", "repository", "license")
+            for field in string_fields:
                 if field in capability and not isinstance(capability[field], str):
                     errors.append(f"capabilities[{index}].{field} must be a string")
 
             capability_type = capability.get("type")
             if isinstance(capability_type, str) and capability_type not in valid_capability_types:
                 errors.append(f"capabilities[{index}].type is not allowed")
+
+            capability_format = capability.get("format")
+            if isinstance(capability_format, str) and capability_format not in valid_formats:
+                errors.append(f"capabilities[{index}].format is not allowed")
+
+            if capability_type == "plugin":
+                for field in ("format", "install"):
+                    if field not in capability:
+                        errors.append(f"capabilities[{index}] missing required plugin field: {field}")
+                if capability.get("format") not in {"anthropic-plugin", "codex-plugin", "other"}:
+                    errors.append(f"capabilities[{index}].format is not allowed for plugin")
+
+            if capability_type == "skill":
+                for field in ("format", "entry"):
+                    if field not in capability:
+                        errors.append(f"capabilities[{index}] missing required skill field: {field}")
+                if capability.get("format") != "agent-skill":
+                    errors.append(f"capabilities[{index}].format must be agent-skill for skill")
+
+            install = capability.get("install")
+            if install is not None:
+                if not isinstance(install, dict):
+                    errors.append(f"capabilities[{index}].install must be an object")
+                else:
+                    if "method" not in install:
+                        errors.append(f"capabilities[{index}].install missing required field: method")
+                    for field in ("method", "marketplace", "package", "command", "target"):
+                        if field in install and not isinstance(install[field], str):
+                            errors.append(f"capabilities[{index}].install.{field} must be a string")
+                    method = install.get("method")
+                    if isinstance(method, str) and method not in valid_install_methods:
+                        errors.append(f"capabilities[{index}].install.method is not allowed")
+
+            targets = capability.get("targets")
+            if targets is not None:
+                if not isinstance(targets, list):
+                    errors.append(f"capabilities[{index}].targets must be an array")
+                else:
+                    for target_index, target in enumerate(targets):
+                        if not isinstance(target, str):
+                            errors.append(f"capabilities[{index}].targets[{target_index}] must be a string")
 
     return errors
 
@@ -90,6 +134,8 @@ def valid_pack():
                 "type": "skill",
                 "name": "Example skill",
                 "source": "https://example.com/skill",
+                "format": "agent-skill",
+                "entry": "SKILL.md",
             }
         ],
     }
@@ -143,6 +189,43 @@ class AgentPackSchemaTest(unittest.TestCase):
         pack = valid_pack()
         pack["capabilities"][0]["type"] = "unknown"
         self.assert_invalid(pack, "capabilities[0].type is not allowed")
+
+    def test_requires_plugin_metadata(self):
+        pack = valid_pack()
+        pack["capabilities"][0] = {
+            "type": "plugin",
+            "name": "Example plugin",
+            "source": "https://example.com/plugin",
+        }
+        self.assert_invalid(pack, "capabilities[0] missing required plugin field: format")
+        self.assert_invalid(pack, "capabilities[0] missing required plugin field: install")
+
+    def test_rejects_invalid_plugin_format(self):
+        pack = valid_pack()
+        pack["capabilities"][0] = {
+            "type": "plugin",
+            "name": "Example plugin",
+            "source": "https://example.com/plugin",
+            "format": "agent-skill",
+            "install": {"method": "claude-marketplace"},
+        }
+        self.assert_invalid(pack, "capabilities[0].format is not allowed for plugin")
+
+    def test_requires_skill_metadata(self):
+        pack = valid_pack()
+        del pack["capabilities"][0]["entry"]
+        self.assert_invalid(pack, "capabilities[0] missing required skill field: entry")
+
+    def test_rejects_invalid_install_method(self):
+        pack = valid_pack()
+        pack["capabilities"][0] = {
+            "type": "plugin",
+            "name": "Example plugin",
+            "source": "https://example.com/plugin",
+            "format": "anthropic-plugin",
+            "install": {"method": "package-manager"},
+        }
+        self.assert_invalid(pack, "capabilities[0].install.method is not allowed")
 
     def test_requires_capability_fields(self):
         for field in ["type", "name", "source"]:

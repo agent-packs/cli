@@ -3,7 +3,13 @@
   "$id": "https://agentpacks.dev/schemas/agent-pack.schema.json",
   "title": "Agent Pack",
   "type": "object",
-  "required": ["id", "name", "version", "description", "capabilities"],
+  "required": [
+    "id",
+    "name",
+    "version",
+    "description",
+    "capabilities"
+  ],
   "properties": {
     "id": {
       "type": "string",
@@ -30,22 +36,172 @@
     "capabilities": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["type", "name", "source"],
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["skill", "plugin", "mcp", "command", "hook", "prompt", "template", "tool"]
-          },
-          "name": {
-            "type": "string"
-          },
-          "source": {
+        "$ref": "#/$defs/capability"
+      }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "required": [
+        "type",
+        "name",
+        "source"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "skill",
+            "plugin",
+            "mcp",
+            "command",
+            "hook",
+            "prompt",
+            "template",
+            "tool"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "agent-skill",
+            "anthropic-plugin",
+            "codex-plugin",
+            "mcp-server",
+            "shell-command",
+            "markdown-prompt",
+            "template",
+            "other"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "entry": {
+          "type": "string"
+        },
+        "homepage": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "install": {
+          "$ref": "#/$defs/install"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
             "type": "string"
           }
+        },
+        "integrity": {
+          "$ref": "#/$defs/integrity"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "plugin"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "format",
+              "install"
+            ],
+            "properties": {
+              "format": {
+                "enum": [
+                  "anthropic-plugin",
+                  "codex-plugin",
+                  "other"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "skill"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "format",
+              "entry"
+            ],
+            "properties": {
+              "format": {
+                "const": "agent-skill"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "install": {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "claude-marketplace",
+            "git",
+            "copy",
+            "shell",
+            "manual"
+          ]
+        },
+        "marketplace": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "properties": {
+        "checksum": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
         }
       }
     }
   }
 }
-
