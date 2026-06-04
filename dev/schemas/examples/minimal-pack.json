@@ -1,0 +1,13 @@
+{
+  "id": "minimal-pack",
+  "name": "Minimal Pack",
+  "version": "0.1.0",
+  "description": "The smallest valid Agent Pack manifest.",
+  "capabilities": [
+    {
+      "type": "skill",
+      "name": "Minimal skill",
+      "source": "https://example.com/skills/minimal"
+    }
+  ]
+}

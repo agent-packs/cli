@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "dev" / "schemas" / "agent-pack.schema.json"
 REGISTRY_PATH = ROOT / "dev" / "registry" / "packs"
+EXAMPLES_PATH = ROOT / "dev" / "schemas" / "examples"
 
 
 def load_schema():
@@ -110,6 +111,14 @@ class AgentPackSchemaTest(unittest.TestCase):
         self.assertGreater(len(pack_paths), 0)
 
         for path in pack_paths:
+            with self.subTest(path=path.name):
+                self.assert_valid(load_pack(path))
+
+    def test_example_packs_match_schema(self):
+        example_paths = sorted(EXAMPLES_PATH.glob("*.json"))
+        self.assertGreater(len(example_paths), 0)
+
+        for path in example_paths:
             with self.subTest(path=path.name):
                 self.assert_valid(load_pack(path))
 

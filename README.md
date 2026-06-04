@@ -33,6 +33,13 @@ python3 dev/bin/agent-packs show frontend-engineer
 python3 dev/bin/agent-packs install frontend-engineer --target ./sandbox
 ```
 
+## Examples
+
+Example manifests live in `dev/schemas/examples/`:
+
+- `minimal-pack.json`: the smallest valid pack manifest.
+- `full-pack.json`: a complete manifest showing every supported capability type.
+
 ## Tests
 
 ```sh
