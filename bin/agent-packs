@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import shutil
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+REGISTRY = ROOT / "registry" / "packs"
+
+
+def load_packs():
+    packs = []
+    for path in sorted(REGISTRY.glob("*.json")):
+        with path.open("r", encoding="utf-8") as handle:
+            pack = json.load(handle)
+        pack["_path"] = str(path)
+        packs.append(pack)
+    return packs
+
+
+def find_pack(pack_id):
+    for pack in load_packs():
+        if pack["id"] == pack_id:
+            return pack
+    return None
+
+
+def search(args):
+    query = " ".join(args.query).lower()
+    packs = load_packs()
+    if query:
+        packs = [
+            pack
+            for pack in packs
+            if query in pack["id"].lower()
+            or query in pack["name"].lower()
+            or query in pack["description"].lower()
+            or any(query in tag.lower() for tag in pack.get("tags", []))
+        ]
+
+    if not packs:
+        print("No packs found.")
+        return 1
+
+    for pack in packs:
+        tags = ", ".join(pack.get("tags", []))
+        print(f"{pack['id']}\t{pack['name']}\t{tags}")
+    return 0
+
+
+def show(args):
+    pack = find_pack(args.pack_id)
+    if not pack:
+        print(f"Pack not found: {args.pack_id}", file=sys.stderr)
+        return 1
+
+    print(f"{pack['name']} ({pack['id']})")
+    print(pack["description"])
+    print()
+    print(f"Version: {pack['version']}")
+    print(f"License: {pack.get('license', 'unknown')}")
+    print(f"Tags: {', '.join(pack.get('tags', []))}")
+    print()
+    print("Capabilities:")
+    for capability in pack.get("capabilities", []):
+        print(f"- {capability['type']}: {capability['name']}")
+    return 0
+
+
+def install(args):
+    pack = find_pack(args.pack_id)
+    if not pack:
+        print(f"Pack not found: {args.pack_id}", file=sys.stderr)
+        return 1
+
+    target = Path(args.target).expanduser().resolve()
+    pack_dir = target / pack["id"]
+    pack_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_path = pack_dir / "agent-pack.json"
+    with manifest_path.open("w", encoding="utf-8") as handle:
+        json.dump({k: v for k, v in pack.items() if not k.startswith("_")}, handle, indent=2)
+        handle.write("\n")
+
+    source_path = Path(pack["_path"]).resolve()
+    shutil.copy2(source_path, pack_dir / "source-registry-entry.json")
+
+    print(f"Installed {pack['id']} to {pack_dir}")
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="agent-packs")
+    subcommands = parser.add_subparsers(dest="command", required=True)
+
+    search_parser = subcommands.add_parser("search", help="Search available packs")
+    search_parser.add_argument("query", nargs="*")
+    search_parser.set_defaults(func=search)
+
+    show_parser = subcommands.add_parser("show", help="Show pack details")
+    show_parser.add_argument("pack_id")
+    show_parser.set_defaults(func=show)
+
+    install_parser = subcommands.add_parser("install", help="Install a pack")
+    install_parser.add_argument("pack_id")
+    install_parser.add_argument("--target", default=".agent-packs")
+    install_parser.set_defaults(func=install)
+
+    args = parser.parse_args()
+    raise SystemExit(args.func(args))
+
+
+if __name__ == "__main__":
+    main()
+

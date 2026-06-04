@@ -1,0 +1,20 @@
+{
+  "id": "pr-review",
+  "name": "PR Review Pack",
+  "version": "0.1.0",
+  "description": "A starter pack for coding agents reviewing pull requests and identifying regressions.",
+  "license": "Apache-2.0",
+  "tags": ["github", "review", "ci", "quality"],
+  "capabilities": [
+    {
+      "type": "skill",
+      "name": "Code review workflow",
+      "source": "public-skill-placeholder"
+    },
+    {
+      "type": "tool",
+      "name": "GitHub pull request inspection",
+      "source": "mcp-or-plugin-placeholder"
+    }
+  ]
+}
