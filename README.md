@@ -31,7 +31,10 @@ formats are intentionally language-neutral.
 python3 dev/bin/agent-packs search
 python3 dev/bin/agent-packs show frontend-engineer
 python3 dev/bin/agent-packs install frontend-engineer --target ./sandbox
+python3 dev/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
 ```
+
+The prototype installer supports `--agent`, `--only`, `--dry-run`, and `--execute-plugins`. Skill capabilities with local sources are copied into the selected agent target. Remote skills and plugin commands are recorded as pending unless plugin execution is explicitly enabled.
 
 ## Specifying Plugins And Skills
 
