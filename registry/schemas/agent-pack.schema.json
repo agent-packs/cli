@@ -47,13 +47,13 @@
     "skills": {
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/skillRef"
       }
     },
     "plugins": {
       "type": "array",
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/pluginRef"
       }
     },
     "upstreamSource": {
@@ -237,6 +237,126 @@
           "type": "string"
         }
       }
+    },
+    "skillRef": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "upstreamSource": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string",
+              "const": "agent-skill"
+            },
+            "version": {
+              "type": "string"
+            },
+            "entry": {
+              "type": "string"
+            },
+            "homepage": {
+              "type": "string"
+            },
+            "repository": {
+              "type": "string"
+            },
+            "license": {
+              "type": "string"
+            },
+            "install": {
+              "$ref": "#/$defs/install"
+            },
+            "trust": {
+              "type": "string",
+              "enum": [
+                "official",
+                "verified",
+                "community",
+                "unknown"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "pluginRef": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "upstreamSource": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "anthropic-plugin",
+                "codex-plugin",
+                "other"
+              ]
+            },
+            "version": {
+              "type": "string"
+            },
+            "entry": {
+              "type": "string"
+            },
+            "homepage": {
+              "type": "string"
+            },
+            "repository": {
+              "type": "string"
+            },
+            "license": {
+              "type": "string"
+            },
+            "install": {
+              "$ref": "#/$defs/install"
+            },
+            "trust": {
+              "type": "string",
+              "enum": [
+                "official",
+                "verified",
+                "community",
+                "unknown"
+              ]
+            }
+          }
+        }
+      ]
     }
   },
   "anyOf": [

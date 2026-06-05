@@ -118,7 +118,7 @@ func TestExpandPackIncludesRegistrySkillsAndPlugins(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(registry, "plugins"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	pack := Pack{ID: "referenced", Name: "Referenced", Version: "0.1.0", Description: "Referenced pack", Skills: []string{"review"}, Plugins: []string{"browser"}}
+	pack := Pack{ID: "referenced", Name: "Referenced", Version: "0.1.0", Description: "Referenced pack", Skills: CapabilityRefs{{ID: "review"}}, Plugins: CapabilityRefs{{ID: "browser"}}}
 	writeTestPack(t, filepath.Join(registry, "packs"), pack)
 	writeTestSkill(t, filepath.Join(registry, "skills"), "review")
 	writeTestPlugin(t, filepath.Join(registry, "plugins"), "browser")
@@ -155,6 +155,59 @@ func TestExpandPackIncludesRegistrySkillsAndPlugins(t *testing.T) {
 	for _, item := range result.Capabilities {
 		if item.Status != "referenced" {
 			t.Fatalf("expected referenced status, got %#v", item)
+		}
+	}
+}
+
+func TestExpandPackIncludesRemoteSkillAndPluginRefs(t *testing.T) {
+	temp := t.TempDir()
+	registry := filepath.Join(temp, "registry", "packs")
+	if err := os.MkdirAll(registry, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pack := Pack{
+		ID:          "remote-refs",
+		Name:        "Remote Refs",
+		Version:     "0.1.0",
+		Description: "Remote references pack",
+		Skills: CapabilityRefs{{
+			ID:             "strategy",
+			Name:           "Strategy Skill",
+			Source:         "https://github.com/example/skills/tree/main/strategy",
+			UpstreamSource: "https://github.com/example/skills",
+		}},
+		Plugins: CapabilityRefs{{
+			ID:     "review-plugin",
+			Source: "https://github.com/example/plugins/tree/main/review",
+			Format: "anthropic-plugin",
+		}},
+	}
+	writeTestPack(t, registry, pack)
+
+	loaded, err := FindPack(registry, "remote-refs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expanded, err := ExpandPack(registry, loaded, map[string]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expanded.Capabilities) != 2 {
+		t.Fatalf("expected 2 remote ref capabilities, got %d", len(expanded.Capabilities))
+	}
+	skill := expanded.Capabilities[0]
+	if skill.Type != "skill" || !skill.Reference || skill.Source != "https://github.com/example/skills/tree/main/strategy" || skill.UpstreamSource != "https://github.com/example/skills" {
+		t.Fatalf("unexpected remote skill capability: %#v", skill)
+	}
+	plugin := expanded.Capabilities[1]
+	if plugin.Type != "plugin" || !plugin.Reference || plugin.Entry != ".claude-plugin/plugin.json" || plugin.Install["method"] != "manual" {
+		t.Fatalf("unexpected remote plugin capability: %#v", plugin)
+	}
+
+	plan := BuildInstallPlan(expanded, filepath.Join(temp, "target"), "codex", "all")
+	for _, item := range plan.Capabilities {
+		if item.Action != "reference" || item.Destination != "" {
+			t.Fatalf("remote refs should be reference-only: %#v", item)
 		}
 	}
 }

@@ -23,6 +23,32 @@ def load_pack(path):
         return json.load(handle)
 
 
+
+def validate_capability_ref(ref, ref_field, ref_index):
+    errors = []
+    prefix = f"{ref_field}[{ref_index}]"
+    if isinstance(ref, str):
+        return errors
+    if not isinstance(ref, dict):
+        return [f"{prefix} must be a string or object"]
+    if "id" not in ref:
+        errors.append(f"{prefix}.id is required")
+    string_fields = ("id", "name", "source", "upstreamSource", "format", "version", "entry", "homepage", "repository", "license", "trust")
+    for field in string_fields:
+        if field in ref and not isinstance(ref[field], str):
+            errors.append(f"{prefix}.{field} must be a string")
+    if ref_field == "skills" and ref.get("format") not in (None, "agent-skill"):
+        errors.append(f"{prefix}.format must be agent-skill")
+    if ref_field == "plugins" and ref.get("format") not in (None, "anthropic-plugin", "codex-plugin", "other"):
+        errors.append(f"{prefix}.format is not allowed for plugin")
+    install = ref.get("install")
+    if install is not None:
+        if not isinstance(install, dict):
+            errors.append(f"{prefix}.install must be an object")
+        elif "method" not in install:
+            errors.append(f"{prefix}.install missing required field: method")
+    return errors
+
 def validate_pack(pack, schema):
     errors = []
 
@@ -54,15 +80,23 @@ def validate_pack(pack, schema):
             if not isinstance(tag, str):
                 errors.append(f"tags[{index}] must be a string")
 
-    for ref_field in ("packs", "skills", "plugins"):
+    refs = pack.get("packs")
+    if refs is not None:
+        if not isinstance(refs, list):
+            errors.append("packs must be an array")
+        else:
+            for ref_index, ref in enumerate(refs):
+                if not isinstance(ref, str):
+                    errors.append(f"packs[{ref_index}] must be a string")
+
+    for ref_field in ("skills", "plugins"):
         refs = pack.get(ref_field)
         if refs is not None:
             if not isinstance(refs, list):
                 errors.append(f"{ref_field} must be an array")
             else:
                 for ref_index, ref in enumerate(refs):
-                    if not isinstance(ref, str):
-                        errors.append(f"{ref_field}[{ref_index}] must be a string")
+                    errors.extend(validate_capability_ref(ref, ref_field, ref_index))
 
     capabilities = pack.get("capabilities")
     capability_schema = schema["$defs"]["capability"]
@@ -241,6 +275,20 @@ class AgentPackSchemaTest(unittest.TestCase):
                 pack = valid_pack()
                 pack["id"] = bad_id
                 self.assert_invalid(pack, "id does not match schema pattern")
+
+
+    def test_allows_remote_skill_and_plugin_refs(self):
+        pack = valid_pack()
+        pack.pop("capabilities")
+        pack["skills"] = [{"id": "remote-skill", "source": "https://github.com/example/skills/tree/main/remote", "upstreamSource": "https://github.com/example/skills", "format": "agent-skill"}]
+        pack["plugins"] = [{"id": "remote-plugin", "source": "https://github.com/example/plugins/tree/main/remote", "format": "anthropic-plugin"}]
+        self.assert_valid(pack)
+
+    def test_rejects_invalid_remote_ref_shape(self):
+        pack = valid_pack()
+        pack.pop("capabilities")
+        pack["skills"] = [{"source": "https://github.com/example/skills/tree/main/remote"}]
+        self.assert_invalid(pack, "skills[0].id is required")
 
     def test_rejects_unknown_capability_type(self):
         pack = valid_pack()

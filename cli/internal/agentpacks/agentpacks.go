@@ -20,18 +20,66 @@ import (
 )
 
 type Pack struct {
-	ID             string       `json:"id"`
-	Name           string       `json:"name"`
-	Version        string       `json:"version"`
-	Description    string       `json:"description"`
-	UpstreamSource string       `json:"upstreamSource,omitempty"`
-	License        string       `json:"license,omitempty"`
-	Tags           []string     `json:"tags,omitempty"`
-	Packs          []string     `json:"packs,omitempty"`
-	Skills         []string     `json:"skills,omitempty"`
-	Plugins        []string     `json:"plugins,omitempty"`
-	Capabilities   []Capability `json:"capabilities,omitempty"`
-	Path           string       `json:"-"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Version        string         `json:"version"`
+	Description    string         `json:"description"`
+	UpstreamSource string         `json:"upstreamSource,omitempty"`
+	License        string         `json:"license,omitempty"`
+	Tags           []string       `json:"tags,omitempty"`
+	Packs          []string       `json:"packs,omitempty"`
+	Skills         CapabilityRefs `json:"skills,omitempty"`
+	Plugins        CapabilityRefs `json:"plugins,omitempty"`
+	Capabilities   []Capability   `json:"capabilities,omitempty"`
+	Path           string         `json:"-"`
+}
+
+type CapabilityRefs []CapabilityRef
+
+type CapabilityRef struct {
+	ID             string            `json:"id"`
+	Name           string            `json:"name,omitempty"`
+	Source         string            `json:"source,omitempty"`
+	UpstreamSource string            `json:"upstreamSource,omitempty"`
+	Format         string            `json:"format,omitempty"`
+	Version        string            `json:"version,omitempty"`
+	Entry          string            `json:"entry,omitempty"`
+	Homepage       string            `json:"homepage,omitempty"`
+	Repository     string            `json:"repository,omitempty"`
+	License        string            `json:"license,omitempty"`
+	Install        map[string]string `json:"install,omitempty"`
+	Trust          string            `json:"trust,omitempty"`
+}
+
+func (refs CapabilityRefs) IDs() []string {
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		ids = append(ids, ref.ID)
+	}
+	return ids
+}
+
+func (ref CapabilityRef) MarshalJSON() ([]byte, error) {
+	if ref.Name == "" && ref.Source == "" && ref.UpstreamSource == "" && ref.Format == "" && ref.Version == "" && ref.Entry == "" && ref.Homepage == "" && ref.Repository == "" && ref.License == "" && len(ref.Install) == 0 && ref.Trust == "" {
+		return json.Marshal(ref.ID)
+	}
+	type alias CapabilityRef
+	return json.Marshal(alias(ref))
+}
+
+func (ref *CapabilityRef) UnmarshalJSON(data []byte) error {
+	var id string
+	if err := json.Unmarshal(data, &id); err == nil {
+		ref.ID = id
+		return nil
+	}
+	type alias CapabilityRef
+	var object alias
+	if err := json.Unmarshal(data, &object); err != nil {
+		return err
+	}
+	*ref = CapabilityRef(object)
+	return nil
 }
 
 type Capability struct {
@@ -255,10 +303,10 @@ func Show(registry, id string, out io.Writer) error {
 		fmt.Fprintf(out, "Includes packs: %s\n", strings.Join(pack.Packs, ", "))
 	}
 	if len(pack.Skills) > 0 {
-		fmt.Fprintf(out, "Includes skills: %s\n", strings.Join(pack.Skills, ", "))
+		fmt.Fprintf(out, "Includes skills: %s\n", strings.Join(pack.Skills.IDs(), ", "))
 	}
 	if len(pack.Plugins) > 0 {
-		fmt.Fprintf(out, "Includes plugins: %s\n", strings.Join(pack.Plugins, ", "))
+		fmt.Fprintf(out, "Includes plugins: %s\n", strings.Join(pack.Plugins.IDs(), ", "))
 	}
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Capabilities:")
@@ -368,8 +416,8 @@ func ExpandPack(registry string, pack Pack, seen map[string]bool) (Pack, error) 
 	seen[pack.ID] = true
 	out := pack
 	out.Packs = append([]string{}, pack.Packs...)
-	out.Skills = append([]string{}, pack.Skills...)
-	out.Plugins = append([]string{}, pack.Plugins...)
+	out.Skills = append(CapabilityRefs{}, pack.Skills...)
+	out.Plugins = append(CapabilityRefs{}, pack.Plugins...)
 	out.Capabilities = []Capability{}
 	for _, childRef := range pack.Packs {
 		child, err := FindPack(registry, childRef)
@@ -383,14 +431,14 @@ func ExpandPack(registry string, pack Pack, seen map[string]bool) (Pack, error) 
 		out.Capabilities = append(out.Capabilities, expanded.Capabilities...)
 	}
 	for _, skillRef := range pack.Skills {
-		skill, err := FindCapability(registry, "skills", skillRef)
+		skill, err := ResolveCapabilityRef(registry, "skill", skillRef)
 		if err != nil {
 			return Pack{}, err
 		}
 		out.Capabilities = append(out.Capabilities, skill)
 	}
 	for _, pluginRef := range pack.Plugins {
-		plugin, err := FindCapability(registry, "plugins", pluginRef)
+		plugin, err := ResolveCapabilityRef(registry, "plugin", pluginRef)
 		if err != nil {
 			return Pack{}, err
 		}
@@ -576,6 +624,48 @@ func ValidatePath(path string, out io.Writer) error {
 		return ErrInstallFailed
 	}
 	return nil
+}
+
+func ResolveCapabilityRef(registry, capabilityType string, ref CapabilityRef) (Capability, error) {
+	if ref.ID == "" {
+		return Capability{}, fmt.Errorf("%s reference id is required", capabilityType)
+	}
+	if ref.Source == "" {
+		kind := capabilityType + "s"
+		return FindCapability(registry, kind, ref.ID)
+	}
+	name := ref.Name
+	if name == "" {
+		name = ref.ID
+	}
+	upstreamSource := ref.UpstreamSource
+	if upstreamSource == "" {
+		upstreamSource = ref.Source
+	}
+	format := ref.Format
+	entry := ref.Entry
+	install := ref.Install
+	if capabilityType == "skill" {
+		if format == "" {
+			format = "agent-skill"
+		}
+		if entry == "" {
+			entry = "SKILL.md"
+		}
+	} else if capabilityType == "plugin" {
+		if format == "" {
+			format = "anthropic-plugin"
+		}
+		if entry == "" {
+			entry = ".claude-plugin/plugin.json"
+		}
+		if install == nil {
+			install = map[string]string{"method": "manual", "package": ref.ID}
+		}
+	} else {
+		return Capability{}, fmt.Errorf("unsupported capability reference type: %s", capabilityType)
+	}
+	return Capability{Type: capabilityType, Name: name, Source: ref.Source, UpstreamSource: upstreamSource, Format: format, Version: ref.Version, Entry: entry, Homepage: ref.Homepage, Repository: ref.Repository, License: ref.License, Install: install, Trust: ref.Trust, Reference: true}, nil
 }
 
 func FindCapability(registry, kind, id string) (Capability, error) {
@@ -807,8 +897,31 @@ func ValidatePack(pack Pack) []string {
 	if len(pack.Capabilities) == 0 && len(pack.Packs) == 0 && len(pack.Skills) == 0 && len(pack.Plugins) == 0 {
 		errs = append(errs, "capabilities, packs, skills, or plugins is required")
 	}
+	for i, ref := range pack.Skills {
+		errs = append(errs, ValidateCapabilityRef(ref, "skill", fmt.Sprintf("skills[%d]", i))...)
+	}
+	for i, ref := range pack.Plugins {
+		errs = append(errs, ValidateCapabilityRef(ref, "plugin", fmt.Sprintf("plugins[%d]", i))...)
+	}
 	for i, capability := range pack.Capabilities {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
+	}
+	return errs
+}
+
+func ValidateCapabilityRef(ref CapabilityRef, capabilityType, prefix string) []string {
+	var errs []string
+	if ref.ID == "" {
+		errs = append(errs, prefix+".id is required")
+	}
+	if capabilityType == "skill" && ref.Format != "" && ref.Format != "agent-skill" {
+		errs = append(errs, prefix+".format must be agent-skill")
+	}
+	if capabilityType == "plugin" && ref.Format != "" && ref.Format != "anthropic-plugin" && ref.Format != "codex-plugin" && ref.Format != "other" {
+		errs = append(errs, prefix+".format is not allowed for plugin")
+	}
+	if ref.Install != nil && ref.Install["method"] == "" {
+		errs = append(errs, prefix+".install.method is required")
 	}
 	return errs
 }

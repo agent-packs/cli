@@ -2,7 +2,7 @@
   "id": "referenced-capabilities-pack",
   "name": "Referenced Capabilities Pack",
   "version": "0.1.0",
-  "description": "A pack that includes reusable skill and plugin manifests from the registry.",
+  "description": "A pack that includes reusable registry references and remote skill/plugin references.",
   "license": "Apache-2.0",
   "tags": [
     "references",
@@ -10,9 +10,25 @@
     "plugins"
   ],
   "skills": [
-    "frontend-implementation-guidance"
+    "frontend-implementation-guidance",
+    {
+      "id": "remote-planning-skill",
+      "name": "Remote planning skill",
+      "source": "https://github.com/addyosmani/agent-skills/tree/main/skills/planning-and-task-breakdown",
+      "upstreamSource": "https://github.com/addyosmani/agent-skills",
+      "format": "agent-skill",
+      "entry": "SKILL.md"
+    }
   ],
   "plugins": [
-    "browser-verification-workflow"
+    "browser-verification-workflow",
+    {
+      "id": "remote-code-review-plugin",
+      "name": "Remote code review plugin",
+      "source": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review",
+      "upstreamSource": "https://github.com/anthropics/claude-plugins-official",
+      "format": "anthropic-plugin",
+      "entry": ".claude-plugin/plugin.json"
+    }
   ]
 }

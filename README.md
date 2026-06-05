@@ -116,7 +116,7 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
 
 ## Pack Composition
 
-Packs can include other packs with the `packs` field. They can also include reusable source references with `skills` and `plugins`. Included packs and referenced capabilities are expanded before install.
+Packs can include other packs with the `packs` field. They can also include reusable source references with `skills` and `plugins`. `skills` and `plugins` entries can be registry ID strings or objects with their own remote `source` and optional `upstreamSource`. Included packs and referenced capabilities are expanded before install.
 
 ```json
 {
@@ -125,12 +125,30 @@ Packs can include other packs with the `packs` field. They can also include reus
   "version": "0.1.0",
   "description": "Composes review-oriented packs.",
   "packs": ["pr-review"],
-  "skills": ["frontend-implementation-guidance"],
-  "plugins": ["browser-verification-workflow"]
+  "skills": [
+    "frontend-implementation-guidance",
+    {
+      "id": "remote-planning-skill",
+      "source": "https://github.com/addyosmani/agent-skills/tree/main/skills/planning-and-task-breakdown",
+      "upstreamSource": "https://github.com/addyosmani/agent-skills",
+      "format": "agent-skill",
+      "entry": "SKILL.md"
+    }
+  ],
+  "plugins": [
+    "browser-verification-workflow",
+    {
+      "id": "remote-code-review-plugin",
+      "source": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review",
+      "upstreamSource": "https://github.com/anthropics/claude-plugins-official",
+      "format": "anthropic-plugin",
+      "entry": ".claude-plugin/plugin.json"
+    }
+  ]
 }
 ```
 
-Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack references them by ID, and the CLI treats those entries as references rather than installable copies.
+Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack can reference them by ID, or bypass local registry entries by using object refs with remote `source` URLs. The CLI treats both forms as references rather than installable copies.
 
 Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.upstreamSource` on registry skills and `repository` or `homepage` on registry plugins to point at the original upstream project.
 
