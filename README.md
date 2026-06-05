@@ -7,6 +7,12 @@ templates, and composed packs into ready-to-use workflow packs.
 
 ![Agent Packs high-level architecture](docs/architecture.svg)
 
+Agent Packs aggregates capabilities from public skill repositories, Claude/Codex plugins,
+MCP servers, prompts, templates, commands, hooks, and remote registries. The CLI
+normalizes those sources into registry-backed packs, preserves provenance, writes
+receipts and lockfiles, and syncs capabilities into supported coding agents through
+reference, symlink, copy, or native install modes.
+
 ## Repository Layout
 
 - `cli/`: Go CLI module and source.
