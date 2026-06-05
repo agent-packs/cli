@@ -29,7 +29,8 @@ jobs:
             GOOS="${os}" GOARCH="${arch}" go build \
               -ldflags "-X github.com/sandeshh/agent-packs/cli/internal/version.Version=${VERSION#v} -X github.com/sandeshh/agent-packs/cli/internal/version.Commit=${COMMIT:0:7}" \
               -o "dist/${out}/agent-packs" ./cmd/agent-packs
-            tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs
+            cp -R ../skills "dist/${out}/skills"
+            tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs skills
           done
         working-directory: cli
       - name: Publish GitHub release

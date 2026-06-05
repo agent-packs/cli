@@ -46,6 +46,12 @@ curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.s
 
 Or build locally from source (see Build above).
 
+The release archive also includes a bundled `agent-packs` Codex skill. The
+bootstrap installer copies it to `~/.codex/skills/agent-packs` by default so
+agents can help users search, install, author, validate, and debug Agent Packs.
+Set `AGENT_PACKS_INSTALL_SKILL=0` to skip this step or `AGENT_PACKS_SKILL_DIR`
+to choose a different skill directory.
+
 ## CLI Usage
 
 ```sh

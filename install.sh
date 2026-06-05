@@ -4,6 +4,8 @@ set -euo pipefail
 REPO="${AGENT_PACKS_REPO:-sandeshh/agent-packs}"
 VERSION="${AGENT_PACKS_VERSION:-latest}"
 INSTALL_DIR="${AGENT_PACKS_INSTALL_DIR:-${HOME}/.local/bin}"
+INSTALL_SKILL="${AGENT_PACKS_INSTALL_SKILL:-1}"
+SKILL_DIR="${AGENT_PACKS_SKILL_DIR:-${HOME}/.codex/skills/agent-packs}"
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"
@@ -38,6 +40,12 @@ curl -fsSL "${url}" -o "${tmpdir}/${asset}"
 tar -xzf "${tmpdir}/${asset}" -C "${tmpdir}"
 mkdir -p "${INSTALL_DIR}"
 install -m 755 "${tmpdir}/agent-packs" "${INSTALL_DIR}/agent-packs"
+
+if [ "${INSTALL_SKILL}" != "0" ] && [ -d "${tmpdir}/skills/agent-packs" ]; then
+  mkdir -p "${SKILL_DIR}"
+  cp -R "${tmpdir}/skills/agent-packs/." "${SKILL_DIR}/"
+  echo "Installed Agent Packs skill to ${SKILL_DIR}"
+fi
 
 if ! echo ":${PATH}:" | grep -q ":${INSTALL_DIR}:"; then
   echo "Add ${INSTALL_DIR} to your PATH to use agent-packs"

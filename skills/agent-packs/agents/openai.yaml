@@ -1,0 +1,7 @@
+interface:
+  display_name: "Agent Packs"
+  short_description: "Help users operate Agent Packs"
+  default_prompt: "Use $agent-packs to install, configure, or author Agent Packs."
+
+policy:
+  allow_implicit_invocation: true
