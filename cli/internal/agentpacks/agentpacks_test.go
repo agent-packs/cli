@@ -81,6 +81,129 @@ func TestWriteReceipt(t *testing.T) {
 	}
 }
 
+func TestExpandPackComposesCapabilities(t *testing.T) {
+	temp := t.TempDir()
+	registry := filepath.Join(temp, "packs")
+	if err := os.MkdirAll(registry, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	child := testPack("/tmp/example-skill")
+	child.ID = "child"
+	parent := Pack{ID: "parent", Name: "Parent", Version: "0.1.0", Description: "Parent pack", Packs: []string{"child"}}
+	writeTestPack(t, registry, child)
+	writeTestPack(t, registry, parent)
+
+	loaded, err := FindPack(registry, "parent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expanded, err := ExpandPack(registry, loaded, map[string]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expanded.Capabilities) != len(child.Capabilities) {
+		t.Fatalf("expected child capabilities, got %d", len(expanded.Capabilities))
+	}
+}
+
+func TestRegistryConfigRoundTrip(t *testing.T) {
+	home := t.TempDir()
+	if err := RegistryAdd(home, "local", "/tmp/registry"); err != nil {
+		t.Fatal(err)
+	}
+	config, err := LoadRegistryConfig(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Registries["local"] != "/tmp/registry" {
+		t.Fatalf("registry not saved: %#v", config.Registries)
+	}
+	if err := RegistryRemove(home, "local"); err != nil {
+		t.Fatal(err)
+	}
+	config, err = LoadRegistryConfig(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := config.Registries["local"]; ok {
+		t.Fatal("registry was not removed")
+	}
+}
+
+func TestValidatePackRequiresExecutionForPluginCommands(t *testing.T) {
+	pack := testPack("/tmp/example-skill")
+	pack.Capabilities[1].RequiresExecution = false
+	errors := ValidatePack(pack)
+	joined := strings.Join(errors, "\n")
+	if !strings.Contains(joined, "requiresExecution") {
+		t.Fatalf("expected requiresExecution validation error, got %v", errors)
+	}
+}
+
+func TestWriteLockfile(t *testing.T) {
+	temp := t.TempDir()
+	pack := testPack("/tmp/example-skill")
+	if err := WriteLockfile(temp, pack); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(temp, "agent-pack.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lock Lockfile
+	if err := json.Unmarshal(data, &lock); err != nil {
+		t.Fatal(err)
+	}
+	if lock.Pack != "example" || len(lock.Capabilities) != 2 {
+		t.Fatalf("unexpected lockfile: %#v", lock)
+	}
+	if !strings.HasPrefix(lock.Capabilities[0].Digest, "sha256:") {
+		t.Fatalf("missing digest: %#v", lock.Capabilities[0])
+	}
+}
+
+func TestUninstallRemovesInstalledSkillAndReceipt(t *testing.T) {
+	temp := t.TempDir()
+	skill := filepath.Join(temp, "skill")
+	if err := os.MkdirAll(skill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("# Example Skill\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pack := testPack(skill)
+	plan := BuildInstallPlan(pack, temp, "codex", "skills")
+	result := ExecutePlan(plan, false)
+	if _, err := WriteReceipt(temp, pack, result); err != nil {
+		t.Fatal(err)
+	}
+	installed := filepath.Join(temp, ".codex", "skills", "example-skill")
+	if _, err := os.Stat(installed); err != nil {
+		t.Fatal(err)
+	}
+	var output strings.Builder
+	if err := Uninstall(temp, "example", &output); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(installed); !os.IsNotExist(err) {
+		t.Fatalf("skill still exists: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(temp, "receipts", "example.json")); !os.IsNotExist(err) {
+		t.Fatalf("receipt still exists: %v", err)
+	}
+}
+
+func writeTestPack(t *testing.T, registry string, pack Pack) {
+	t.Helper()
+	data, err := json.MarshalIndent(pack, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(registry, pack.ID+".json"), append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testPack(skillSource string) Pack {
 	return Pack{
 		ID:          "example",
@@ -89,7 +212,7 @@ func testPack(skillSource string) Pack {
 		Description: "A test pack.",
 		Capabilities: []Capability{
 			{Type: "skill", Name: "Example Skill", Source: skillSource, Format: "agent-skill", Entry: "SKILL.md"},
-			{Type: "plugin", Name: "Example Plugin", Source: "https://example.com/plugin", Format: "anthropic-plugin", Entry: ".claude-plugin/plugin.json", Install: map[string]string{"method": "manual", "package": "example-plugin", "command": "echo install-plugin"}},
+			{Type: "plugin", Name: "Example Plugin", Source: "https://example.com/plugin", Format: "anthropic-plugin", Entry: ".claude-plugin/plugin.json", Install: map[string]string{"method": "manual", "package": "example-plugin", "command": "echo install-plugin"}, RequiresExecution: true},
 		},
 	}
 }

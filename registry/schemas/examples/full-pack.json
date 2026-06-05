@@ -33,7 +33,9 @@
         "marketplace": "example-marketplace",
         "package": "claude-code-review",
         "command": "claude plugin install claude-code-review@example-marketplace"
-      }
+      },
+      "requiresExecution": true,
+      "trust": "community"
     },
     {
       "type": "mcp",

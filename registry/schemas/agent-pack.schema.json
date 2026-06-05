@@ -7,8 +7,7 @@
     "id",
     "name",
     "version",
-    "description",
-    "capabilities"
+    "description"
   ],
   "properties": {
     "id": {
@@ -37,6 +36,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/capability"
+      }
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     }
   },
@@ -107,6 +112,18 @@
         },
         "integrity": {
           "$ref": "#/$defs/integrity"
+        },
+        "requiresExecution": {
+          "type": "boolean"
+        },
+        "trust": {
+          "type": "string",
+          "enum": [
+            "official",
+            "verified",
+            "community",
+            "unknown"
+          ]
         }
       },
       "allOf": [
@@ -203,5 +220,17 @@
         }
       }
     }
-  }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "capabilities"
+      ]
+    },
+    {
+      "required": [
+        "packs"
+      ]
+    }
+  ]
 }

@@ -1,28 +1,29 @@
 # Architecture
 
-Agent Packs should feel like Homebrew for agent capabilities.
+Agent Packs should feel like Homebrew for agent capabilities while keeping the CLI and registry separable.
 
 ## Production Stack
 
-The recommended production implementation is:
-
-- Go CLI named `agent-packs`, with short alias `ap`.
-- Static registry index hosted on GitHub Pages, S3, Cloudflare R2, or a CDN.
-- Pack manifests as JSON or YAML, validated against `registry/schemas/agent-pack.schema.json`.
-- Install receipts stored under the user's agent configuration directory.
-- Optional TypeScript web app for discovery, ratings, and pack pages.
+- CLI: Go module under `cli/`.
+- Registry: static JSON manifests under `registry/packs/`.
+- Schema: `registry/schemas/agent-pack.schema.json`.
+- Receipts: `<target>/receipts/<pack-id>.json`.
+- Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`.
 
 ## CLI Commands
 
-Initial commands:
+Implemented commands:
 
-- `ap search [query]`
-- `ap show <pack>`
-- `ap install <pack>`
-- `ap uninstall <pack>`
-- `ap list`
-- `ap update`
-- `ap doctor`
+- `agent-packs search [query]`
+- `agent-packs show <pack>`
+- `agent-packs install <pack|registry/pack>`
+- `agent-packs list`
+- `agent-packs uninstall <pack>`
+- `agent-packs doctor`
+- `agent-packs validate <file-or-directory>`
+- `agent-packs registry add <name> <source>`
+- `agent-packs registry list`
+- `agent-packs registry remove <name>`
 
 ## Install Experience
 
@@ -30,7 +31,7 @@ Target install experience:
 
 ```sh
 brew install agent-packs
-ap install frontend-engineer
+agent-packs install frontend-engineer
 ```
 
 Bootstrap fallback:
@@ -38,6 +39,12 @@ Bootstrap fallback:
 ```sh
 curl -fsSL https://agentpacks.dev/install.sh | sh
 ```
+
+## Security Posture
+
+Plugin install commands are not executed unless the user passes `--execute-plugins`. Plugin capabilities with install commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
+
+Remote skills are fetched with `git`, copied into the selected agent target, and recorded in receipts. Integrity metadata can be represented with `integrity.checksum` and `integrity.signature`; lockfiles record a digest for every capability.
 
 ## Why Go
 
@@ -49,8 +56,3 @@ Go is the safest default for a brew-like developer tool:
 - Easy release automation with GitHub Actions.
 - Clean cross-compilation.
 - Familiar enough for infrastructure-oriented contributors.
-
-Rust is also a strong choice, especially if the CLI needs maximum performance or
-deep package-management guarantees. It has a steeper contribution curve. Node is
-good for rapid iteration and web-adjacent contributors, but less ideal for a
-system installer because users inherit runtime and package-manager complexity.

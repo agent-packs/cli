@@ -24,7 +24,9 @@
         "marketplace": "claude-plugins-official",
         "package": "code-review",
         "command": "claude plugin install code-review@claude-plugins-official"
-      }
+      },
+      "requiresExecution": true,
+      "trust": "community"
     },
     {
       "type": "plugin",
@@ -39,7 +41,9 @@
         "marketplace": "knowledge-work-plugins",
         "package": "sales",
         "command": "claude plugin marketplace add anthropics/knowledge-work-plugins && claude plugin install sales@knowledge-work-plugins"
-      }
+      },
+      "requiresExecution": true,
+      "trust": "community"
     },
     {
       "type": "plugin",
@@ -54,7 +58,9 @@
         "marketplace": "anthropic-agent-skills",
         "package": "document-skills",
         "command": "claude plugin install document-skills@anthropic-agent-skills"
-      }
+      },
+      "requiresExecution": true,
+      "trust": "community"
     },
     {
       "type": "skill",

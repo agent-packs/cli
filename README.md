@@ -3,25 +3,14 @@
 Curated, installable capability bundles for AI coding agents.
 
 Agent Packs bundles public Skills, Plugins, MCP servers, commands, hooks, prompts,
-and templates into ready-to-use workflow packs.
+templates, and composed packs into ready-to-use workflow packs.
 
-## Language Recommendation
+## Repository Layout
 
-Use Go for the production CLI.
-
-Go is the best fit for a Homebrew-like installer because it produces small
-single-file binaries, cross-compiles cleanly for macOS/Linux/Windows, starts
-quickly, and does not require users to install Node, Python, or Rust first.
-
-Recommended stack:
-
-- CLI: Go
-- Registry metadata: JSON documents validated by JSON Schema
-- Pack manifests: YAML or JSON
-- Web/API registry: TypeScript later, if needed
-- Install scripts: POSIX shell for macOS/Linux bootstrap
-
-This repository separates the Go CLI under `cli/` from the Agent Pack registry under `registry/`. The registry and manifest formats are intentionally language-neutral.
+- `cli/`: Go CLI module and source.
+- `registry/`: pack manifests, JSON Schema, and example manifests.
+- `docs/`: architecture notes.
+- `tests/`: Python schema and CLI integration tests.
 
 ## Build
 
@@ -39,7 +28,40 @@ cli/bin/agent-packs install frontend-engineer --target ./sandbox
 cli/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
 ```
 
-The prototype installer supports `--agent`, `--only`, `--dry-run`, and `--execute-plugins`. Skill capabilities with local sources are copied into the selected agent target. Remote skills and plugin commands are recorded as pending unless plugin execution is explicitly enabled.
+Additional commands:
+
+```sh
+cli/bin/agent-packs registry add local /path/to/agent-packs
+cli/bin/agent-packs install local/frontend-engineer --dry-run
+cli/bin/agent-packs list --target ./sandbox
+cli/bin/agent-packs uninstall frontend-engineer --target ./sandbox
+cli/bin/agent-packs doctor
+cli/bin/agent-packs validate registry/packs
+```
+
+## Installation Model
+
+Agent Packs orchestrates native install flows instead of replacing them.
+
+- Local skills are copied into the selected agent skill target.
+- Remote skills are fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
+- Plugin commands are always preview-safe by default and only run with `--execute-plugins`.
+- Installed packs write receipts under `<target>/receipts/`.
+- Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
+- `uninstall` removes installed skill folders and receipts; plugins are reported for native/manual cleanup.
+
+## Remote Registries
+
+Registries are named sources stored in `<target>/registries.json`.
+
+```sh
+cli/bin/agent-packs registry add official https://github.com/sandeshh/agent-packs --target ~/.agent-packs
+cli/bin/agent-packs registry list --target ~/.agent-packs
+cli/bin/agent-packs install official/frontend-engineer --target ~/.agent-packs
+cli/bin/agent-packs registry remove official --target ~/.agent-packs
+```
+
+A registry source can be a local repository path or a Git URL. Remote registries are cloned into `<target>/registries/<name>/` and resolved from either `registry/packs/` or `packs/`.
 
 ## Specifying Plugins And Skills
 
@@ -52,6 +74,8 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
   "source": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review",
   "format": "anthropic-plugin",
   "entry": ".claude-plugin/plugin.json",
+  "requiresExecution": true,
+  "trust": "official",
   "install": {
     "method": "claude-marketplace",
     "marketplace": "claude-plugins-official",
@@ -72,6 +96,20 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
 }
 ```
 
+## Pack Composition
+
+Packs can include other packs with the `packs` field. Included packs are expanded before install.
+
+```json
+{
+  "id": "review-combo",
+  "name": "Review Combo Pack",
+  "version": "0.1.0",
+  "description": "Composes review-oriented packs.",
+  "packs": ["pr-review"]
+}
+```
+
 ## Examples
 
 Example manifests live in `registry/schemas/examples/`:
@@ -79,10 +117,12 @@ Example manifests live in `registry/schemas/examples/`:
 - `minimal-pack.json`: the smallest valid pack manifest.
 - `full-pack.json`: a complete manifest showing every supported capability type.
 - `real-world-pack.json`: examples based on public Claude Code plugin and Agent Skills repositories.
+- `composed-pack.json`: a pack that includes another pack.
 
 ## Tests
 
 ```sh
+cd cli && go test ./...
 python3 -m unittest discover -s tests
 ```
 

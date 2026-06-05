@@ -2,13 +2,17 @@ package agentpacks
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -22,22 +26,31 @@ type Pack struct {
 	Description  string       `json:"description"`
 	License      string       `json:"license,omitempty"`
 	Tags         []string     `json:"tags,omitempty"`
+	Packs        []string     `json:"packs,omitempty"`
 	Capabilities []Capability `json:"capabilities"`
 	Path         string       `json:"-"`
 }
 
 type Capability struct {
-	Type       string            `json:"type"`
-	Name       string            `json:"name"`
-	Source     string            `json:"source"`
-	Format     string            `json:"format,omitempty"`
-	Version    string            `json:"version,omitempty"`
-	Entry      string            `json:"entry,omitempty"`
-	Homepage   string            `json:"homepage,omitempty"`
-	Repository string            `json:"repository,omitempty"`
-	License    string            `json:"license,omitempty"`
-	Install    map[string]string `json:"install,omitempty"`
-	Targets    []string          `json:"targets,omitempty"`
+	Type              string            `json:"type"`
+	Name              string            `json:"name"`
+	Source            string            `json:"source"`
+	Format            string            `json:"format,omitempty"`
+	Version           string            `json:"version,omitempty"`
+	Entry             string            `json:"entry,omitempty"`
+	Homepage          string            `json:"homepage,omitempty"`
+	Repository        string            `json:"repository,omitempty"`
+	License           string            `json:"license,omitempty"`
+	Install           map[string]string `json:"install,omitempty"`
+	Targets           []string          `json:"targets,omitempty"`
+	Integrity         Integrity         `json:"integrity,omitempty"`
+	RequiresExecution bool              `json:"requiresExecution,omitempty"`
+	Trust             string            `json:"trust,omitempty"`
+}
+
+type Integrity struct {
+	Checksum  string `json:"checksum,omitempty"`
+	Signature string `json:"signature,omitempty"`
 }
 
 type Plan struct {
@@ -73,9 +86,24 @@ type Receipt struct {
 	Plan        Plan   `json:"plan"`
 }
 
-type Config struct {
-	Root     string
-	Registry string
+type Lockfile struct {
+	GeneratedAt  string      `json:"generated_at"`
+	Pack         string      `json:"pack"`
+	Version      string      `json:"version"`
+	Capabilities []LockEntry `json:"capabilities"`
+}
+
+type LockEntry struct {
+	Type      string    `json:"type"`
+	Name      string    `json:"name"`
+	Source    string    `json:"source"`
+	Version   string    `json:"version,omitempty"`
+	Integrity Integrity `json:"integrity,omitempty"`
+	Digest    string    `json:"digest"`
+}
+
+type RegistryConfig struct {
+	Registries map[string]string `json:"registries"`
 }
 
 var SkillTargets = map[string]string{
@@ -84,19 +112,22 @@ var SkillTargets = map[string]string{
 	"generic": "skills",
 }
 
+var (
+	ErrNotFound      = errors.New("not found")
+	ErrInstallFailed = errors.New("install failed")
+)
+
 func LoadPacks(registry string) ([]Pack, error) {
 	entries, err := os.ReadDir(registry)
 	if err != nil {
 		return nil, err
 	}
-
 	var packs []Pack
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		path := filepath.Join(registry, entry.Name())
-		pack, err := LoadPack(path)
+		pack, err := LoadPack(filepath.Join(registry, entry.Name()))
 		if err != nil {
 			return nil, err
 		}
@@ -130,6 +161,20 @@ func FindPack(registry, id string) (Pack, error) {
 		}
 	}
 	return Pack{}, fmt.Errorf("pack not found: %s", id)
+}
+
+func ResolvePack(defaultRegistry, home, ref string) (Pack, string, error) {
+	if !strings.Contains(ref, "/") {
+		pack, err := FindPack(defaultRegistry, ref)
+		return pack, defaultRegistry, err
+	}
+	parts := strings.SplitN(ref, "/", 2)
+	registryPath, err := ResolveRegistry(home, parts[0])
+	if err != nil {
+		return Pack{}, "", err
+	}
+	pack, err := FindPack(registryPath, parts[1])
+	return pack, registryPath, err
 }
 
 func Search(registry, query string, out io.Writer) error {
@@ -169,6 +214,9 @@ func Show(registry, id string, out io.Writer) error {
 	fmt.Fprintf(out, "Version: %s\n", pack.Version)
 	fmt.Fprintf(out, "License: %s\n", license)
 	fmt.Fprintf(out, "Tags: %s\n", strings.Join(pack.Tags, ", "))
+	if len(pack.Packs) > 0 {
+		fmt.Fprintf(out, "Includes: %s\n", strings.Join(pack.Packs, ", "))
+	}
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Capabilities:")
 	for _, capability := range pack.Capabilities {
@@ -217,8 +265,12 @@ func PrintPlan(plan Plan, out io.Writer) {
 	}
 }
 
-func Install(registry, packID, target, agent, only string, executePlugins, dryRun bool, out io.Writer) error {
-	pack, err := FindPack(registry, packID)
+func Install(registry, home, packRef, target, agent, only string, executePlugins, dryRun bool, out io.Writer) error {
+	pack, sourceRegistry, err := ResolvePack(registry, home, packRef)
+	if err != nil {
+		return err
+	}
+	expanded, err := ExpandPack(sourceRegistry, pack, map[string]bool{})
 	if err != nil {
 		return err
 	}
@@ -226,7 +278,7 @@ func Install(registry, packID, target, agent, only string, executePlugins, dryRu
 	if err != nil {
 		return err
 	}
-	plan := BuildInstallPlan(pack, absTarget, agent, only)
+	plan := BuildInstallPlan(expanded, absTarget, agent, only)
 	if dryRun {
 		PrintPlan(plan, out)
 		return nil
@@ -234,20 +286,22 @@ func Install(registry, packID, target, agent, only string, executePlugins, dryRu
 	if err := os.MkdirAll(absTarget, 0o755); err != nil {
 		return err
 	}
-	packDir := filepath.Join(absTarget, "packs", pack.ID)
+	packDir := filepath.Join(absTarget, "packs", expanded.ID)
 	if err := os.MkdirAll(packDir, 0o755); err != nil {
 		return err
 	}
-	if err := writeJSON(filepath.Join(packDir, "agent-pack.json"), pack); err != nil {
+	if err := writeJSON(filepath.Join(packDir, "agent-pack.json"), expanded); err != nil {
 		return err
 	}
-	if err := copyFile(pack.Path, filepath.Join(packDir, "source-registry-entry.json")); err != nil {
-		return err
+	if pack.Path != "" {
+		_ = copyFile(pack.Path, filepath.Join(packDir, "source-registry-entry.json"))
 	}
-
 	result := ExecutePlan(plan, executePlugins)
-	receiptPath, err := WriteReceipt(absTarget, pack, result)
+	receiptPath, err := WriteReceipt(absTarget, expanded, result)
 	if err != nil {
+		return err
+	}
+	if err := WriteLockfile(packDir, expanded); err != nil {
 		return err
 	}
 	PrintPlan(result, out)
@@ -261,12 +315,36 @@ func Install(registry, packID, target, agent, only string, executePlugins, dryRu
 	return nil
 }
 
+func ExpandPack(registry string, pack Pack, seen map[string]bool) (Pack, error) {
+	if seen[pack.ID] {
+		return Pack{}, fmt.Errorf("pack composition cycle includes %s", pack.ID)
+	}
+	seen[pack.ID] = true
+	out := pack
+	out.Packs = append([]string{}, pack.Packs...)
+	out.Capabilities = []Capability{}
+	for _, childRef := range pack.Packs {
+		child, err := FindPack(registry, childRef)
+		if err != nil {
+			return Pack{}, err
+		}
+		expanded, err := ExpandPack(registry, child, seen)
+		if err != nil {
+			return Pack{}, err
+		}
+		out.Capabilities = append(out.Capabilities, expanded.Capabilities...)
+	}
+	out.Capabilities = append(out.Capabilities, pack.Capabilities...)
+	delete(seen, pack.ID)
+	return out, nil
+}
+
 func ExecutePlan(plan Plan, executePlugins bool) Plan {
 	results := make([]PlanItem, 0, len(plan.Capabilities))
 	for _, item := range plan.Capabilities {
 		switch item.Type {
 		case "skill":
-			results = append(results, installSkill(item))
+			results = append(results, installSkill(item, plan.Target))
 		case "plugin":
 			results = append(results, installPlugin(item, executePlugins))
 		default:
@@ -288,10 +366,320 @@ func WriteReceipt(target string, pack Pack, plan Plan) (string, error) {
 	return receiptPath, writeJSON(receiptPath, receipt)
 }
 
-var (
-	ErrNotFound      = errors.New("not found")
-	ErrInstallFailed = errors.New("install failed")
-)
+func ListInstalled(target string, out io.Writer) error {
+	receiptsDir := filepath.Join(expandHome(target), "receipts")
+	entries, err := os.ReadDir(receiptsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintln(out, "No packs installed.")
+			return nil
+		}
+		return err
+	}
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		receipt, err := LoadReceipt(filepath.Join(receiptsDir, entry.Name()))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "%s\t%s\t%s\n", receipt.Pack.ID, receipt.Pack.Version, receipt.InstalledAt)
+		count++
+	}
+	if count == 0 {
+		fmt.Fprintln(out, "No packs installed.")
+	}
+	return nil
+}
+
+func Uninstall(target, packID string, out io.Writer) error {
+	absTarget, err := filepath.Abs(expandHome(target))
+	if err != nil {
+		return err
+	}
+	receiptPath := filepath.Join(absTarget, "receipts", packID+".json")
+	receipt, err := LoadReceipt(receiptPath)
+	if err != nil {
+		return err
+	}
+	for _, item := range receipt.Plan.Capabilities {
+		if item.Type == "skill" && item.Destination != "" && item.Status == "installed" {
+			if err := os.RemoveAll(item.Destination); err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "Removed skill: %s\n", item.Destination)
+		} else if item.Type == "plugin" {
+			fmt.Fprintf(out, "Plugin requires native uninstall/manual cleanup: %s\n", item.Name)
+		}
+	}
+	_ = os.RemoveAll(filepath.Join(absTarget, "packs", packID))
+	if err := os.Remove(receiptPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	fmt.Fprintf(out, "Uninstalled %s\n", packID)
+	return nil
+}
+
+func LoadReceipt(path string) (Receipt, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Receipt{}, err
+	}
+	var receipt Receipt
+	if err := json.Unmarshal(data, &receipt); err != nil {
+		return Receipt{}, err
+	}
+	return receipt, nil
+}
+
+func Doctor(defaultRegistry, home string, out io.Writer) error {
+	checks := []struct{ name, command string }{{"git", "git"}, {"go", "go"}, {"claude", "claude"}, {"codex", "codex"}}
+	for _, check := range checks {
+		if _, err := exec.LookPath(check.command); err != nil {
+			fmt.Fprintf(out, "WARN  %s not found\n", check.name)
+		} else {
+			fmt.Fprintf(out, "OK    %s found\n", check.name)
+		}
+	}
+	if _, err := os.Stat(defaultRegistry); err != nil {
+		fmt.Fprintf(out, "WARN  registry unavailable: %s\n", defaultRegistry)
+	} else {
+		fmt.Fprintf(out, "OK    registry available: %s\n", defaultRegistry)
+	}
+	if err := os.MkdirAll(expandHome(home), 0o755); err != nil {
+		fmt.Fprintf(out, "WARN  install home not writable: %s\n", home)
+	} else {
+		fmt.Fprintf(out, "OK    install home writable: %s\n", home)
+	}
+	return nil
+}
+
+func ValidatePath(path string, out io.Writer) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	paths := []string{}
+	if info.IsDir() {
+		err = filepath.WalkDir(path, func(p string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.HasSuffix(p, ".json") {
+				paths = append(paths, p)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		paths = append(paths, path)
+	}
+	failed := false
+	for _, p := range paths {
+		pack, err := LoadPack(p)
+		if err != nil {
+			fmt.Fprintf(out, "FAIL  %s: %s\n", p, err)
+			failed = true
+			continue
+		}
+		errors := ValidatePack(pack)
+		if len(errors) > 0 {
+			fmt.Fprintf(out, "FAIL  %s\n", p)
+			for _, msg := range errors {
+				fmt.Fprintf(out, "  - %s\n", msg)
+			}
+			failed = true
+		} else {
+			fmt.Fprintf(out, "OK    %s\n", p)
+		}
+	}
+	if failed {
+		return ErrInstallFailed
+	}
+	return nil
+}
+
+func ValidatePack(pack Pack) []string {
+	var errs []string
+	if pack.ID == "" || !regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`).MatchString(pack.ID) {
+		errs = append(errs, "id must be kebab-case")
+	}
+	if pack.Name == "" {
+		errs = append(errs, "name is required")
+	}
+	if pack.Version == "" {
+		errs = append(errs, "version is required")
+	}
+	if pack.Description == "" {
+		errs = append(errs, "description is required")
+	}
+	if len(pack.Capabilities) == 0 && len(pack.Packs) == 0 {
+		errs = append(errs, "capabilities or packs is required")
+	}
+	for i, capability := range pack.Capabilities {
+		prefix := fmt.Sprintf("capabilities[%d]", i)
+		if capability.Type == "" {
+			errs = append(errs, prefix+".type is required")
+		}
+		if capability.Name == "" {
+			errs = append(errs, prefix+".name is required")
+		}
+		if capability.Source == "" {
+			errs = append(errs, prefix+".source is required")
+		}
+		if capability.Type == "skill" {
+			if capability.Format != "agent-skill" {
+				errs = append(errs, prefix+".format must be agent-skill")
+			}
+			if capability.Entry == "" {
+				errs = append(errs, prefix+".entry is required")
+			}
+		}
+		if capability.Type == "plugin" {
+			if capability.Format == "" {
+				errs = append(errs, prefix+".format is required")
+			}
+			if capability.Install == nil || capability.Install["method"] == "" {
+				errs = append(errs, prefix+".install.method is required")
+			}
+			if capability.Install != nil && capability.Install["command"] != "" && !capability.RequiresExecution {
+				errs = append(errs, prefix+".requiresExecution must be true when install.command is set")
+			}
+		}
+	}
+	return errs
+}
+
+func WriteLockfile(packDir string, pack Pack) error {
+	lock := Lockfile{GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano), Pack: pack.ID, Version: pack.Version}
+	for _, capability := range pack.Capabilities {
+		entry := LockEntry{Type: capability.Type, Name: capability.Name, Source: capability.Source, Version: capability.Version, Integrity: capability.Integrity, Digest: digestCapability(capability)}
+		lock.Capabilities = append(lock.Capabilities, entry)
+	}
+	return writeJSON(filepath.Join(packDir, "agent-pack.lock"), lock)
+}
+
+func RegistryAdd(home, name, source string) error {
+	config, err := LoadRegistryConfig(home)
+	if err != nil {
+		return err
+	}
+	if config.Registries == nil {
+		config.Registries = map[string]string{}
+	}
+	config.Registries[name] = source
+	return SaveRegistryConfig(home, config)
+}
+
+func RegistryRemove(home, name string) error {
+	config, err := LoadRegistryConfig(home)
+	if err != nil {
+		return err
+	}
+	delete(config.Registries, name)
+	return SaveRegistryConfig(home, config)
+}
+
+func RegistryList(home string, out io.Writer) error {
+	config, err := LoadRegistryConfig(home)
+	if err != nil {
+		return err
+	}
+	if len(config.Registries) == 0 {
+		fmt.Fprintln(out, "No registries configured.")
+		return nil
+	}
+	names := []string{}
+	for name := range config.Registries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		fmt.Fprintf(out, "%s\t%s\n", name, config.Registries[name])
+	}
+	return nil
+}
+
+func LoadRegistryConfig(home string) (RegistryConfig, error) {
+	path := registryConfigPath(home)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return RegistryConfig{Registries: map[string]string{}}, nil
+		}
+		return RegistryConfig{}, err
+	}
+	var config RegistryConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return RegistryConfig{}, err
+	}
+	if config.Registries == nil {
+		config.Registries = map[string]string{}
+	}
+	return config, nil
+}
+
+func SaveRegistryConfig(home string, config RegistryConfig) error {
+	path := registryConfigPath(home)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return writeJSON(path, config)
+}
+
+func ResolveRegistry(home, name string) (string, error) {
+	config, err := LoadRegistryConfig(home)
+	if err != nil {
+		return "", err
+	}
+	source, ok := config.Registries[name]
+	if !ok {
+		return "", fmt.Errorf("registry not configured: %s", name)
+	}
+	localRoot, err := materializeRegistry(home, name, source)
+	if err != nil {
+		return "", err
+	}
+	return registryPacksPath(localRoot), nil
+}
+
+func materializeRegistry(home, name, source string) (string, error) {
+	if isLocalSource(source) {
+		return expandHome(source), nil
+	}
+	cache := filepath.Join(expandHome(home), "registries", slugify(name))
+	if _, err := os.Stat(filepath.Join(cache, ".git")); err == nil {
+		cmd := exec.Command("git", "-C", cache, "pull", "--ff-only")
+		_ = cmd.Run()
+		return cache, nil
+	}
+	_ = os.RemoveAll(cache)
+	if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("git", "clone", "--depth", "1", source, cache)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("git clone failed: %s", strings.TrimSpace(stderr.String()))
+	}
+	return cache, nil
+}
+
+func registryPacksPath(root string) string {
+	if _, err := os.Stat(filepath.Join(root, "registry", "packs")); err == nil {
+		return filepath.Join(root, "registry", "packs")
+	}
+	return filepath.Join(root, "packs")
+}
+
+func registryConfigPath(home string) string {
+	return filepath.Join(expandHome(home), "registries.json")
+}
 
 func packMatches(pack Pack, query string) bool {
 	fields := []string{pack.ID, pack.Name, pack.Description}
@@ -350,13 +738,60 @@ func skillTargetRoot(target, agent string) string {
 	return filepath.Join(target, root)
 }
 
-func installSkill(item PlanItem) PlanItem {
-	source, err := filepath.Abs(expandHome(item.Source))
+func installSkill(item PlanItem, target string) PlanItem {
+	source, cleanup, err := materializeSkillSource(item.Source, target)
+	if cleanup != nil {
+		defer cleanup()
+	}
 	if err != nil {
-		item.Status = "failed"
+		item.Status = "pending"
 		item.Reason = err.Error()
 		return item
 	}
+	return copySkillFromSource(item, source)
+}
+
+func materializeSkillSource(source, target string) (string, func(), error) {
+	if isLocalSource(source) {
+		abs, err := filepath.Abs(expandHome(source))
+		return abs, nil, err
+	}
+	cache := filepath.Join(target, "cache", "sources", slugify(source))
+	_ = os.RemoveAll(cache)
+	if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
+		return "", nil, err
+	}
+	repo, branch, subpath := parseGitHubTree(source)
+	if repo == "" {
+		repo, branch = source, ""
+	}
+	args := []string{"clone", "--depth", "1"}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	args = append(args, repo, cache)
+	cmd := exec.Command("git", args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", nil, fmt.Errorf("remote or missing skill source; fetch failed: %s", strings.TrimSpace(stderr.String()))
+	}
+	return filepath.Join(cache, subpath), nil, nil
+}
+
+func parseGitHubTree(source string) (repo, branch, subpath string) {
+	u, err := url.Parse(source)
+	if err != nil || u.Host != "github.com" {
+		return "", "", ""
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 5 || parts[2] != "tree" {
+		return "", "", ""
+	}
+	return "https://github.com/" + parts[0] + "/" + parts[1] + ".git", parts[3], filepath.Join(parts[4:]...)
+}
+
+func copySkillFromSource(item PlanItem, source string) PlanItem {
 	destination, err := filepath.Abs(expandHome(item.Destination))
 	if err != nil {
 		item.Status = "failed"
@@ -421,8 +856,7 @@ func installPlugin(item PlanItem, executePlugins bool) PlanItem {
 		return item
 	}
 	cmd := exec.Command("sh", "-c", item.Command)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -443,6 +877,12 @@ func installPlugin(item PlanItem, executePlugins bool) PlanItem {
 		item.Status = "installed"
 	}
 	return item
+}
+
+func digestCapability(capability Capability) string {
+	data, _ := json.Marshal(capability)
+	sum := sha256.Sum256(data)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func isLocalSource(source string) bool {
@@ -470,14 +910,12 @@ func slugify(value string) string {
 
 func expandHome(path string) string {
 	if path == "~" {
-		home, err := os.UserHomeDir()
-		if err == nil {
+		if home, err := os.UserHomeDir(); err == nil {
 			return home
 		}
 	}
 	if strings.HasPrefix(path, "~/") {
-		home, err := os.UserHomeDir()
-		if err == nil {
+		if home, err := os.UserHomeDir(); err == nil {
 			return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 		}
 	}
