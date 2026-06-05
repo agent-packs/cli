@@ -40,7 +40,11 @@ func main() {
 	case "list":
 		err = runList(defaultTarget, os.Args[2:])
 	case "outdated":
-		err = runOutdated(defaultTarget, os.Args[2:])
+		err = runOutdated(registry, defaultTarget, os.Args[2:])
+	case "upgrade":
+		err = runUpgrade(registry, defaultTarget, os.Args[2:])
+	case "audit":
+		err = runAudit(registry, os.Args[2:])
 	case "update":
 		err = runUpdate(defaultTarget, os.Args[2:])
 	case "cache":
@@ -128,7 +132,8 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if *targetTool != "" {
 		*agent = *targetTool
 	}
-	if !validAgent(*agent) {
+	*agent = agentpacks.NormalizeAgent(*agent)
+	if !agentpacks.ValidAgent(*agent) {
 		return fmt.Errorf("invalid agent %q: run `agent-packs doctor targets` for supported tools", *agent)
 	}
 	if *only != "all" && *only != "skills" && *only != "plugins" {
@@ -194,14 +199,36 @@ func runValidate(args []string) error {
 	return agentpacks.ValidatePath(args[0], os.Stdout)
 }
 
-func runOutdated(defaultTarget string, args []string) error {
+func runOutdated(registry, defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("outdated", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
 	}
-	return agentpacks.Outdated(*target, os.Stdout)
+	return agentpacks.Outdated(registry, *target, os.Stdout)
+}
+
+func runUpgrade(registry, defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("upgrade", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs upgrade <pack-id> [--target dir] [--execute-plugins]")
+	}
+	return agentpacks.Upgrade(registry, *target, remaining[0], *target, *executePlugins, os.Stdout)
+}
+
+func runAudit(registry string, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: agent-packs audit <pack-id>")
+	}
+	return agentpacks.Audit(registry, args[0], os.Stdout)
 }
 
 func runUpdate(defaultTarget string, args []string) error {
@@ -293,7 +320,8 @@ func runCompat(registry string, args []string) error {
 	if len(remaining) != 1 {
 		return fmt.Errorf("usage: agent-packs compat <pack-id> [--agent tool]")
 	}
-	return agentpacks.Compatibility(registry, remaining[0], *agent, os.Stdout)
+	normalized := agentpacks.NormalizeAgent(*agent)
+	return agentpacks.Compatibility(registry, remaining[0], normalized, os.Stdout)
 }
 
 func runScan(args []string) error {
@@ -446,11 +474,6 @@ func normalizeTargetArgs(args []string) []string {
 	return append(flags, positionals...)
 }
 
-func validAgent(agent string) bool {
-	_, ok := agentpacks.SkillTargets[agent]
-	return ok
-}
-
 func repoRoot() string {
 	executable, err := os.Executable()
 	if err != nil {
@@ -469,7 +492,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id|registry/pack-id> [--target dir] [--agent tool|--target-tool tool] [--only all|skills|plugins] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--project dir|--global] [--dry-run] [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|cache ...")
+	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
+	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id> [--target dir] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs policy check <pack-id> <policy.json>")
 	fmt.Fprintln(os.Stderr, "  agent-packs licenses|attribution|resolve <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path]")

@@ -404,6 +404,79 @@ func writeTestCapability(t *testing.T, dir, id string, capability Capability) {
 	}
 }
 
+func TestCompatibilityAcceptsClaudeCodeAlias(t *testing.T) {
+	temp := t.TempDir()
+	registry := filepath.Join(temp, "packs")
+	if err := os.MkdirAll(registry, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pack := Pack{ID: "alias-pack", Name: "Alias Pack", Version: "0.1.0", Description: "Alias test", Tools: []string{"claude-code"}, Capabilities: []Capability{{Type: "skill", Name: "example", Source: "/tmp/s", Format: "agent-skill", Entry: "SKILL.md"}}}
+	writeTestPack(t, registry, pack)
+	var output strings.Builder
+	if err := Compatibility(registry, "alias-pack", "claude-code", &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "compatible with claude") {
+		t.Fatalf("expected claude compatibility, got %s", output.String())
+	}
+}
+
+func TestAuditReportsCapabilities(t *testing.T) {
+	temp := t.TempDir()
+	registry := filepath.Join(temp, "packs")
+	if err := os.MkdirAll(registry, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	skill := filepath.Join(temp, "example-skill")
+	if err := os.MkdirAll(skill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skill, "SKILL.md"), []byte("---\nname: example-skill\ndescription: Local skill for audit test.\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pack := Pack{ID: "audit-pack", Name: "Audit Pack", Version: "0.1.0", Description: "Audit test", Capabilities: []Capability{{Type: "skill", Name: "Example Skill", Source: skill, Format: "agent-skill", Entry: "SKILL.md"}}}
+	writeTestPack(t, registry, pack)
+	var output strings.Builder
+	if err := Audit(registry, "audit-pack", &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	if !strings.Contains(text, "SBOM:") || !strings.Contains(text, "skill:Example Skill") {
+		t.Fatalf("audit missing capability report: %s", text)
+	}
+}
+
+func TestOutdatedReportsPackVersion(t *testing.T) {
+	temp := t.TempDir()
+	registry := filepath.Join(temp, "registry", "packs")
+	target := filepath.Join(temp, "home")
+	if err := os.MkdirAll(registry, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pack := testPack("/tmp/example-skill")
+	pack.Version = "0.2.0"
+	writeTestPack(t, registry, pack)
+	packDir := filepath.Join(target, "packs", "example")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lock := Lockfile{Pack: "example", Version: "0.1.0", Capabilities: []LockEntry{{Type: "skill", Name: "Example Skill", Source: "/tmp/example-skill", Revision: "abc"}}}
+	data, err := json.MarshalIndent(lock, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(packDir, "agent-pack.lock"), append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var output strings.Builder
+	if err := Outdated(registry, target, &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "pack-version") || !strings.Contains(output.String(), "locked=0.1.0") {
+		t.Fatalf("expected pack version drift, got %s", output.String())
+	}
+}
+
 func testPack(skillSource string) Pack {
 	return Pack{
 		ID:          "example",
