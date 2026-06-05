@@ -1,0 +1,29 @@
+{
+  "id": "eng-leader",
+  "name": "Engineering Leader Pack",
+  "version": "0.1.0",
+  "description": "A leadership-focused Agent Pack for engineering strategy, planning, quality gates, architecture decisions, delivery health, launch readiness, security risk, and performance health.",
+  "license": "Apache-2.0",
+  "tags": [
+    "engineering-leadership",
+    "strategy",
+    "planning",
+    "quality",
+    "architecture",
+    "delivery"
+  ],
+  "skills": [
+    "eng-leader-strategy",
+    "eng-leader-planning",
+    "eng-leader-quality-review",
+    "eng-leader-architecture-adrs",
+    "eng-leader-delivery-ops",
+    "eng-leader-launch-readiness",
+    "eng-leader-security-risk",
+    "eng-leader-performance-health"
+  ],
+  "plugins": [
+    "eng-leader-workflows",
+    "github-pr-inspection"
+  ]
+}

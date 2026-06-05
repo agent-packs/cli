@@ -44,6 +44,12 @@ cli/bin/agent-packs validate registry/skills
 cli/bin/agent-packs validate registry/plugins
 ```
 
+## Included Packs
+
+- `frontend-engineer`: frontend implementation and browser verification workflows.
+- `pr-review`: code review and pull request inspection workflows.
+- `eng-leader`: engineering leadership workflows for strategy, planning, quality, architecture decisions, delivery, launch readiness, security, and performance. Several skills reference Addy Osmani's public `addyosmani/agent-skills` repository via `agentpacks.source` metadata.
+
 ## Installation Model
 
 Agent Packs orchestrates native install flows instead of replacing them.

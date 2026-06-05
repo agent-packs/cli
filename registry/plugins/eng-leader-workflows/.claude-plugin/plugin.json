@@ -1,0 +1,20 @@
+{
+  "name": "eng-leader-workflows",
+  "displayName": "Engineering Leader Workflows",
+  "version": "0.1.0",
+  "description": "Claude Code plugin wrapper for engineering leadership workflows, quality gates, planning, ADRs, delivery, launch, security, and performance reviews.",
+  "author": {
+    "name": "Agent Packs contributors"
+  },
+  "homepage": "https://github.com/sandeshh/agent-packs",
+  "repository": "https://github.com/sandeshh/agent-packs",
+  "license": "Apache-2.0",
+  "keywords": [
+    "engineering-leadership",
+    "planning",
+    "delivery",
+    "architecture",
+    "quality"
+  ],
+  "skills": "./skills"
+}

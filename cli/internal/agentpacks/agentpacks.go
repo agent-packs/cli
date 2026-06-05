@@ -592,7 +592,11 @@ func FindCapability(registry, kind, id string) (Capability, error) {
 }
 
 func SkillCapability(id, path string, manifest SkillManifest) Capability {
-	return Capability{Type: "skill", Name: manifest.Name, Source: filepath.Dir(path), Format: "agent-skill", Entry: "SKILL.md", License: manifest.License, Version: manifest.Metadata["agentpacks.version"]}
+	source := manifest.Metadata["agentpacks.source"]
+	if source == "" {
+		source = filepath.Dir(path)
+	}
+	return Capability{Type: "skill", Name: manifest.Name, Source: source, Format: "agent-skill", Entry: "SKILL.md", License: manifest.License, Version: manifest.Metadata["agentpacks.version"]}
 }
 
 func PluginCapability(id, root string, manifest PluginManifest) Capability {
