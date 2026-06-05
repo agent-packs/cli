@@ -9,7 +9,9 @@
       "name": "Minimal skill",
       "source": "https://example.com/skills/minimal",
       "format": "agent-skill",
-      "entry": "SKILL.md"
+      "entry": "SKILL.md",
+      "upstreamSource": "https://github.com/example/skills/tree/main/minimal"
     }
-  ]
+  ],
+  "upstreamSource": "https://github.com/example/agent-packs/tree/main/minimal-pack"
 }

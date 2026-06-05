@@ -46,7 +46,7 @@ curl -fsSL https://agentpacks.dev/install.sh | sh
 
 Plugin install commands are not executed unless the user passes `--execute-plugins`. Plugin capabilities with install commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
 
-Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target. Inline skill capabilities can still opt into copy/fetch behavior, and inline plugin commands can still opt into native execution with `--execute-plugins`. Integrity metadata can be represented with `integrity.checksum` and `integrity.signature`; lockfiles record a digest for every capability.
+Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target. The Agent Pack spec has optional `upstreamSource` on packs and capabilities for provenance and attribution; `source` remains the installer-resolved location or command. Inline skill capabilities can still opt into copy/fetch behavior, and inline plugin commands can still opt into native execution with `--execute-plugins`. Integrity metadata can be represented with `integrity.checksum` and `integrity.signature`; lockfiles record a digest for every capability.
 
 ## Why Go
 

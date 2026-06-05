@@ -5,10 +5,11 @@ license: MIT
 compatibility: Works with coding agents that support Agent Skills. Upstream source is Addy Osmani's agent-skills repository.
 metadata:
   agentpacks.version: "0.1.0"
+  agentpacks.upstreamSource: https://github.com/addyosmani/agent-skills/tree/main/skills/code-review-and-quality
   agentpacks.source: https://github.com/addyosmani/agent-skills/tree/main/skills/code-review-and-quality
   agentpacks.upstream: addyosmani/agent-skills/code-review-and-quality
 ---
 
 # eng-leader-quality-review
 
-This registry entry points to the upstream `code-review-and-quality` Agent Skill from Addy Osmani's production-grade engineering skills collection. Installers should reference the upstream skill directory from the `agentpacks.source` metadata field without copying it into this registry.
+This registry entry points to the upstream `code-review-and-quality` Agent Skill from Addy Osmani's production-grade engineering skills collection. Installers should reference the upstream skill directory from the `agentpacks.upstreamSource` metadata field without copying it into this registry.

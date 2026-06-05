@@ -20,7 +20,8 @@
       "targets": [
         ".claude/skills/",
         ".codex/skills/"
-      ]
+      ],
+      "upstreamSource": "https://example.com/skills/code-review/SKILL.md"
     },
     {
       "type": "plugin",
@@ -35,7 +36,8 @@
         "command": "claude plugin install claude-code-review@example-marketplace"
       },
       "requiresExecution": true,
-      "trust": "community"
+      "trust": "community",
+      "upstreamSource": "https://example.com/plugins/claude-code-review"
     },
     {
       "type": "mcp",
@@ -73,5 +75,6 @@
       "source": "https://example.com/tools/browser-verify",
       "format": "other"
     }
-  ]
+  ],
+  "upstreamSource": "https://github.com/example/agent-packs/tree/main/full-stack-review"
 }

@@ -48,14 +48,16 @@ cli/bin/agent-packs validate registry/plugins
 
 - `frontend-engineer`: frontend implementation and browser verification workflows.
 - `pr-review`: code review and pull request inspection workflows.
-- `eng-leader`: engineering leadership workflows for strategy, planning, quality, architecture decisions, delivery, launch readiness, security, and performance. Several skills reference Addy Osmani's public `addyosmani/agent-skills` repository via `agentpacks.source` metadata.
+- `eng-leader`: engineering leadership workflows for strategy, planning, quality, architecture decisions, delivery, launch readiness, security, and performance. Several skills reference Addy Osmani's public `addyosmani/agent-skills` repository via upstream source metadata.
 
 ## Installation Model
 
 Agent Packs orchestrates native install flows instead of replacing them.
 
 - Pack-level `skills` and `plugins` entries are source references. They are recorded in plans, receipts, and lockfiles, but are not copied into the target.
-- Registry skills can point at an upstream source with `metadata.agentpacks.source`; otherwise they reference their registry directory.
+- `source` is the location or command the installer resolves.
+- Optional `upstreamSource` is the original public source for attribution/provenance when it differs from the local registry entry.
+- Registry skills can point at an upstream source with `metadata.agentpacks.upstreamSource`; `metadata.agentpacks.source` is still accepted as a compatibility fallback.
 - Registry plugins reference their `repository` or `homepage` when available; otherwise they reference their registry directory.
 - Inline local skill capabilities can still be copied into the selected agent skill target when a pack explicitly declares them under `capabilities`.
 - Inline remote skill capabilities can still be fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
@@ -79,13 +81,14 @@ A registry source can be a local repository path or a Git URL. Remote registries
 
 ## Specifying Plugins And Skills
 
-Plugins and skills are declared as entries in `capabilities`. Plugin entries must include `format` and `install` metadata so an installer can resolve the marketplace/package/command. Skill entries must include `format` and `entry` so an installer can locate the `SKILL.md` file.
+Plugins and skills are declared as entries in `capabilities`. Plugin entries must include `format` and `install` metadata so an installer can resolve the marketplace/package/command. Skill entries must include `format` and `entry` so an installer can locate the `SKILL.md` file. Any capability can include optional `upstreamSource` to point at the original public project used for attribution and reference-only installs.
 
 ```json
 {
   "type": "plugin",
   "name": "Anthropic Claude Code code-review plugin",
   "source": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review",
+  "upstreamSource": "https://github.com/anthropics/claude-plugins-official",
   "format": "anthropic-plugin",
   "entry": ".claude-plugin/plugin.json",
   "requiresExecution": true,
@@ -104,6 +107,7 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
   "type": "skill",
   "name": "Microsoft Azure Agent Skills",
   "source": "https://github.com/MicrosoftDocs/Agent-Skills/tree/main/skills",
+  "upstreamSource": "https://github.com/MicrosoftDocs/Agent-Skills",
   "format": "agent-skill",
   "entry": "SKILL.md",
   "targets": [".claude/skills/", ".codex/skills/", ".github/skills/"]
@@ -128,7 +132,7 @@ Packs can include other packs with the `packs` field. They can also include reus
 
 Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack references them by ID, and the CLI treats those entries as references rather than installable copies.
 
-Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.source` on skills and `repository` or `homepage` on plugins to point at the original upstream project.
+Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.upstreamSource` on registry skills and `repository` or `homepage` on registry plugins to point at the original upstream project.
 
 ## Examples
 

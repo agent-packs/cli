@@ -80,7 +80,7 @@ def validate_pack(pack, schema):
                 if field not in capability:
                     errors.append(f"capabilities[{index}] missing required field: {field}")
 
-            string_fields = ("type", "name", "source", "format", "version", "entry", "homepage", "repository", "license")
+            string_fields = ("type", "name", "source", "upstreamSource", "format", "version", "entry", "homepage", "repository", "license")
             for field in string_fields:
                 if field in capability and not isinstance(capability[field], str):
                     errors.append(f"capabilities[{index}].{field} must be a string")
@@ -152,6 +152,7 @@ def valid_pack():
         "name": "Example Pack",
         "version": "0.1.0",
         "description": "A valid pack for tests.",
+        "upstreamSource": "https://example.com/packs/example-pack",
         "license": "Apache-2.0",
         "tags": ["example"],
         "capabilities": [
@@ -159,6 +160,7 @@ def valid_pack():
                 "type": "skill",
                 "name": "Example skill",
                 "source": "https://example.com/skill",
+                "upstreamSource": "https://github.com/example/skills/tree/main/example-skill",
                 "format": "agent-skill",
                 "entry": "SKILL.md",
             }
@@ -214,6 +216,17 @@ class AgentPackSchemaTest(unittest.TestCase):
 
     def test_valid_pack_matches_schema(self):
         self.assert_valid(valid_pack())
+
+
+    def test_allows_optional_upstream_source(self):
+        pack = valid_pack()
+        pack["capabilities"][0]["upstreamSource"] = "https://github.com/example/upstream/tree/main/skill"
+        self.assert_valid(pack)
+
+    def test_rejects_non_string_upstream_source(self):
+        pack = valid_pack()
+        pack["capabilities"][0]["upstreamSource"] = {"url": "https://example.com"}
+        self.assert_invalid(pack, "capabilities[0].upstreamSource must be a string")
 
     def test_requires_top_level_fields(self):
         for field in self.schema["required"]:

@@ -26,7 +26,8 @@
         "command": "claude plugin install code-review@claude-plugins-official"
       },
       "requiresExecution": true,
-      "trust": "community"
+      "trust": "community",
+      "upstreamSource": "https://github.com/anthropics/claude-plugins-official"
     },
     {
       "type": "plugin",
@@ -43,7 +44,8 @@
         "command": "claude plugin marketplace add anthropics/knowledge-work-plugins && claude plugin install sales@knowledge-work-plugins"
       },
       "requiresExecution": true,
-      "trust": "community"
+      "trust": "community",
+      "upstreamSource": "https://github.com/anthropics/knowledge-work-plugins"
     },
     {
       "type": "plugin",
@@ -60,7 +62,8 @@
         "command": "claude plugin install document-skills@anthropic-agent-skills"
       },
       "requiresExecution": true,
-      "trust": "community"
+      "trust": "community",
+      "upstreamSource": "https://github.com/anthropics/skills"
     },
     {
       "type": "skill",
@@ -77,7 +80,9 @@
         ".github/skills/",
         ".cursor/skills/",
         ".agent/skills/"
-      ]
+      ],
+      "upstreamSource": "https://github.com/MicrosoftDocs/Agent-Skills"
     }
-  ]
+  ],
+  "upstreamSource": "https://github.com/sandeshh/agent-packs/tree/main/registry/schemas/examples/real-world-pack.json"
 }

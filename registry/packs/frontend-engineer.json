@@ -15,5 +15,6 @@
   ],
   "plugins": [
     "browser-verification-workflow"
-  ]
+  ],
+  "upstreamSource": "https://github.com/sandeshh/agent-packs/tree/main/registry/packs/frontend-engineer.json"
 }

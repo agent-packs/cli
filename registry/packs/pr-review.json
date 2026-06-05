@@ -15,5 +15,6 @@
   ],
   "plugins": [
     "github-pr-inspection"
-  ]
+  ],
+  "upstreamSource": "https://github.com/sandeshh/agent-packs/tree/main/registry/packs/pr-review.json"
 }

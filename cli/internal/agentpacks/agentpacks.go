@@ -20,23 +20,25 @@ import (
 )
 
 type Pack struct {
-	ID           string       `json:"id"`
-	Name         string       `json:"name"`
-	Version      string       `json:"version"`
-	Description  string       `json:"description"`
-	License      string       `json:"license,omitempty"`
-	Tags         []string     `json:"tags,omitempty"`
-	Packs        []string     `json:"packs,omitempty"`
-	Skills       []string     `json:"skills,omitempty"`
-	Plugins      []string     `json:"plugins,omitempty"`
-	Capabilities []Capability `json:"capabilities,omitempty"`
-	Path         string       `json:"-"`
+	ID             string       `json:"id"`
+	Name           string       `json:"name"`
+	Version        string       `json:"version"`
+	Description    string       `json:"description"`
+	UpstreamSource string       `json:"upstreamSource,omitempty"`
+	License        string       `json:"license,omitempty"`
+	Tags           []string     `json:"tags,omitempty"`
+	Packs          []string     `json:"packs,omitempty"`
+	Skills         []string     `json:"skills,omitempty"`
+	Plugins        []string     `json:"plugins,omitempty"`
+	Capabilities   []Capability `json:"capabilities,omitempty"`
+	Path           string       `json:"-"`
 }
 
 type Capability struct {
 	Type              string            `json:"type"`
 	Name              string            `json:"name"`
 	Source            string            `json:"source"`
+	UpstreamSource    string            `json:"upstreamSource,omitempty"`
 	Format            string            `json:"format,omitempty"`
 	Version           string            `json:"version,omitempty"`
 	Entry             string            `json:"entry,omitempty"`
@@ -95,22 +97,23 @@ type Plan struct {
 }
 
 type PlanItem struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Action      string `json:"action"`
-	Source      string `json:"source,omitempty"`
-	Entry       string `json:"entry,omitempty"`
-	Destination string `json:"destination,omitempty"`
-	Status      string `json:"status"`
-	Format      string `json:"format,omitempty"`
-	Command     string `json:"command,omitempty"`
-	Method      string `json:"method,omitempty"`
-	Package     string `json:"package,omitempty"`
-	Marketplace string `json:"marketplace,omitempty"`
-	Reason      string `json:"reason,omitempty"`
-	ExitCode    *int   `json:"exit_code,omitempty"`
-	Stdout      string `json:"stdout,omitempty"`
-	Stderr      string `json:"stderr,omitempty"`
+	Type           string `json:"type"`
+	Name           string `json:"name"`
+	Action         string `json:"action"`
+	Source         string `json:"source,omitempty"`
+	UpstreamSource string `json:"upstreamSource,omitempty"`
+	Entry          string `json:"entry,omitempty"`
+	Destination    string `json:"destination,omitempty"`
+	Status         string `json:"status"`
+	Format         string `json:"format,omitempty"`
+	Command        string `json:"command,omitempty"`
+	Method         string `json:"method,omitempty"`
+	Package        string `json:"package,omitempty"`
+	Marketplace    string `json:"marketplace,omitempty"`
+	Reason         string `json:"reason,omitempty"`
+	ExitCode       *int   `json:"exit_code,omitempty"`
+	Stdout         string `json:"stdout,omitempty"`
+	Stderr         string `json:"stderr,omitempty"`
 }
 
 type Receipt struct {
@@ -127,12 +130,13 @@ type Lockfile struct {
 }
 
 type LockEntry struct {
-	Type      string    `json:"type"`
-	Name      string    `json:"name"`
-	Source    string    `json:"source"`
-	Version   string    `json:"version,omitempty"`
-	Integrity Integrity `json:"integrity,omitempty"`
-	Digest    string    `json:"digest"`
+	Type           string    `json:"type"`
+	Name           string    `json:"name"`
+	Source         string    `json:"source"`
+	UpstreamSource string    `json:"upstreamSource,omitempty"`
+	Version        string    `json:"version,omitempty"`
+	Integrity      Integrity `json:"integrity,omitempty"`
+	Digest         string    `json:"digest"`
 }
 
 type RegistryConfig struct {
@@ -300,6 +304,9 @@ func PrintPlan(plan Plan, out io.Writer) {
 		}
 		if item.Source != "" {
 			fmt.Fprintf(out, "  source: %s\n", item.Source)
+		}
+		if item.UpstreamSource != "" && item.UpstreamSource != item.Source {
+			fmt.Fprintf(out, "  upstreamSource: %s\n", item.UpstreamSource)
 		}
 	}
 }
@@ -593,11 +600,15 @@ func FindCapability(registry, kind, id string) (Capability, error) {
 }
 
 func SkillCapability(id, path string, manifest SkillManifest) Capability {
-	source := manifest.Metadata["agentpacks.source"]
+	upstreamSource := manifest.Metadata["agentpacks.upstreamSource"]
+	if upstreamSource == "" {
+		upstreamSource = manifest.Metadata["agentpacks.source"]
+	}
+	source := upstreamSource
 	if source == "" {
 		source = filepath.Dir(path)
 	}
-	return Capability{Type: "skill", Name: manifest.Name, Source: source, Format: "agent-skill", Entry: "SKILL.md", License: manifest.License, Version: manifest.Metadata["agentpacks.version"], Reference: true}
+	return Capability{Type: "skill", Name: manifest.Name, Source: source, UpstreamSource: upstreamSource, Format: "agent-skill", Entry: "SKILL.md", License: manifest.License, Version: manifest.Metadata["agentpacks.version"], Reference: true}
 }
 
 func PluginCapability(id, root string, manifest PluginManifest) Capability {
@@ -612,7 +623,7 @@ func PluginCapability(id, root string, manifest PluginManifest) Capability {
 	if source == "" {
 		source = root
 	}
-	return Capability{Type: "plugin", Name: name, Source: source, Format: "anthropic-plugin", Entry: ".claude-plugin/plugin.json", Version: manifest.Version, Homepage: manifest.Homepage, Repository: manifest.Repository, License: manifest.License, Install: map[string]string{"method": "manual", "package": manifest.Name}, Reference: true}
+	return Capability{Type: "plugin", Name: name, Source: source, UpstreamSource: source, Format: "anthropic-plugin", Entry: ".claude-plugin/plugin.json", Version: manifest.Version, Homepage: manifest.Homepage, Repository: manifest.Repository, License: manifest.License, Install: map[string]string{"method": "manual", "package": manifest.Name}, Reference: true}
 }
 
 func LoadSkillManifest(path string) (SkillManifest, error) {
@@ -805,7 +816,7 @@ func ValidatePack(pack Pack) []string {
 func WriteLockfile(packDir string, pack Pack) error {
 	lock := Lockfile{GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano), Pack: pack.ID, Version: pack.Version}
 	for _, capability := range pack.Capabilities {
-		entry := LockEntry{Type: capability.Type, Name: capability.Name, Source: capability.Source, Version: capability.Version, Integrity: capability.Integrity, Digest: digestCapability(capability)}
+		entry := LockEntry{Type: capability.Type, Name: capability.Name, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Version: capability.Version, Integrity: capability.Integrity, Digest: digestCapability(capability)}
 		lock.Capabilities = append(lock.Capabilities, entry)
 	}
 	return writeJSON(filepath.Join(packDir, "agent-pack.lock"), lock)
@@ -967,19 +978,19 @@ func planCapability(capability Capability, target, agent string) PlanItem {
 			entry = "SKILL.md"
 		}
 		if capability.Reference {
-			return PlanItem{Type: "skill", Name: capability.Name, Action: "reference", Source: capability.Source, Entry: entry, Status: "planned"}
+			return PlanItem{Type: "skill", Name: capability.Name, Action: "reference", Source: capability.Source, UpstreamSource: capability.UpstreamSource, Entry: entry, Status: "planned"}
 		}
 		action := "fetch-copy"
 		if isLocalSource(capability.Source) {
 			action = "copy"
 		}
-		return PlanItem{Type: "skill", Name: capability.Name, Action: action, Source: capability.Source, Entry: entry, Destination: filepath.Join(skillTargetRoot(target, agent), slugify(capability.Name)), Status: "planned"}
+		return PlanItem{Type: "skill", Name: capability.Name, Action: action, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Entry: entry, Destination: filepath.Join(skillTargetRoot(target, agent), slugify(capability.Name)), Status: "planned"}
 	case "plugin":
 		action := "native-install"
 		if capability.Reference {
 			action = "reference"
 		}
-		return PlanItem{Type: "plugin", Name: capability.Name, Action: action, Source: capability.Source, Format: capability.Format, Command: capability.Install["command"], Method: capability.Install["method"], Package: capability.Install["package"], Marketplace: capability.Install["marketplace"], Status: "planned"}
+		return PlanItem{Type: "plugin", Name: capability.Name, Action: action, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Format: capability.Format, Command: capability.Install["command"], Method: capability.Install["method"], Package: capability.Install["package"], Marketplace: capability.Install["marketplace"], Status: "planned"}
 	default:
 		return PlanItem{Type: capability.Type, Name: capability.Name, Action: "record", Source: capability.Source, Status: "planned"}
 	}

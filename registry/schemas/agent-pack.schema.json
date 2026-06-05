@@ -55,6 +55,9 @@
       "items": {
         "type": "string"
       }
+    },
+    "upstreamSource": {
+      "type": "string"
     }
   },
   "$defs": {
@@ -136,6 +139,9 @@
             "community",
             "unknown"
           ]
+        },
+        "upstreamSource": {
+          "type": "string"
         }
       },
       "allOf": [
