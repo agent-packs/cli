@@ -21,22 +21,22 @@ Recommended stack:
 - Web/API registry: TypeScript later, if needed
 - Install scripts: POSIX shell for macOS/Linux bootstrap
 
-This repository now includes a Go CLI prototype under `dev/`. The registry and manifest formats are intentionally language-neutral.
+This repository separates the Go CLI under `cli/` from the Agent Pack registry under `registry/`. The registry and manifest formats are intentionally language-neutral.
 
 ## Build
 
 ```sh
-cd dev
+cd cli
 go build -o bin/agent-packs ./cmd/agent-packs
 ```
 
 ## CLI Usage
 
 ```sh
-dev/bin/agent-packs search
-dev/bin/agent-packs show frontend-engineer
-dev/bin/agent-packs install frontend-engineer --target ./sandbox
-dev/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
+cli/bin/agent-packs search
+cli/bin/agent-packs show frontend-engineer
+cli/bin/agent-packs install frontend-engineer --target ./sandbox
+cli/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
 ```
 
 The prototype installer supports `--agent`, `--only`, `--dry-run`, and `--execute-plugins`. Skill capabilities with local sources are copied into the selected agent target. Remote skills and plugin commands are recorded as pending unless plugin execution is explicitly enabled.
@@ -74,7 +74,7 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
 
 ## Examples
 
-Example manifests live in `dev/schemas/examples/`:
+Example manifests live in `registry/schemas/examples/`:
 
 - `minimal-pack.json`: the smallest valid pack manifest.
 - `full-pack.json`: a complete manifest showing every supported capability type.
@@ -83,7 +83,7 @@ Example manifests live in `dev/schemas/examples/`:
 ## Tests
 
 ```sh
-python3 -m unittest discover -s dev/tests
+python3 -m unittest discover -s tests
 ```
 
 ## Core Concepts

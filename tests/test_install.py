@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-CLI = ROOT / "dev" / "bin" / "agent-packs"
+ROOT = Path(__file__).resolve().parents[1]
+CLI = ROOT / "cli" / "bin" / "agent-packs"
 
 
 class InstallCommandTest(unittest.TestCase):
@@ -15,7 +15,7 @@ class InstallCommandTest(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(
             ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
-            cwd=ROOT / "dev",
+            cwd=ROOT / "cli",
             check=True,
             text=True,
             capture_output=True,

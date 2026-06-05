@@ -8,7 +8,7 @@ The recommended production implementation is:
 
 - Go CLI named `agent-packs`, with short alias `ap`.
 - Static registry index hosted on GitHub Pages, S3, Cloudflare R2, or a CDN.
-- Pack manifests as JSON or YAML, validated against `dev/schemas/agent-pack.schema.json`.
+- Pack manifests as JSON or YAML, validated against `registry/schemas/agent-pack.schema.json`.
 - Install receipts stored under the user's agent configuration directory.
 - Optional TypeScript web app for discovery, ratings, and pack pages.
 

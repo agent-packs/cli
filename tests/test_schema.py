@@ -5,10 +5,10 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = ROOT / "dev" / "schemas" / "agent-pack.schema.json"
-REGISTRY_PATH = ROOT / "dev" / "registry" / "packs"
-EXAMPLES_PATH = ROOT / "dev" / "schemas" / "examples"
+ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_PATH = ROOT / "registry" / "schemas" / "agent-pack.schema.json"
+REGISTRY_PATH = ROOT / "registry" / "packs"
+EXAMPLES_PATH = ROOT / "registry" / "schemas" / "examples"
 
 
 def load_schema():

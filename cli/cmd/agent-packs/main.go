@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/dev/internal/agentpacks"
+	"github.com/sandeshh/agent-packs/cli/internal/agentpacks"
 )
 
 func main() {
@@ -129,8 +129,8 @@ func repoRoot() string {
 	if err != nil {
 		realPath = executable
 	}
-	// dev/bin/agent-packs -> dev
-	return filepath.Dir(filepath.Dir(realPath))
+	// cli/bin/agent-packs -> repository root
+	return filepath.Dir(filepath.Dir(filepath.Dir(realPath)))
 }
 
 func usage() {
