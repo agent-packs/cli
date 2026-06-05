@@ -11,4 +11,4 @@ metadata:
 
 # eng-leader-quality-review
 
-This registry entry points to the upstream `code-review-and-quality` Agent Skill from Addy Osmani's production-grade engineering skills collection. Installers should fetch the upstream skill directory from the `agentpacks.source` metadata field.
+This registry entry points to the upstream `code-review-and-quality` Agent Skill from Addy Osmani's production-grade engineering skills collection. Installers should reference the upstream skill directory from the `agentpacks.source` metadata field without copying it into this registry.

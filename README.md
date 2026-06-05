@@ -9,8 +9,8 @@ templates, and composed packs into ready-to-use workflow packs.
 
 - `cli/`: Go CLI module and source.
 - `registry/packs/`: Agent Pack manifests.
-- `registry/skills/`: reusable skill capability manifests.
-- `registry/plugins/`: reusable plugin/tool capability manifests.
+- `registry/skills/`: reusable Agent Skill source references.
+- `registry/plugins/`: reusable Claude Code plugin source references.
 - `registry/schemas/`: JSON Schema and example manifests.
 - `docs/`: architecture notes.
 - `tests/`: Python schema and CLI integration tests.
@@ -54,12 +54,15 @@ cli/bin/agent-packs validate registry/plugins
 
 Agent Packs orchestrates native install flows instead of replacing them.
 
-- Local skills are copied into the selected agent skill target.
-- Remote skills are fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
-- Plugin commands are always preview-safe by default and only run with `--execute-plugins`.
+- Pack-level `skills` and `plugins` entries are source references. They are recorded in plans, receipts, and lockfiles, but are not copied into the target.
+- Registry skills can point at an upstream source with `metadata.agentpacks.source`; otherwise they reference their registry directory.
+- Registry plugins reference their `repository` or `homepage` when available; otherwise they reference their registry directory.
+- Inline local skill capabilities can still be copied into the selected agent skill target when a pack explicitly declares them under `capabilities`.
+- Inline remote skill capabilities can still be fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
+- Inline plugin commands are preview-safe by default and only run with `--execute-plugins`.
 - Installed packs write receipts under `<target>/receipts/`.
 - Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
-- `uninstall` removes installed skill folders and receipts; plugins are reported for native/manual cleanup.
+- `uninstall` removes installed inline skill folders and receipts; referenced plugins are reported for native/manual cleanup.
 
 ## Remote Registries
 
@@ -109,7 +112,7 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
 
 ## Pack Composition
 
-Packs can include other packs with the `packs` field. They can also include reusable capability manifests with `skills` and `plugins`. Included packs and referenced capabilities are expanded before install.
+Packs can include other packs with the `packs` field. They can also include reusable source references with `skills` and `plugins`. Included packs and referenced capabilities are expanded before install.
 
 ```json
 {
@@ -123,9 +126,9 @@ Packs can include other packs with the `packs` field. They can also include reus
 }
 ```
 
-Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack references them by ID.
+Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack references them by ID, and the CLI treats those entries as references rather than installable copies.
 
-Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field.
+Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.source` on skills and `repository` or `homepage` on plugins to point at the original upstream project.
 
 ## Examples
 

@@ -137,6 +137,26 @@ func TestExpandPackIncludesRegistrySkillsAndPlugins(t *testing.T) {
 	if expanded.Capabilities[0].Name != "review" || expanded.Capabilities[1].Name != "Browser Tool" {
 		t.Fatalf("unexpected capabilities: %#v", expanded.Capabilities)
 	}
+
+	plan := BuildInstallPlan(expanded, filepath.Join(temp, "target"), "codex", "all")
+	if len(plan.Capabilities) != 2 {
+		t.Fatalf("expected 2 planned capabilities, got %d", len(plan.Capabilities))
+	}
+	for _, item := range plan.Capabilities {
+		if item.Action != "reference" {
+			t.Fatalf("expected registry capability to be referenced, got %#v", item)
+		}
+		if item.Destination != "" {
+			t.Fatalf("referenced capability should not have destination: %#v", item)
+		}
+	}
+
+	result := ExecutePlan(plan, false)
+	for _, item := range result.Capabilities {
+		if item.Status != "referenced" {
+			t.Fatalf("expected referenced status, got %#v", item)
+		}
+	}
 }
 
 func TestRegistryConfigRoundTrip(t *testing.T) {

@@ -48,6 +48,7 @@ type Capability struct {
 	Integrity         Integrity         `json:"integrity,omitempty"`
 	RequiresExecution bool              `json:"requiresExecution,omitempty"`
 	Trust             string            `json:"trust,omitempty"`
+	Reference         bool              `json:"-"`
 }
 
 type Integrity struct {
@@ -596,7 +597,7 @@ func SkillCapability(id, path string, manifest SkillManifest) Capability {
 	if source == "" {
 		source = filepath.Dir(path)
 	}
-	return Capability{Type: "skill", Name: manifest.Name, Source: source, Format: "agent-skill", Entry: "SKILL.md", License: manifest.License, Version: manifest.Metadata["agentpacks.version"]}
+	return Capability{Type: "skill", Name: manifest.Name, Source: source, Format: "agent-skill", Entry: "SKILL.md", License: manifest.License, Version: manifest.Metadata["agentpacks.version"], Reference: true}
 }
 
 func PluginCapability(id, root string, manifest PluginManifest) Capability {
@@ -604,7 +605,14 @@ func PluginCapability(id, root string, manifest PluginManifest) Capability {
 	if name == "" {
 		name = manifest.Name
 	}
-	return Capability{Type: "plugin", Name: name, Source: root, Format: "anthropic-plugin", Entry: ".claude-plugin/plugin.json", Version: manifest.Version, Homepage: manifest.Homepage, Repository: manifest.Repository, License: manifest.License, Install: map[string]string{"method": "manual", "package": manifest.Name}}
+	source := manifest.Repository
+	if source == "" {
+		source = manifest.Homepage
+	}
+	if source == "" {
+		source = root
+	}
+	return Capability{Type: "plugin", Name: name, Source: source, Format: "anthropic-plugin", Entry: ".claude-plugin/plugin.json", Version: manifest.Version, Homepage: manifest.Homepage, Repository: manifest.Repository, License: manifest.License, Install: map[string]string{"method": "manual", "package": manifest.Name}, Reference: true}
 }
 
 func LoadSkillManifest(path string) (SkillManifest, error) {
@@ -958,13 +966,20 @@ func planCapability(capability Capability, target, agent string) PlanItem {
 		if entry == "" {
 			entry = "SKILL.md"
 		}
+		if capability.Reference {
+			return PlanItem{Type: "skill", Name: capability.Name, Action: "reference", Source: capability.Source, Entry: entry, Status: "planned"}
+		}
 		action := "fetch-copy"
 		if isLocalSource(capability.Source) {
 			action = "copy"
 		}
 		return PlanItem{Type: "skill", Name: capability.Name, Action: action, Source: capability.Source, Entry: entry, Destination: filepath.Join(skillTargetRoot(target, agent), slugify(capability.Name)), Status: "planned"}
 	case "plugin":
-		return PlanItem{Type: "plugin", Name: capability.Name, Action: "native-install", Source: capability.Source, Format: capability.Format, Command: capability.Install["command"], Method: capability.Install["method"], Package: capability.Install["package"], Marketplace: capability.Install["marketplace"], Status: "planned"}
+		action := "native-install"
+		if capability.Reference {
+			action = "reference"
+		}
+		return PlanItem{Type: "plugin", Name: capability.Name, Action: action, Source: capability.Source, Format: capability.Format, Command: capability.Install["command"], Method: capability.Install["method"], Package: capability.Install["package"], Marketplace: capability.Install["marketplace"], Status: "planned"}
 	default:
 		return PlanItem{Type: capability.Type, Name: capability.Name, Action: "record", Source: capability.Source, Status: "planned"}
 	}
@@ -979,6 +994,11 @@ func skillTargetRoot(target, agent string) string {
 }
 
 func installSkill(item PlanItem, target string) PlanItem {
+	if item.Action == "reference" {
+		item.Status = "referenced"
+		item.Reason = "referenced from source; not copied into target"
+		return item
+	}
 	source, cleanup, err := materializeSkillSource(item.Source, target)
 	if cleanup != nil {
 		defer cleanup()
@@ -1085,6 +1105,11 @@ func copySkillFromSource(item PlanItem, source string) PlanItem {
 }
 
 func installPlugin(item PlanItem, executePlugins bool) PlanItem {
+	if item.Action == "reference" {
+		item.Status = "referenced"
+		item.Reason = "referenced from source; not copied into target"
+		return item
+	}
 	if !executePlugins {
 		item.Status = "pending"
 		item.Reason = "plugin command execution requires --execute-plugins"

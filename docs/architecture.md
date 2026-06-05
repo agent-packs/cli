@@ -6,8 +6,8 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 
 - CLI: Go module under `cli/`.
 - Registry packs: static JSON manifests under `registry/packs/`.
-- Registry skills: Agent Skills under `registry/skills/<id>/SKILL.md`.
-- Registry plugins: Claude Code plugin directories under `registry/plugins/<id>/.claude-plugin/plugin.json`.
+- Registry skills: Agent Skill source references under `registry/skills/<id>/SKILL.md`.
+- Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
 - Receipts: `<target>/receipts/<pack-id>.json`.
 - Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`.
@@ -46,7 +46,7 @@ curl -fsSL https://agentpacks.dev/install.sh | sh
 
 Plugin install commands are not executed unless the user passes `--execute-plugins`. Plugin capabilities with install commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
 
-Remote skills are fetched with `git`, copied into the selected agent target, and recorded in receipts. Integrity metadata can be represented with `integrity.checksum` and `integrity.signature`; lockfiles record a digest for every capability.
+Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target. Inline skill capabilities can still opt into copy/fetch behavior, and inline plugin commands can still opt into native execution with `--execute-plugins`. Integrity metadata can be represented with `integrity.checksum` and `integrity.signature`; lockfiles record a digest for every capability.
 
 ## Why Go
 
