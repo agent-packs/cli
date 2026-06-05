@@ -5,6 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,10 +21,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: "1.26"
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
+      - name: Install Python test deps
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r tests/requirements.txt
       - name: Go tests
         run: go test ./...
         working-directory: cli
@@ -23,7 +36,7 @@ jobs:
         run: go build -o bin/agent-packs ./cmd/agent-packs
         working-directory: cli
       - name: Python schema and integration tests
-        run: python3 -m unittest discover -s tests
+        run: .venv/bin/python -m unittest discover -s tests
       - name: Validate registry
         run: |
           cli/bin/agent-packs validate registry/schemas/examples
@@ -35,5 +48,40 @@ jobs:
           cli/bin/agent-packs verify frontend-engineer
           cli/bin/agent-packs verify pr-review
           cli/bin/agent-packs verify eng-leader
+      - name: Audit registry packs
+        run: |
+          cli/bin/agent-packs audit frontend-engineer
+          cli/bin/agent-packs audit pr-review
+          cli/bin/agent-packs audit eng-leader
+      - name: Policy check registry packs
+        run: |
+          for pack in frontend-engineer pr-review eng-leader; do
+            cli/bin/agent-packs policy check "$pack" registry/policy/default.json
+          done
       - name: Generate registry index
         run: cli/bin/agent-packs index --output registry/index.json
+      - name: Check registry index is up to date
+        run: |
+          cli/bin/agent-packs index --output /tmp/index.json
+          diff -u registry/index.json /tmp/index.json
+      - name: Prepare GitHub Pages site
+        run: |
+          mkdir -p site/registry
+          cp docs/catalog.html site/index.html
+          cp registry/index.json site/registry/index.json
+      - name: Upload catalog artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-pages:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sandeshh/agent-packs/cli/internal/agentpacks"
+	"github.com/sandeshh/agent-packs/cli/internal/output"
 )
 
 func main() {
@@ -79,6 +80,10 @@ func main() {
 		err = runValidate(os.Args[2:])
 	case "registry":
 		err = runRegistry(defaultTarget, os.Args[2:])
+	case "version":
+		err = runVersion(os.Args[2:])
+	case "init":
+		err = runInit(os.Args[2:])
 	case "help", "--help", "-h":
 		usage()
 		return
@@ -97,13 +102,46 @@ func main() {
 	}
 }
 
+func extractJSONFlag(args []string) (bool, []string) {
+	asJSON := false
+	remaining := []string{}
+	for _, arg := range args {
+		if arg == "--json" {
+			asJSON = true
+			continue
+		}
+		remaining = append(remaining, arg)
+	}
+	return asJSON, remaining
+}
+
 func runSearch(registry string, args []string) error {
-	return agentpacks.Search(registry, strings.Join(args, " "), os.Stdout)
+	asJSON, args := extractJSONFlag(args)
+	query := strings.Join(args, " ")
+	if asJSON {
+		matches, err := agentpacks.MatchPacks(registry, query)
+		if err != nil {
+			return err
+		}
+		if len(matches) == 0 {
+			return agentpacks.ErrNotFound
+		}
+		return output.Encode(os.Stdout, matches)
+	}
+	return agentpacks.Search(registry, query, os.Stdout)
 }
 
 func runShow(registry string, args []string) error {
+	asJSON, args := extractJSONFlag(args)
 	if len(args) != 1 {
-		return fmt.Errorf("usage: agent-packs show <pack-id>")
+		return fmt.Errorf("usage: agent-packs show <pack-id> [--json]")
+	}
+	if asJSON {
+		pack, err := agentpacks.FindPack(registry, args[0])
+		if err != nil {
+			return err
+		}
+		return output.Encode(os.Stdout, pack)
 	}
 	return agentpacks.Show(registry, args[0], os.Stdout)
 }
@@ -159,11 +197,19 @@ func runInstall(registry, defaultTarget string, args []string) error {
 }
 
 func runList(defaultTarget string, args []string) error {
+	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
 	flags := flag.NewFlagSet("list", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if asJSON {
+		receipts, err := agentpacks.ListInstalledReceipts(*target)
+		if err != nil {
+			return err
+		}
+		return output.Encode(os.Stdout, receipts)
 	}
 	return agentpacks.ListInstalled(*target, os.Stdout)
 }
@@ -200,11 +246,19 @@ func runValidate(args []string) error {
 }
 
 func runOutdated(registry, defaultTarget string, args []string) error {
+	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
 	flags := flag.NewFlagSet("outdated", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if asJSON {
+		report, err := agentpacks.GetOutdatedReport(registry, *target)
+		if err != nil {
+			return err
+		}
+		return output.Encode(os.Stdout, report)
 	}
 	return agentpacks.Outdated(registry, *target, os.Stdout)
 }
@@ -225,10 +279,51 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 }
 
 func runAudit(registry string, args []string) error {
+	asJSON, args := extractJSONFlag(args)
 	if len(args) != 1 {
-		return fmt.Errorf("usage: agent-packs audit <pack-id>")
+		return fmt.Errorf("usage: agent-packs audit <pack-id> [--json]")
+	}
+	if asJSON {
+		return agentpacks.AuditJSON(registry, args[0], os.Stdout)
 	}
 	return agentpacks.Audit(registry, args[0], os.Stdout)
+}
+
+func runVersion(args []string) error {
+	asJSON, _ := extractJSONFlag(args)
+	if asJSON {
+		return output.Encode(os.Stdout, map[string]string{"version": agentpacks.VersionString()})
+	}
+	fmt.Println(agentpacks.VersionString())
+	return nil
+}
+
+func runInit(args []string) error {
+	flags := flag.NewFlagSet("init", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	agent := flags.String("agent", "codex", "default target agent")
+	mode := flags.String("mode", "reference", "default sync mode")
+	onConflict := flags.String("on-conflict", "skip", "default conflict policy")
+	scope := flags.String("scope", "project", "default install scope")
+	registryPath := flags.String("registry", "", "default registry path")
+	target := flags.String("target", ".agent-packs", "default install target")
+	force := flags.Bool("force", false, "overwrite existing config")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	projectDir := "."
+	if len(flags.Args()) > 0 {
+		projectDir = flags.Args()[0]
+	}
+	path, err := agentpacks.InitProject(projectDir, agentpacks.InitOptions{
+		Agent: *agent, Mode: *mode, OnConflict: *onConflict, Scope: *scope,
+		Registry: *registryPath, Target: *target, Force: *force,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wrote %s\n", path)
+	return nil
 }
 
 func runUpdate(defaultTarget string, args []string) error {
@@ -310,17 +405,25 @@ func runDiff(registry, defaultTarget string, args []string) error {
 }
 
 func runCompat(registry string, args []string) error {
+	asJSON, args := extractJSONFlag(normalizeAgentArgs(args))
 	flags := flag.NewFlagSet("compat", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	agent := flags.String("agent", "generic", "target agent/tool")
-	if err := flags.Parse(normalizeAgentArgs(args)); err != nil {
+	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
 	if len(remaining) != 1 {
-		return fmt.Errorf("usage: agent-packs compat <pack-id> [--agent tool]")
+		return fmt.Errorf("usage: agent-packs compat <pack-id> [--agent tool] [--json]")
 	}
 	normalized := agentpacks.NormalizeAgent(*agent)
+	if asJSON {
+		result, err := agentpacks.CompatibilityReport(registry, remaining[0], normalized)
+		if err != nil {
+			return err
+		}
+		return output.Encode(os.Stdout, result)
+	}
 	return agentpacks.Compatibility(registry, remaining[0], normalized, os.Stdout)
 }
 
@@ -494,7 +597,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id> [--target dir] [--execute-plugins]")
-	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id>")
+	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native]")
+	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs policy check <pack-id> <policy.json>")
 	fmt.Fprintln(os.Stderr, "  agent-packs licenses|attribution|resolve <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path]")

@@ -324,24 +324,37 @@ func Attribution(registryPath, packRef string, out io.Writer) error {
 }
 
 func Compatibility(registryPath, packRef, agent string, out io.Writer) error {
-	pack, err := registry.FindPack(registryPath, packRef)
+	result, err := CompatibilityReport(registryPath, packRef, agent)
 	if err != nil {
 		return err
 	}
+	if result.OK {
+		fmt.Fprintf(out, "OK    %s is compatible with %s\n", result.Pack, result.Agent)
+		return nil
+	}
+	if result.Message != "" {
+		fmt.Fprintf(out, "WARN  %s\n", result.Message)
+	}
+	return model.ErrInstallFailed
+}
+
+func CompatibilityReport(registryPath, packRef, agent string) (model.CompatibilityResult, error) {
+	pack, err := registry.FindPack(registryPath, packRef)
+	if err != nil {
+		return model.CompatibilityResult{}, err
+	}
 	normalized := targets.NormalizeAgent(agent)
-	ok := true
+	result := model.CompatibilityResult{Pack: pack.ID, Agent: normalized, Tools: pack.Tools, OK: true}
 	if len(pack.Tools) > 0 && !targets.PackSupportsTool(pack.Tools, agent) {
-		fmt.Fprintf(out, "WARN  %s not listed in pack tools: %s\n", normalized, strings.Join(pack.Tools, ", "))
-		ok = false
+		result.OK = false
+		result.Message = fmt.Sprintf("%s not listed in pack tools: %s", normalized, strings.Join(pack.Tools, ", "))
 	}
 	if !targets.ValidAgent(agent) {
-		fmt.Fprintf(out, "FAIL  unsupported target tool: %s\n", agent)
-		return model.ErrInstallFailed
+		result.OK = false
+		result.Message = fmt.Sprintf("unsupported target tool: %s", agent)
+		return result, model.ErrInstallFailed
 	}
-	if ok {
-		fmt.Fprintf(out, "OK    %s is compatible with %s\n", pack.ID, normalized)
-	}
-	return nil
+	return result, nil
 }
 
 func validSkillName(name string) bool {

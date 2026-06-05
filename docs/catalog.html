@@ -31,7 +31,7 @@
           <p><code>agent-packs install ${p.id}</code></p>
         </article>`).join('');
     }
-    fetch('../registry/index.json').then(r => r.json()).then(data => { packs = data.packs || []; render(); }).catch(() => { packsEl.textContent = 'Run agent-packs index --output registry/index.json first.'; });
+    fetch('registry/index.json').then(r => r.json()).then(data => { packs = data.packs || []; render(); }).catch(() => { packsEl.textContent = 'Run agent-packs index --output registry/index.json first.'; });
     q.addEventListener('input', render);
   </script>
 </body>

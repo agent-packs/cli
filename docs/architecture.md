@@ -4,23 +4,29 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 
 ## Production Stack
 
-- CLI: Go module under `cli/`.
+- CLI: Go module under `cli/` split into focused packages (`model`, `registry`, `resolve`, `plan`, `install`, `policy`, `validate`, `targets`, `config`, `output`, `version`).
 - Registry packs: static JSON manifests under `registry/packs/`.
 - Registry skills: Agent Skill source references under `registry/skills/<id>/SKILL.md`.
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
+- Policy defaults: `registry/policy/default.json`.
 - Receipts: `<target>/receipts/<pack-id>.json`.
 - Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`, including source revision fields when locally resolvable.
+- Project config: `.agent-packs.yaml` for default agent, mode, scope, and target.
 
 ## CLI Commands
 
 Implemented commands:
 
-- `agent-packs search [query]`
-- `agent-packs show <pack>`
+- `agent-packs search [query] [--json]`
+- `agent-packs show <pack> [--json]`
 - `agent-packs install <pack|registry/pack>`
-- `agent-packs list`
+- `agent-packs list [--json]`
 - `agent-packs uninstall <pack>`
+- `agent-packs upgrade <pack>`
+- `agent-packs audit <pack> [--json]`
+- `agent-packs version [--json]`
+- `agent-packs init [dir]`
 - `agent-packs doctor`
 - `agent-packs doctor targets`
 - `agent-packs validate <file-or-directory>`
@@ -28,7 +34,7 @@ Implemented commands:
 - `agent-packs registry list`
 - `agent-packs registry remove <name>`
 - `agent-packs update --all`
-- `agent-packs outdated`
+- `agent-packs outdated [--json]`
 - `agent-packs cache`
 - `agent-packs scan [path]`
 - `agent-packs import <skills-dir>`
@@ -40,7 +46,7 @@ Implemented commands:
 - `agent-packs attribution <pack>`
 - `agent-packs index [--output path]`
 - `agent-packs diff <pack>`
-- `agent-packs compat <pack>`
+- `agent-packs compat <pack> [--json]`
 - `agent-packs cache prune|clean`
 
 ## Install Experience
@@ -48,25 +54,35 @@ Implemented commands:
 Target install experience:
 
 ```sh
-brew install agent-packs
+brew install sandeshh/tap/agent-packs
 agent-packs install frontend-engineer
 ```
 
 Bootstrap fallback:
 
 ```sh
-curl -fsSL https://agentpacks.dev/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh
 ```
+
+Release binaries are built by `.github/workflows/release.yml` on version tags (`v*`).
 
 ## Catalog And CI
 
-The repository includes a GitHub Actions workflow for Go/Python tests, registry validation, pack verification, and index generation. `docs/catalog.html` can render `registry/index.json` as a lightweight static catalog for GitHub Pages.
+CI (`.github/workflows/ci.yml`) runs Go and Python tests, JSON Schema validation, registry validation, pack verification, audit, policy checks, index generation, index staleness checks, and GitHub Pages deployment for the static catalog.
+
+`docs/catalog.html` renders `registry/index.json` as a lightweight catalog.
 
 ## Security Posture
 
-Plugin install commands are not executed unless the user passes `--execute-plugins`. Plugin capabilities with install commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
+Plugin install commands are not executed unless the user passes `--execute-plugins`. Plugin execution uses a timeout, respects `AGENT_PACKS_PLUGIN_CWD`, and supports structured handlers for `claude-marketplace` and `manual` install methods.
 
-The target matrix maps supported tools to global and project skill directories. Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target. Pack-level `skills` and `plugins` can be registry ID strings or object refs with remote `source` URLs, so a pack can depend on a remote skill/plugin without vendoring it into this registry. The Agent Pack spec keeps `source` as the installer-resolved location or command; optional `upstreamSource` is only for separate provenance or attribution metadata. Inline skill capabilities can still opt into copy/fetch behavior, and inline plugin commands can still opt into native execution with `--execute-plugins`. Integrity metadata can be represented with `integrity.checksum` and `integrity.signature`; lockfiles record a digest and resolved revision metadata for every capability when available.
+Plugin capabilities with install commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
+
+Integrity metadata uses `integrity.checksum` (`sha256:`) and optional `integrity.signature` (`sha256:` or `hmac-sha256:` with `AGENT_PACKS_TRUST_KEY`). Checksums are verified after skill materialization.
+
+The target matrix maps supported tools to global and project skill directories, with aliases such as `claude-code` → `claude`. Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target by default (`--mode reference`).
+
+Remote sources support GitHub tree/commit URLs, GitLab tree URLs, generic git URLs, and archive downloads (`.tar.gz`, `.zip`). Moving refs can be resolved live with `git ls-remote` for outdated reporting.
 
 ## Why Go
 

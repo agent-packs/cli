@@ -77,16 +77,9 @@ func ResolvePack(defaultRegistry, home, ref string) (model.Pack, string, error) 
 }
 
 func Search(registry, query string, out io.Writer) error {
-	packs, err := LoadPacks(registry)
+	matches, err := MatchPacks(registry, query)
 	if err != nil {
 		return err
-	}
-	query = strings.ToLower(strings.TrimSpace(query))
-	var matches []model.Pack
-	for _, pack := range packs {
-		if query == "" || packMatches(pack, query) {
-			matches = append(matches, pack)
-		}
 	}
 	if len(matches) == 0 {
 		fmt.Fprintln(out, "No packs found.")
@@ -96,6 +89,21 @@ func Search(registry, query string, out io.Writer) error {
 		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
 	}
 	return nil
+}
+
+func MatchPacks(registry, query string) ([]model.Pack, error) {
+	packs, err := LoadPacks(registry)
+	if err != nil {
+		return nil, err
+	}
+	query = strings.ToLower(strings.TrimSpace(query))
+	var matches []model.Pack
+	for _, pack := range packs {
+		if query == "" || packMatches(pack, query) {
+			matches = append(matches, pack)
+		}
+	}
+	return matches, nil
 }
 
 func Show(registry, id string, out io.Writer) error {

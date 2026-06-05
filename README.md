@@ -30,6 +30,22 @@ cd cli
 go build -o bin/agent-packs ./cmd/agent-packs
 ```
 
+## Install
+
+Homebrew (after the first release is published):
+
+```sh
+brew install sandeshh/tap/agent-packs
+```
+
+Bootstrap installer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh
+```
+
+Or build locally from source (see Build above).
+
 ## CLI Usage
 
 ```sh
@@ -37,11 +53,17 @@ cli/bin/agent-packs search
 cli/bin/agent-packs show frontend-engineer
 cli/bin/agent-packs install frontend-engineer --target ./sandbox
 cli/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
+cli/bin/agent-packs init --agent codex --mode reference --scope project .
+cli/bin/agent-packs version
 ```
 
 Additional commands:
 
 ```sh
+cli/bin/agent-packs search frontend --json
+cli/bin/agent-packs show frontend-engineer --json
+cli/bin/agent-packs audit frontend-engineer --json
+cli/bin/agent-packs upgrade frontend-engineer --target ./sandbox
 cli/bin/agent-packs registry add local /path/to/agent-packs
 cli/bin/agent-packs install local/frontend-engineer --dry-run
 cli/bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
@@ -79,7 +101,17 @@ cli/bin/agent-packs validate registry/plugins
 
 Agent Packs knows common global and project skill directories for supported coding tools. Use `agent-packs doctor targets` to inspect the matrix. Install with `--agent <tool>` or `--target-tool <tool>`. Project installs use the tool's project skill directory, for example Codex project installs target `.agents/skills`.
 
-Supported tools include `codex`, `claude`, `cursor`, `gemini`, `copilot`, `goose`, `opencode`, and `generic`.
+Supported tools include `codex`, `claude`, `cursor`, `gemini`, `copilot`, `goose`, `opencode`, and `generic`. Common aliases such as `claude-code` map to `claude`.
+
+## Project Configuration
+
+Initialize a project config with defaults for agent, sync mode, and install scope:
+
+```sh
+cli/bin/agent-packs init --agent codex --mode reference --scope project .
+```
+
+This writes `.agent-packs.yaml` in the project directory.
 
 ## Installation Model
 
@@ -105,7 +137,11 @@ Agent Packs supports a basic package-manager lifecycle:
 
 - `cache`: shows and creates central source/cache/lock/registry directories under the Agent Packs home.
 - `update --all`: refreshes configured registries.
-- `outdated`: lists installed packs whose remote status has not been resolved yet.
+- `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
+- `upgrade <pack>`: re-installs using the prior receipt settings.
+- `audit <pack>`: supply-chain SBOM report (`--json` supported).
+- `version`: prints CLI version (`--json` supported).
+- `init [dir]`: writes `.agent-packs.yaml` project defaults.
 - `scan [path]`: discovers existing `SKILL.md` files.
 - `import <skills-dir>`: copies discovered skills into `<target>/sources/imported/`.
 - `lint <pack>`: validates pack metadata.

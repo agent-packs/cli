@@ -1,13 +1,10 @@
 package install
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -159,10 +156,10 @@ func WriteLockfile(packDir string, pack model.Pack) error {
 		entry := model.LockEntry{
 			Type: capability.Type, Name: capability.Name, Source: capability.Source,
 			UpstreamSource: capability.UpstreamSource, Version: capability.Version,
-			Revision:       resolve.ResolveSource(capability.Source).Revision,
-			ResolvedAt:     time.Now().UTC().Format(time.RFC3339Nano),
-			Integrity:      capability.Integrity,
-			Digest:         resolve.DigestCapability(capability),
+			Revision:   resolve.ResolveSourceLive(capability.Source).Revision,
+			ResolvedAt: time.Now().UTC().Format(time.RFC3339Nano),
+			Integrity:  capability.Integrity,
+			Digest:     resolve.DigestCapability(capability),
 		}
 		lock.Capabilities = append(lock.Capabilities, entry)
 	}
@@ -207,6 +204,31 @@ func ListInstalled(target string, out io.Writer) error {
 		fmt.Fprintln(out, "No packs installed.")
 	}
 	return nil
+}
+
+func ListInstalledReceipts(target string) ([]model.InstalledSummary, error) {
+	receiptsDir := filepath.Join(util.ExpandHome(target), "receipts")
+	entries, err := os.ReadDir(receiptsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	summaries := []model.InstalledSummary{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		receipt, err := LoadReceipt(filepath.Join(receiptsDir, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, model.InstalledSummary{
+			ID: receipt.Pack.ID, Version: receipt.Pack.Version, InstalledAt: receipt.InstalledAt,
+		})
+	}
+	return summaries, nil
 }
 
 func Uninstall(target, packID string, out io.Writer) error {
@@ -269,7 +291,7 @@ func Outdated(registryPath, target string, out io.Writer) error {
 			count++
 		}
 		for _, capability := range lock.Capabilities {
-			current := resolve.ResolveSource(capability.Source)
+			current := resolve.ResolveSourceLive(capability.Source)
 			status := "current"
 			if current.Warning != "" {
 				status = "unresolved"
@@ -285,6 +307,53 @@ func Outdated(registryPath, target string, out io.Writer) error {
 		fmt.Fprintln(out, "No packs installed.")
 	}
 	return nil
+}
+
+func OutdatedReport(registryPath, target string) (model.OutdatedReport, error) {
+	report := model.OutdatedReport{}
+	packsDir := filepath.Join(util.ExpandHome(target), "packs")
+	entries, err := os.ReadDir(packsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return report, nil
+		}
+		return report, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		lockPath := filepath.Join(packsDir, entry.Name(), "agent-pack.lock")
+		lock, err := LoadLockfile(lockPath)
+		if err != nil {
+			report.Entries = append(report.Entries, model.OutdatedEntry{
+				Pack: entry.Name(), Kind: "pack", Status: "missing-lock",
+			})
+			continue
+		}
+		registryPack, findErr := registry.FindPack(registryPath, lock.Pack)
+		if findErr == nil && lock.Version != registryPack.Version {
+			report.Entries = append(report.Entries, model.OutdatedEntry{
+				Pack: lock.Pack, Kind: "pack-version", Status: "outdated",
+				Locked: lock.Version, Registry: registryPack.Version,
+			})
+		}
+		for _, capability := range lock.Capabilities {
+			current := resolve.ResolveSourceLive(capability.Source)
+			status := "current"
+			if current.Warning != "" {
+				status = "unresolved"
+			}
+			if capability.Revision != "" && current.Revision != "" && capability.Revision != current.Revision {
+				status = "outdated"
+			}
+			report.Entries = append(report.Entries, model.OutdatedEntry{
+				Pack: lock.Pack, Kind: "capability", Name: capability.Name, Status: status,
+				Locked: capability.Revision, Current: current.Revision,
+			})
+		}
+	}
+	return report, nil
 }
 
 func PackDiff(registryPath, target, packRef string, out io.Writer) error {
@@ -440,7 +509,7 @@ func symlinkSkillFromSource(item model.PlanItem, source string) model.PlanItem {
 	if entry == "" {
 		entry = "SKILL.md"
 	}
-	if err := resolve.VerifySkillEntry(source, entry, item.ExpectedChecksum); err != nil {
+	if err := resolve.VerifySkillIntegrity(source, entry, item.ExpectedChecksum, item.ExpectedSignature); err != nil {
 		item.Status = "failed"
 		item.Reason = err.Error()
 		return item
@@ -459,7 +528,7 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 	info, err := os.Stat(source)
 	if err != nil {
 		item.Status = "pending"
-		item.Reason = "remote or missing skill source; fetch support is not implemented yet"
+		item.Reason = fmt.Sprintf("skill source unavailable: %v", err)
 		return item
 	}
 	entry := item.Entry
@@ -496,11 +565,7 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 		item.Reason = err.Error()
 		return item
 	}
-	verifyPath := destination
-	if info.IsDir() {
-		verifyPath = filepath.Join(destination, entry)
-	}
-	if err := resolve.VerifyChecksum(verifyPath, item.ExpectedChecksum); err != nil {
+	if err := resolve.VerifySkillIntegrity(destination, entry, item.ExpectedChecksum, item.ExpectedSignature); err != nil {
 		item.Status = "failed"
 		item.Reason = err.Error()
 		return item
@@ -539,44 +604,4 @@ func handleDestinationConflict(destination, onConflict string, item *model.PlanI
 		item.Reason = "invalid conflict policy: " + onConflict
 		return false
 	}
-}
-
-func installPlugin(item model.PlanItem, executePlugins bool) model.PlanItem {
-	if item.Action == "reference" {
-		item.Status = "referenced"
-		item.Reason = "referenced from source; not copied into target"
-		return item
-	}
-	if !executePlugins {
-		item.Status = "pending"
-		item.Reason = "plugin command execution requires --execute-plugins"
-		return item
-	}
-	if item.Command == "" {
-		item.Status = "pending"
-		item.Reason = "plugin install command is not specified"
-		return item
-	}
-	cmd := exec.Command("sh", "-c", item.Command)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	exitCode := 0
-	if err != nil {
-		exitCode = 1
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		}
-	}
-	item.ExitCode = &exitCode
-	item.Stdout = strings.TrimSpace(stdout.String())
-	item.Stderr = strings.TrimSpace(stderr.String())
-	if err != nil {
-		item.Status = "failed"
-	} else {
-		item.Status = "installed"
-	}
-	return item
 }

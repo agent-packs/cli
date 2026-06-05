@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sandeshh/agent-packs/cli/internal/model"
+	"github.com/sandeshh/agent-packs/cli/internal/output"
 	"github.com/sandeshh/agent-packs/cli/internal/registry"
 	"github.com/sandeshh/agent-packs/cli/internal/resolve"
 	"github.com/sandeshh/agent-packs/cli/internal/util"
@@ -37,9 +38,14 @@ func PolicyCheck(registryPath, packRef, policyPath string, out io.Writer) error 
 			failed = true
 		}
 		resolution := resolve.ResolveSource(capability.Source)
-		if policy.RequirePinnedRefs && !resolution.Pinned && !util.IsLocalSource(capability.Source) {
-			fmt.Fprintf(out, "FAIL  source is not pinned: %s\n", capability.Source)
-			failed = true
+		if policy.RequirePinnedRefs {
+			if resolution.Kind == "remote" {
+				fmt.Fprintf(out, "FAIL  source revision unresolved: %s\n", capability.Source)
+				failed = true
+			} else if !resolution.Pinned && !util.IsLocalSource(capability.Source) {
+				fmt.Fprintf(out, "FAIL  source is not pinned: %s\n", capability.Source)
+				failed = true
+			}
 		}
 		if capability.Type == "plugin" && capability.Install != nil && capability.Install["command"] != "" && !policy.AllowNativeCommands {
 			fmt.Fprintf(out, "FAIL  native command blocked by policy: %s\n", capability.Name)
@@ -54,53 +60,97 @@ func PolicyCheck(registryPath, packRef, policyPath string, out io.Writer) error 
 }
 
 func Audit(registryPath, packRef string, out io.Writer) error {
-	pack, err := registry.FindPack(registryPath, packRef)
+	return writeAudit(registryPath, packRef, out, false)
+}
+
+func AuditJSON(registryPath, packRef string, out io.Writer) error {
+	return writeAudit(registryPath, packRef, out, true)
+}
+
+func writeAudit(registryPath, packRef string, out io.Writer, asJSON bool) error {
+	report, err := BuildAuditReport(registryPath, packRef)
 	if err != nil {
 		return err
 	}
-	expanded, err := registry.ExpandPack(registryPath, pack, map[string]bool{})
-	if err != nil {
-		return err
+	if asJSON {
+		return output.Encode(out, report)
 	}
-	fmt.Fprintf(out, "SBOM: %s (%s) v%s\n", expanded.Name, expanded.ID, expanded.Version)
+	fmt.Fprintf(out, "SBOM: %s (%s) v%s\n", report.Pack.Name, report.Pack.ID, report.Pack.Version)
 	fmt.Fprintf(out, "Generated for supply-chain audit\n\n")
 	fmt.Fprintf(out, "Pack\n")
-	fmt.Fprintf(out, "  id: %s\n", expanded.ID)
-	fmt.Fprintf(out, "  version: %s\n", expanded.Version)
-	fmt.Fprintf(out, "  license: %s\n", util.ValueOrUnknown(expanded.License))
-	if expanded.UpstreamSource != "" {
-		fmt.Fprintf(out, "  upstreamSource: %s\n", expanded.UpstreamSource)
+	fmt.Fprintf(out, "  id: %s\n", report.Pack.ID)
+	fmt.Fprintf(out, "  version: %s\n", report.Pack.Version)
+	fmt.Fprintf(out, "  license: %s\n", report.Pack.License)
+	if report.Pack.UpstreamSource != "" {
+		fmt.Fprintf(out, "  upstreamSource: %s\n", report.Pack.UpstreamSource)
 	}
-	fmt.Fprintf(out, "\nComponents (%d)\n", len(expanded.Capabilities))
-	failed := false
-	for i, capability := range expanded.Capabilities {
-		resolution := resolve.ResolveSource(capability.Source)
-		fmt.Fprintf(out, "\n[%d] %s:%s\n", i+1, capability.Type, capability.Name)
-		fmt.Fprintf(out, "  source: %s\n", capability.Source)
-		if capability.UpstreamSource != "" {
-			fmt.Fprintf(out, "  upstreamSource: %s\n", capability.UpstreamSource)
+	fmt.Fprintf(out, "\nComponents (%d)\n", len(report.Components))
+	for i, component := range report.Components {
+		fmt.Fprintf(out, "\n[%d] %s:%s\n", i+1, component.Type, component.Name)
+		fmt.Fprintf(out, "  source: %s\n", component.Source)
+		if component.UpstreamSource != "" {
+			fmt.Fprintf(out, "  upstreamSource: %s\n", component.UpstreamSource)
 		}
-		fmt.Fprintf(out, "  format: %s\n", util.ValueOrUnknown(capability.Format))
-		fmt.Fprintf(out, "  license: %s\n", util.ValueOrUnknown(capability.License))
-		fmt.Fprintf(out, "  resolution.kind: %s\n", resolution.Kind)
-		if resolution.Revision != "" {
-			fmt.Fprintf(out, "  resolution.revision: %s\n", resolution.Revision)
+		fmt.Fprintf(out, "  format: %s\n", component.Format)
+		fmt.Fprintf(out, "  license: %s\n", component.License)
+		fmt.Fprintf(out, "  resolution.kind: %s\n", component.Resolution.Kind)
+		if component.Resolution.Revision != "" {
+			fmt.Fprintf(out, "  resolution.revision: %s\n", component.Resolution.Revision)
 		}
-		fmt.Fprintf(out, "  resolution.pinned: %v\n", resolution.Pinned)
-		if capability.Integrity.Checksum != "" {
-			fmt.Fprintf(out, "  integrity.checksum: %s\n", capability.Integrity.Checksum)
+		fmt.Fprintf(out, "  resolution.pinned: %v\n", component.Resolution.Pinned)
+		if component.Integrity.Checksum != "" {
+			fmt.Fprintf(out, "  integrity.checksum: %s\n", component.Integrity.Checksum)
 		}
-		if resolution.Warning != "" {
-			fmt.Fprintf(out, "  WARN: %s\n", resolution.Warning)
-			if !util.IsLocalSource(capability.Source) && (resolution.Kind == "remote" || !resolution.Pinned) {
-				failed = true
-			}
+		if component.Integrity.Signature != "" {
+			fmt.Fprintf(out, "  integrity.signature: %s\n", component.Integrity.Signature)
+		}
+		if component.Resolution.Warning != "" {
+			fmt.Fprintf(out, "  WARN: %s\n", component.Resolution.Warning)
 		}
 	}
-	if failed {
+	if !report.OK {
 		return model.ErrInstallFailed
 	}
 	return nil
+}
+
+func BuildAuditReport(registryPath, packRef string) (model.AuditReport, error) {
+	pack, err := registry.FindPack(registryPath, packRef)
+	if err != nil {
+		return model.AuditReport{}, err
+	}
+	expanded, err := registry.ExpandPack(registryPath, pack, map[string]bool{})
+	if err != nil {
+		return model.AuditReport{}, err
+	}
+	report := model.AuditReport{
+		Pack: model.AuditPack{
+			ID: expanded.ID, Name: expanded.Name, Version: expanded.Version,
+			License: util.ValueOrUnknown(expanded.License), UpstreamSource: expanded.UpstreamSource,
+		},
+		OK: true,
+	}
+	for _, capability := range expanded.Capabilities {
+		resolution := resolve.ResolveSourceLive(capability.Source)
+		component := model.AuditComponent{
+			Type: capability.Type, Name: capability.Name, Source: capability.Source,
+			UpstreamSource: capability.UpstreamSource, Format: util.ValueOrUnknown(capability.Format),
+			License: util.ValueOrUnknown(capability.License), Trust: capability.Trust,
+			NativeCommand: capability.Install != nil && capability.Install["command"] != "",
+		}
+		component.Resolution.Kind = resolution.Kind
+		component.Resolution.Revision = resolution.Revision
+		component.Resolution.Pinned = resolution.Pinned
+		component.Resolution.Warning = resolution.Warning
+		component.Integrity.Checksum = capability.Integrity.Checksum
+		component.Integrity.Signature = capability.Integrity.Signature
+		report.Components = append(report.Components, component)
+		if resolution.Warning != "" && !util.IsLocalSource(capability.Source) && (resolution.Kind == "remote" || !resolution.Pinned) {
+			report.OK = false
+			report.Violations = append(report.Violations, capability.Name+": "+resolution.Warning)
+		}
+	}
+	return report, nil
 }
 
 func LoadTrustPolicy(path string) (model.TrustPolicy, error) {

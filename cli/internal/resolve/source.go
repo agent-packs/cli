@@ -5,9 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -74,52 +72,6 @@ func ResolveSource(source string) model.SourceResolution {
 	default:
 		return model.SourceResolution{Source: source, Kind: "remote", Warning: "remote revision is unresolved; use a pinned commit when possible"}
 	}
-}
-
-func MaterializeSkillSource(source, target string) (string, func(), error) {
-	if util.IsLocalSource(source) {
-		abs, err := filepath.Abs(util.ExpandHome(source))
-		return abs, nil, err
-	}
-	cache := filepath.Join(target, "cache", "sources", util.Slugify(source))
-	_ = os.RemoveAll(cache)
-	if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
-		return "", nil, err
-	}
-	repo, ref, subpath, kind := ParseGitSource(source)
-	if repo == "" {
-		return "", nil, fmt.Errorf("unsupported remote source: %s", source)
-	}
-	args := []string{"clone", "--depth", "1"}
-	if ref != "" && kind != "github-commit" {
-		args = append(args, "--branch", ref)
-	}
-	if kind == "github-commit" {
-		args = append(args, repo, cache)
-		cmd := exec.Command("git", args...)
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
-			return "", nil, fmt.Errorf("git clone failed: %s", strings.TrimSpace(stderr.String()))
-		}
-		checkout := exec.Command("git", "-C", cache, "checkout", ref)
-		checkout.Stderr = &stderr
-		if err := checkout.Run(); err != nil {
-			return "", nil, fmt.Errorf("git checkout failed: %s", strings.TrimSpace(stderr.String()))
-		}
-	} else {
-		args = append(args, repo, cache)
-		cmd := exec.Command("git", args...)
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
-			return "", nil, fmt.Errorf("git clone failed: %s", strings.TrimSpace(stderr.String()))
-		}
-	}
-	if subpath != "" {
-		return filepath.Join(cache, subpath), nil, nil
-	}
-	return cache, nil, nil
 }
 
 func parseGitHubTree(source string) (repo, branch, subpath string) {

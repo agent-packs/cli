@@ -143,26 +143,27 @@ type Plan struct {
 }
 
 type PlanItem struct {
-	Type             string `json:"type"`
-	Name             string `json:"name"`
-	Action           string `json:"action"`
-	Mode             string `json:"mode,omitempty"`
-	OnConflict       string `json:"onConflict,omitempty"`
-	Source           string `json:"source,omitempty"`
-	UpstreamSource   string `json:"upstreamSource,omitempty"`
-	Entry            string `json:"entry,omitempty"`
-	Destination      string `json:"destination,omitempty"`
-	ExpectedChecksum string `json:"expectedChecksum,omitempty"`
-	Status           string `json:"status"`
-	Format           string `json:"format,omitempty"`
-	Command          string `json:"command,omitempty"`
-	Method           string `json:"method,omitempty"`
-	Package          string `json:"package,omitempty"`
-	Marketplace      string `json:"marketplace,omitempty"`
-	Reason           string `json:"reason,omitempty"`
-	ExitCode         *int   `json:"exit_code,omitempty"`
-	Stdout           string `json:"stdout,omitempty"`
-	Stderr           string `json:"stderr,omitempty"`
+	Type              string `json:"type"`
+	Name              string `json:"name"`
+	Action            string `json:"action"`
+	Mode              string `json:"mode,omitempty"`
+	OnConflict        string `json:"onConflict,omitempty"`
+	Source            string `json:"source,omitempty"`
+	UpstreamSource    string `json:"upstreamSource,omitempty"`
+	Entry             string `json:"entry,omitempty"`
+	Destination       string `json:"destination,omitempty"`
+	ExpectedChecksum  string `json:"expectedChecksum,omitempty"`
+	ExpectedSignature string `json:"expectedSignature,omitempty"`
+	Status            string `json:"status"`
+	Format            string `json:"format,omitempty"`
+	Command           string `json:"command,omitempty"`
+	Method            string `json:"method,omitempty"`
+	Package           string `json:"package,omitempty"`
+	Marketplace       string `json:"marketplace,omitempty"`
+	Reason            string `json:"reason,omitempty"`
+	ExitCode          *int   `json:"exit_code,omitempty"`
+	Stdout            string `json:"stdout,omitempty"`
+	Stderr            string `json:"stderr,omitempty"`
 }
 
 type Receipt struct {
@@ -217,10 +218,10 @@ type IndexEntry struct {
 	Description  string   `json:"description"`
 	Tags         []string `json:"tags,omitempty"`
 	Categories   []string `json:"categories,omitempty"`
-	Tools        []string   `json:"tools,omitempty"`
-	Scope        []string   `json:"scope,omitempty"`
-	Skills       []string   `json:"skills,omitempty"`
-	Plugins      []string   `json:"plugins,omitempty"`
+	Tools        []string `json:"tools,omitempty"`
+	Scope        []string `json:"scope,omitempty"`
+	Skills       []string `json:"skills,omitempty"`
+	Plugins      []string `json:"plugins,omitempty"`
 	Capabilities int      `json:"capabilities"`
 }
 

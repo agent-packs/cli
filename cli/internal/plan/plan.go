@@ -125,7 +125,8 @@ func planCapability(capability model.Capability, target, agent string, options m
 			Mode: options.Mode, OnConflict: options.OnConflict,
 			Source: capability.Source, UpstreamSource: capability.UpstreamSource,
 			Entry: entry, Destination: skillDestination(capability, target, agent, options),
-			ExpectedChecksum: expectedChecksum, Status: "planned",
+			ExpectedChecksum: expectedChecksum, ExpectedSignature: capability.Integrity.Signature,
+			Status: "planned",
 		}
 	case "plugin":
 		action := "reference"
@@ -138,7 +139,7 @@ func planCapability(capability model.Capability, target, agent string, options m
 			Source: capability.Source, UpstreamSource: capability.UpstreamSource,
 			Format: capability.Format, Command: capability.Install["command"],
 			Method: capability.Install["method"], Package: capability.Install["package"],
-			Marketplace: capability.Install["marketplace"],
+			Marketplace:      capability.Install["marketplace"],
 			ExpectedChecksum: expectedChecksum, Status: "planned",
 		}
 	default:
