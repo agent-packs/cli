@@ -1,21 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
   <title id="title">Agent Packs high-level architecture</title>
-  <desc id="desc">Public sources feed the Agent Packs registry. The Go CLI resolves packs, writes cache state, receipts, and lockfiles, and targets coding agents such as Codex and Claude Code.</desc>
+  <desc id="desc">Agent Packs aggregates skills, plugins, MCP servers, prompts, templates, commands, hooks, and remote registries into curated packs. The Go CLI resolves packs, creates install plans, writes receipts and lockfiles, and syncs capabilities to coding agents.</desc>
   <defs>
     <style>
       .bg { fill: #f8fafc; }
-      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 14; }
-      .primary { fill: #0f766e; }
-      .primaryText { fill: #ffffff; font: 700 24px Arial, sans-serif; }
-      .title { fill: #0f172a; font: 700 26px Arial, sans-serif; }
-      .label { fill: #334155; font: 600 18px Arial, sans-serif; }
-      .small { fill: #475569; font: 15px Arial, sans-serif; }
-      .tiny { fill: #64748b; font: 13px Arial, sans-serif; }
-      .box { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
-      .store { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 10; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 12; }
+      .source { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 10; }
+      .registry { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 10; }
+      .cli { fill: #0f766e; stroke: #0f766e; stroke-width: 2; rx: 14; }
+      .state { fill: #fefce8; stroke: #ca8a04; stroke-width: 2; rx: 10; }
       .target { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 10; }
-      .warn { fill: #fefce8; stroke: #ca8a04; stroke-width: 2; rx: 10; }
+      .module { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
+      .flow { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; rx: 10; }
+      .title { fill: #0f172a; font: 700 26px Arial, sans-serif; }
+      .label { fill: #0f172a; font: 700 18px Arial, sans-serif; }
+      .small { fill: #334155; font: 15px Arial, sans-serif; }
+      .tiny { fill: #64748b; font: 13px Arial, sans-serif; }
+      .whiteTitle { fill: #ffffff; font: 700 24px Arial, sans-serif; }
+      .whiteSmall { fill: #ccfbf1; font: 15px Arial, sans-serif; }
       .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .softArrow { stroke: #64748b; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead); }
       .dash { stroke: #64748b; stroke-width: 2.5; stroke-dasharray: 8 8; fill: none; marker-end: url(#arrowhead); }
     </style>
     <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
@@ -23,81 +27,122 @@
     </marker>
   </defs>
 
-  <rect class="bg" width="1200" height="720" />
-  <text x="60" y="58" class="title">Agent Packs Architecture</text>
-  <text x="60" y="84" class="small">Curated capability bundles for AI coding agents, with reference-first installation and explicit sync modes.</text>
+  <rect class="bg" width="1200" height="820" />
+  <text x="60" y="56" class="title">Agent Packs Architecture</text>
+  <text x="60" y="82" class="small">A registry and CLI that aggregate public agent capabilities into curated, installable packs.</text>
 
-  <rect x="50" y="125" width="250" height="430" class="panel" />
-  <text x="80" y="165" class="label">Public Sources</text>
-  <rect x="80" y="195" width="190" height="62" class="box" />
-  <text x="105" y="224" class="small">Agent Skills</text>
-  <text x="105" y="244" class="tiny">GitHub repo/path refs</text>
-  <rect x="80" y="280" width="190" height="62" class="box" />
-  <text x="105" y="309" class="small">Claude Plugins</text>
-  <text x="105" y="329" class="tiny">plugin.json manifests</text>
-  <rect x="80" y="365" width="190" height="62" class="box" />
-  <text x="105" y="394" class="small">MCP / Commands</text>
-  <text x="105" y="414" class="tiny">tools, hooks, prompts</text>
-  <rect x="80" y="450" width="190" height="62" class="box" />
-  <text x="105" y="479" class="small">Remote Registries</text>
-  <text x="105" y="499" class="tiny">named git/local sources</text>
+  <rect x="40" y="118" width="270" height="470" class="panel" />
+  <text x="70" y="154" class="label">External Capability Sources</text>
+  <rect x="70" y="180" width="210" height="54" class="source" />
+  <text x="92" y="210" class="small">Agent Skills</text>
+  <text x="92" y="228" class="tiny">SKILL.md repos and paths</text>
+  <rect x="70" y="252" width="210" height="54" class="source" />
+  <text x="92" y="282" class="small">Claude / Codex Plugins</text>
+  <text x="92" y="300" class="tiny">plugin manifests</text>
+  <rect x="70" y="324" width="210" height="54" class="source" />
+  <text x="92" y="354" class="small">MCP Servers</text>
+  <text x="92" y="372" class="tiny">tools and integrations</text>
+  <rect x="70" y="396" width="210" height="54" class="source" />
+  <text x="92" y="426" class="small">Prompts / Templates</text>
+  <text x="92" y="444" class="tiny">workflow assets</text>
+  <rect x="70" y="468" width="210" height="54" class="source" />
+  <text x="92" y="498" class="small">Commands / Hooks</text>
+  <text x="92" y="516" class="tiny">automation snippets</text>
+  <rect x="70" y="540" width="210" height="38" class="source" />
+  <text x="92" y="564" class="small">Remote registries</text>
 
-  <rect x="380" y="125" width="280" height="430" class="panel" />
-  <text x="410" y="165" class="label">Agent Packs Registry</text>
-  <rect x="410" y="195" width="220" height="62" class="store" />
-  <text x="435" y="224" class="small">registry/packs</text>
-  <text x="435" y="244" class="tiny">pack manifests</text>
-  <rect x="410" y="280" width="220" height="62" class="store" />
-  <text x="435" y="309" class="small">registry/skills</text>
-  <text x="435" y="329" class="tiny">reference SKILL.md entries</text>
-  <rect x="410" y="365" width="220" height="62" class="store" />
-  <text x="435" y="394" class="small">registry/plugins</text>
-  <text x="435" y="414" class="tiny">reference plugin dirs</text>
-  <rect x="410" y="450" width="220" height="62" class="store" />
-  <text x="435" y="479" class="small">schemas/examples</text>
-  <text x="435" y="499" class="tiny">validation and docs</text>
+  <rect x="365" y="178" width="180" height="170" class="module" />
+  <text x="398" y="220" class="label">Aggregator</text>
+  <text x="392" y="250" class="small">normalizes refs</text>
+  <text x="392" y="274" class="small">keeps provenance</text>
+  <text x="392" y="298" class="small">composes packs</text>
+  <text x="392" y="322" class="small">validates formats</text>
 
-  <rect x="735" y="145" width="240" height="120" class="primary" rx="14" />
-  <text x="785" y="193" class="primaryText">Go CLI</text>
-  <text x="772" y="222" class="primaryText" style="font-size:18px">agent-packs</text>
-  <text x="748" y="252" class="small" style="fill:#ccfbf1">search, install, update, verify</text>
+  <rect x="360" y="410" width="190" height="178" class="panel" />
+  <text x="390" y="446" class="label">Agent Packs Registry</text>
+  <rect x="390" y="468" width="130" height="34" class="registry" />
+  <text x="413" y="490" class="tiny">registry/packs</text>
+  <rect x="390" y="512" width="130" height="34" class="registry" />
+  <text x="412" y="534" class="tiny">registry/skills</text>
+  <rect x="390" y="556" width="130" height="34" class="registry" />
+  <text x="407" y="578" class="tiny">registry/plugins</text>
 
-  <rect x="720" y="330" width="270" height="185" class="panel" />
-  <text x="750" y="370" class="label">State Store</text>
-  <rect x="750" y="392" width="210" height="38" class="warn" />
-  <text x="775" y="416" class="small">cache / sources</text>
-  <rect x="750" y="440" width="210" height="38" class="warn" />
-  <text x="775" y="464" class="small">receipts</text>
-  <rect x="750" y="488" width="210" height="38" class="warn" />
-  <text x="775" y="512" class="small">lockfiles + revisions</text>
+  <rect x="605" y="154" width="220" height="132" class="cli" />
+  <text x="668" y="205" class="whiteTitle">Go CLI</text>
+  <text x="655" y="232" class="whiteSmall">agent-packs</text>
+  <text x="627" y="258" class="whiteSmall">search, install, verify</text>
 
-  <rect x="1035" y="125" width="120" height="430" class="panel" />
-  <text x="1052" y="165" class="label">Targets</text>
-  <rect x="1050" y="195" width="90" height="52" class="target" />
-  <text x="1069" y="226" class="small">Codex</text>
-  <rect x="1050" y="270" width="90" height="52" class="target" />
-  <text x="1060" y="301" class="small">Claude</text>
-  <rect x="1050" y="345" width="90" height="52" class="target" />
-  <text x="1066" y="376" class="small">Cursor</text>
-  <rect x="1050" y="420" width="90" height="52" class="target" />
-  <text x="1062" y="451" class="small">Generic</text>
+  <rect x="590" y="340" width="275" height="248" class="panel" />
+  <text x="625" y="378" class="label">Core Modules</text>
+  <rect x="625" y="404" width="100" height="38" class="module" />
+  <text x="653" y="428" class="small">resolve</text>
+  <rect x="745" y="404" width="100" height="38" class="module" />
+  <text x="781" y="428" class="small">plan</text>
+  <rect x="625" y="458" width="100" height="38" class="module" />
+  <text x="653" y="482" class="small">install</text>
+  <rect x="745" y="458" width="100" height="38" class="module" />
+  <text x="778" y="482" class="small">policy</text>
+  <rect x="625" y="512" width="100" height="38" class="module" />
+  <text x="651" y="536" class="small">validate</text>
+  <rect x="745" y="512" width="100" height="38" class="module" />
+  <text x="776" y="536" class="small">output</text>
 
-  <path class="arrow" d="M300 310 C330 310, 345 310, 380 310" />
-  <path class="arrow" d="M660 260 C700 240, 710 220, 735 210" />
-  <path class="arrow" d="M855 265 L855 330" />
-  <path class="arrow" d="M975 205 C1002 205, 1010 205, 1035 205" />
-  <path class="dash" d="M975 425 C1005 425, 1014 425, 1035 425" />
+  <rect x="910" y="118" width="145" height="238" class="panel" />
+  <text x="947" y="154" class="label">State</text>
+  <rect x="934" y="182" width="96" height="34" class="state" />
+  <text x="954" y="204" class="tiny">cache</text>
+  <rect x="934" y="228" width="96" height="34" class="state" />
+  <text x="950" y="250" class="tiny">sources</text>
+  <rect x="934" y="274" width="96" height="34" class="state" />
+  <text x="950" y="296" class="tiny">receipts</text>
+  <rect x="934" y="320" width="96" height="34" class="state" />
+  <text x="950" y="342" class="tiny">lockfiles</text>
 
-  <text x="675" y="615" class="label">Sync Modes</text>
-  <rect x="675" y="635" width="130" height="36" class="box" />
-  <text x="701" y="658" class="small">reference</text>
-  <rect x="820" y="635" width="110" height="36" class="box" />
-  <text x="845" y="658" class="small">symlink</text>
-  <rect x="945" y="635" width="90" height="36" class="box" />
-  <text x="973" y="658" class="small">copy</text>
-  <rect x="1050" y="635" width="100" height="36" class="box" />
-  <text x="1074" y="658" class="small">native</text>
+  <rect x="1070" y="118" width="125" height="470" class="panel" />
+  <text x="1092" y="154" class="label">Targets</text>
+  <rect x="1088" y="182" width="82" height="40" class="target" />
+  <text x="1110" y="207" class="tiny">Codex</text>
+  <rect x="1088" y="240" width="82" height="40" class="target" />
+  <text x="1106" y="265" class="tiny">Claude</text>
+  <rect x="1088" y="298" width="82" height="40" class="target" />
+  <text x="1109" y="323" class="tiny">Cursor</text>
+  <rect x="1088" y="356" width="82" height="40" class="target" />
+  <text x="1109" y="381" class="tiny">Gemini</text>
+  <rect x="1088" y="414" width="82" height="40" class="target" />
+  <text x="1105" y="439" class="tiny">Copilot</text>
+  <rect x="1088" y="472" width="82" height="40" class="target" />
+  <text x="1108" y="497" class="tiny">Goose</text>
+  <rect x="1088" y="530" width="82" height="40" class="target" />
+  <text x="1104" y="555" class="tiny">Generic</text>
 
-  <text x="60" y="638" class="label">Core Flow</text>
-  <text x="60" y="665" class="small">Public source references -> registry manifests -> CLI transaction plan -> cache/receipts/locks -> agent targets.</text>
+  <path class="softArrow" d="M280 207 C318 207, 330 210, 365 230" />
+  <path class="softArrow" d="M280 279 C320 279, 333 270, 365 260" />
+  <path class="softArrow" d="M280 351 C320 351, 334 316, 365 292" />
+  <path class="softArrow" d="M280 423 C330 423, 335 342, 365 318" />
+  <path class="softArrow" d="M280 495 C342 495, 335 353, 365 332" />
+  <path class="softArrow" d="M455 348 L455 410" />
+  <path class="arrow" d="M545 260 C575 245, 586 225, 605 220" />
+  <path class="arrow" d="M715 286 L715 340" />
+  <path class="arrow" d="M825 220 C870 220, 882 220, 910 220" />
+  <path class="arrow" d="M865 470 C910 470, 1025 270, 1070 270" />
+  <path class="dash" d="M865 540 C930 540, 1025 550, 1070 550" />
+
+  <rect x="60" y="640" width="520" height="116" class="flow" />
+  <text x="90" y="678" class="label">Core Flow</text>
+  <text x="90" y="706" class="small">1. Aggregate public source references into registry entries.</text>
+  <text x="90" y="730" class="small">2. Resolve a pack into a transaction plan.</text>
+  <text x="90" y="754" class="small">3. Write receipts and lockfiles, then sync to agent targets.</text>
+
+  <rect x="650" y="640" width="490" height="116" class="flow" />
+  <text x="680" y="678" class="label">Sync Modules</text>
+  <rect x="680" y="704" width="102" height="36" class="module" />
+  <text x="701" y="727" class="small">reference</text>
+  <rect x="800" y="704" width="96" height="36" class="module" />
+  <text x="821" y="727" class="small">symlink</text>
+  <rect x="914" y="704" width="78" height="36" class="module" />
+  <text x="941" y="727" class="small">copy</text>
+  <rect x="1010" y="704" width="88" height="36" class="module" />
+  <text x="1031" y="727" class="small">native</text>
+
+  <text x="60" y="794" class="tiny">Reference-first by default: source provenance stays visible while teams choose copy, symlink, or native install where appropriate.</text>
 </svg>
