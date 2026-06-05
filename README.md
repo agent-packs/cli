@@ -64,6 +64,10 @@ cli/bin/agent-packs search frontend --json
 cli/bin/agent-packs show frontend-engineer --json
 cli/bin/agent-packs audit frontend-engineer --json
 cli/bin/agent-packs upgrade frontend-engineer --target ./sandbox
+cli/bin/agent-packs rollback frontend-engineer --target ./sandbox
+cli/bin/agent-packs tree eng-leader
+cli/bin/agent-packs publish --check
+cli/bin/agent-packs new pack platform-engineer --dir registry/packs
 cli/bin/agent-packs registry add local /path/to/agent-packs
 cli/bin/agent-packs install local/frontend-engineer --dry-run
 cli/bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
@@ -139,9 +143,13 @@ Agent Packs supports a basic package-manager lifecycle:
 - `update --all`: refreshes configured registries.
 - `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
 - `upgrade <pack>`: re-installs using the prior receipt settings.
+- `rollback <pack>`: restores the previous receipt-backed install state when history exists.
 - `audit <pack>`: supply-chain SBOM report (`--json` supported).
 - `version`: prints CLI version (`--json` supported).
 - `init [dir]`: writes `.agent-packs.yaml` project defaults.
+- `new pack|skill|plugin <id>`: scaffolds valid starter manifests.
+- `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
+- `publish --check`: runs contributor checks before opening a registry PR.
 - `scan [path]`: discovers existing `SKILL.md` files.
 - `import <skills-dir>`: copies discovered skills into `<target>/sources/imported/`.
 - `lint <pack>`: validates pack metadata.
@@ -235,6 +243,10 @@ Packs can include other packs with the `packs` field. They can also include reus
 Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack can reference them by ID, or bypass local registry entries by using object refs with remote `source` URLs. The CLI treats both forms as references rather than installable copies.
 
 Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.source` on registry skills and `repository` or `homepage` on registry plugins to point at the remote source.
+
+Registry entries can include catalog metadata such as `maintainers`, `stability`,
+`lastVerified`, `reviewStatus`, `deprecated`, `replacement`, and `requirements`.
+These fields power registry search, publish checks, and the static catalog.
 
 ## Examples
 

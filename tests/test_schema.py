@@ -75,11 +75,32 @@ def validate_pack(pack, schema):
     if isinstance(pack.get("id"), str) and not re.fullmatch(id_pattern, pack["id"]):
         errors.append("id does not match schema pattern")
 
-    for array_field in ("tags", "categories", "tools", "scope"):
+    for array_field in ("tags", "categories", "tools", "scope", "maintainers"):
         if array_field in pack and isinstance(pack[array_field], list):
             for index, value in enumerate(pack[array_field]):
                 if not isinstance(value, str):
                     errors.append(f"{array_field}[{index}] must be a string")
+
+    for string_field in ("stability", "replacement", "lastVerified", "reviewStatus"):
+        if string_field in pack and not isinstance(pack[string_field], str):
+            errors.append(f"{string_field} must be a string")
+    if "deprecated" in pack and not isinstance(pack["deprecated"], bool):
+        errors.append("deprecated must be a boolean")
+    requirements = pack.get("requirements")
+    if requirements is not None:
+        if not isinstance(requirements, dict):
+            errors.append("requirements must be an object")
+        else:
+            if "agentPacks" in requirements and not isinstance(requirements["agentPacks"], str):
+                errors.append("requirements.agentPacks must be a string")
+            tools = requirements.get("tools")
+            if tools is not None:
+                if not isinstance(tools, dict):
+                    errors.append("requirements.tools must be an object")
+                else:
+                    for tool, version in tools.items():
+                        if not isinstance(tool, str) or not isinstance(version, str):
+                            errors.append("requirements.tools entries must be strings")
 
     refs = pack.get("packs")
     if refs is not None:

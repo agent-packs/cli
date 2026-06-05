@@ -44,6 +44,8 @@ func main() {
 		err = runOutdated(registry, defaultTarget, os.Args[2:])
 	case "upgrade":
 		err = runUpgrade(registry, defaultTarget, os.Args[2:])
+	case "rollback":
+		err = runRollback(defaultTarget, os.Args[2:])
 	case "audit":
 		err = runAudit(registry, os.Args[2:])
 	case "update":
@@ -58,6 +60,8 @@ func main() {
 		err = runAttribution(registry, os.Args[2:])
 	case "index":
 		err = runIndex(registry, os.Args[2:])
+	case "tree", "deps":
+		err = runTree(registry, os.Args[2:])
 	case "diff":
 		err = runDiff(registry, defaultTarget, os.Args[2:])
 	case "compat":
@@ -84,6 +88,10 @@ func main() {
 		err = runVersion(os.Args[2:])
 	case "init":
 		err = runInit(os.Args[2:])
+	case "new":
+		err = runNew(os.Args[2:])
+	case "publish":
+		err = runPublish(registry, os.Args[2:])
 	case "help", "--help", "-h":
 		usage()
 		return
@@ -278,6 +286,20 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 	return agentpacks.Upgrade(registry, *target, remaining[0], *target, *executePlugins, os.Stdout)
 }
 
+func runRollback(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("rollback", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs rollback <pack-id> [--target dir]")
+	}
+	return agentpacks.Rollback(*target, remaining[0], os.Stdout)
+}
+
 func runAudit(registry string, args []string) error {
 	asJSON, args := extractJSONFlag(args)
 	if len(args) != 1 {
@@ -319,6 +341,31 @@ func runInit(args []string) error {
 		Agent: *agent, Mode: *mode, OnConflict: *onConflict, Scope: *scope,
 		Registry: *registryPath, Target: *target, Force: *force,
 	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Wrote %s\n", path)
+	return nil
+}
+
+func runNew(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+	}
+	kind := args[0]
+	flags := flag.NewFlagSet("new "+kind, flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	name := flags.String("name", "", "display name")
+	dir := flags.String("dir", ".", "output directory")
+	force := flags.Bool("force", false, "overwrite existing files")
+	if err := flags.Parse(normalizeNewArgs(args[1:])); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+	}
+	path, err := agentpacks.New(agentpacks.NewOptions{Kind: kind, ID: remaining[0], Name: *name, Dir: *dir, Force: *force})
 	if err != nil {
 		return err
 	}
@@ -388,6 +435,74 @@ func runIndex(registry string, args []string) error {
 		return fmt.Errorf("usage: agent-packs index [--output path]")
 	}
 	return agentpacks.GenerateIndex(registry, *output, os.Stdout)
+}
+
+func runTree(registry string, args []string) error {
+	asJSON, args := extractJSONFlag(args)
+	if len(args) != 1 {
+		return fmt.Errorf("usage: agent-packs tree <pack-id> [--json]")
+	}
+	tree, err := agentpacks.DependencyTreeForPack(registry, args[0])
+	if err != nil {
+		return err
+	}
+	if asJSON {
+		return output.Encode(os.Stdout, tree)
+	}
+	printDependencyTree(tree)
+	return nil
+}
+
+func printDependencyTree(tree agentpacks.DependencyTree) {
+	fmt.Printf("%s@%s\n", tree.Pack, tree.Version)
+	for i, node := range tree.Dependencies {
+		printDependencyNode(node, "", i == len(tree.Dependencies)-1)
+	}
+}
+
+func printDependencyNode(node agentpacks.DependencyNode, prefix string, last bool) {
+	branch := "+- "
+	nextPrefix := prefix + "|  "
+	if last {
+		branch = "`- "
+		nextPrefix = prefix + "   "
+	}
+	label := node.Type + ":" + node.Name
+	if node.ID != "" {
+		label += " (" + node.ID + ")"
+	}
+	if node.Trust != "" {
+		label += " [" + node.Trust + "]"
+	}
+	fmt.Println(prefix + branch + label)
+	if node.Source != "" {
+		fmt.Println(nextPrefix + "source: " + node.Source)
+	}
+	for i, child := range node.Dependencies {
+		printDependencyNode(child, nextPrefix, i == len(node.Dependencies)-1)
+	}
+}
+
+func runPublish(registry string, args []string) error {
+	asJSON, args := extractJSONFlag(args)
+	flags := flag.NewFlagSet("publish", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	check := flags.Bool("check", false, "run contributor publish checks")
+	policyPath := flags.String("policy", filepath.Join(filepath.Dir(registry), "policy", "default.json"), "policy file")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if !*check || len(flags.Args()) != 0 {
+		return fmt.Errorf("usage: agent-packs publish --check [--policy file] [--json]")
+	}
+	if asJSON {
+		report, err := agentpacks.PublishReportForRegistry(registry, *policyPath)
+		if err != nil {
+			return err
+		}
+		return output.Encode(os.Stdout, report)
+	}
+	return agentpacks.PublishCheck(registry, *policyPath, os.Stdout)
 }
 
 func runDiff(registry, defaultTarget string, args []string) error {
@@ -555,6 +670,32 @@ func normalizeAgentArgs(args []string) []string {
 	return append(flags, positionals...)
 }
 
+func normalizeNewArgs(args []string) []string {
+	flags := []string{}
+	positionals := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--force" {
+			flags = append(flags, arg)
+			continue
+		}
+		if arg == "--name" || arg == "--dir" {
+			flags = append(flags, arg)
+			if i+1 < len(args) {
+				flags = append(flags, args[i+1])
+				i++
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "--name=") || strings.HasPrefix(arg, "--dir=") {
+			flags = append(flags, arg)
+			continue
+		}
+		positionals = append(positionals, arg)
+	}
+	return append(flags, positionals...)
+}
+
 func normalizeTargetArgs(args []string) []string {
 	flags := []string{}
 	positionals := []string{}
@@ -597,9 +738,13 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id> [--target dir] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id> [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native]")
+	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
 	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs tree|deps <pack-id> [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs publish --check [--policy file] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs policy check <pack-id> <policy.json>")
 	fmt.Fprintln(os.Stderr, "  agent-packs licenses|attribution|resolve <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path]")

@@ -58,6 +58,8 @@ jobs:
           for pack in frontend-engineer pr-review eng-leader; do
             cli/bin/agent-packs policy check "$pack" registry/policy/default.json
           done
+      - name: Publish check
+        run: cli/bin/agent-packs publish --check
       - name: Generate registry index
         run: cli/bin/agent-packs index --output registry/index.json
       - name: Check registry index is up to date

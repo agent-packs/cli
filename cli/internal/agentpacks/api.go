@@ -3,6 +3,7 @@ package agentpacks
 import (
 	"io"
 
+	"github.com/sandeshh/agent-packs/cli/internal/author"
 	"github.com/sandeshh/agent-packs/cli/internal/config"
 	"github.com/sandeshh/agent-packs/cli/internal/install"
 	"github.com/sandeshh/agent-packs/cli/internal/model"
@@ -41,6 +42,11 @@ type (
 	OutdatedReport      = model.OutdatedReport
 	InstalledSummary    = model.InstalledSummary
 	CompatibilityResult = model.CompatibilityResult
+	DependencyTree      = model.DependencyTree
+	DependencyNode      = model.DependencyNode
+	PublishReport       = model.PublishReport
+	CheckEntry          = model.CheckEntry
+	NewOptions          = author.NewOptions
 )
 
 var (
@@ -82,6 +88,9 @@ func Show(registry, id string, out io.Writer) error          { return reg.Show(r
 func GenerateIndex(registry, outputPath string, out io.Writer) error {
 	return reg.GenerateIndex(registry, outputPath, out)
 }
+func DependencyTreeForPack(registry, packRef string) (DependencyTree, error) {
+	return reg.DependencyTree(registry, packRef)
+}
 func RegistryAdd(home, name, source string) error            { return reg.RegistryAdd(home, name, source) }
 func RegistryRemove(home, name string) error                 { return reg.RegistryRemove(home, name) }
 func RegistryList(home string, out io.Writer) error          { return reg.RegistryList(home, out) }
@@ -104,6 +113,9 @@ func InstallWithOptions(registry, home, packRef, target, agent, only string, exe
 }
 func Upgrade(registry, home, packRef, target string, executePlugins bool, out io.Writer) error {
 	return install.Upgrade(registry, home, packRef, target, executePlugins, out)
+}
+func Rollback(target, packID string, out io.Writer) error {
+	return install.Rollback(target, packID, out)
 }
 func ExecutePlan(p Plan, executePlugins bool) Plan { return install.ExecutePlan(p, executePlugins) }
 func WriteReceipt(target string, pack Pack, p Plan) (string, error) {
@@ -186,6 +198,12 @@ func Compatibility(registry, packRef, agent string, out io.Writer) error {
 func CompatibilityReport(registry, packRef, agent string) (CompatibilityResult, error) {
 	return validate.CompatibilityReport(registry, packRef, agent)
 }
+func PublishCheck(registry, policyPath string, out io.Writer) error {
+	return validate.PublishCheck(registry, policyPath, out)
+}
+func PublishReportForRegistry(registry, policyPath string) (PublishReport, error) {
+	return validate.PublishReport(registry, policyPath)
+}
 
 func ResolveSource(source string) SourceResolution { return resolve.ResolveSource(source) }
 func PrintTargetMatrix(out io.Writer) error        { return targets.PrintTargetMatrix(out) }
@@ -196,3 +214,4 @@ func InitProject(projectDir string, opts config.InitOptions) (string, error) {
 func LoadProjectConfig(projectDir string) (ProjectConfig, error) {
 	return config.LoadProjectConfig(projectDir)
 }
+func New(opts NewOptions) (string, error) { return author.New(opts) }

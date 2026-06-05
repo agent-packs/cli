@@ -4,6 +4,12 @@
   "version": "0.1.0",
   "description": "A leadership-focused Agent Pack for engineering strategy, planning, quality gates, architecture decisions, delivery health, launch readiness, security risk, and performance health.",
   "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-05",
+  "reviewStatus": "reviewed",
   "tags": [
     "engineering-leadership",
     "strategy",

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sandeshh/agent-packs/cli/internal/model"
+	"github.com/sandeshh/agent-packs/cli/internal/policy"
 	"github.com/sandeshh/agent-packs/cli/internal/registry"
 	"github.com/sandeshh/agent-packs/cli/internal/resolve"
 	"github.com/sandeshh/agent-packs/cli/internal/targets"
@@ -182,6 +183,15 @@ func ValidatePack(pack model.Pack) []string {
 	if pack.Description == "" {
 		errs = append(errs, "description is required")
 	}
+	if pack.Stability != "" && pack.Stability != "experimental" && pack.Stability != "stable" && pack.Stability != "deprecated" {
+		errs = append(errs, "stability must be experimental, stable, or deprecated")
+	}
+	if pack.ReviewStatus != "" && pack.ReviewStatus != "draft" && pack.ReviewStatus != "reviewed" && pack.ReviewStatus != "verified" {
+		errs = append(errs, "reviewStatus must be draft, reviewed, or verified")
+	}
+	if pack.Deprecated && pack.Replacement == "" {
+		errs = append(errs, "replacement is required when deprecated is true")
+	}
 	if len(pack.Capabilities) == 0 && len(pack.Packs) == 0 && len(pack.Skills) == 0 && len(pack.Plugins) == 0 {
 		errs = append(errs, "capabilities, packs, skills, or plugins is required")
 	}
@@ -228,6 +238,84 @@ func Lint(registryPath, packRef string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "OK    %s\n", pack.ID)
 	return nil
+}
+
+func PublishCheck(registryPath, policyPath string, out io.Writer) error {
+	report, err := PublishReport(registryPath, policyPath)
+	if err != nil {
+		return err
+	}
+	for _, check := range report.Checks {
+		fmt.Fprintf(out, "%s\t%s\t%s", check.Status, check.Kind, check.Target)
+		if check.Message != "" {
+			fmt.Fprintf(out, "\t%s", check.Message)
+		}
+		fmt.Fprintln(out)
+	}
+	if !report.OK {
+		return model.ErrInstallFailed
+	}
+	return nil
+}
+
+func PublishReport(registryPath, policyPath string) (model.PublishReport, error) {
+	report := model.PublishReport{Registry: registryPath, OK: true}
+	root := registry.RegistryRoot(registryPath)
+	add := func(kind, target, status, message string) {
+		if status == "FAIL" {
+			report.OK = false
+		}
+		report.Checks = append(report.Checks, model.CheckEntry{Kind: kind, Target: target, Status: status, Message: message})
+	}
+	packs, err := registry.LoadPacks(registryPath)
+	if err != nil {
+		return report, err
+	}
+	seen := map[string]string{}
+	for _, pack := range packs {
+		if previous, ok := seen[pack.ID]; ok {
+			add("duplicate-id", pack.ID, "FAIL", "also defined in "+previous)
+		} else {
+			seen[pack.ID] = pack.Path
+		}
+		if errs := ValidatePack(pack); len(errs) > 0 {
+			add("schema", pack.ID, "FAIL", strings.Join(errs, "; "))
+		} else {
+			add("schema", pack.ID, "OK", "")
+		}
+		var sink strings.Builder
+		if err := Verify(registryPath, pack.ID, &sink); err != nil {
+			add("verify", pack.ID, "FAIL", strings.TrimSpace(sink.String()))
+		} else {
+			add("verify", pack.ID, "OK", "")
+		}
+		audit, err := policy.BuildAuditReport(registryPath, pack.ID)
+		if err != nil {
+			add("audit", pack.ID, "FAIL", err.Error())
+		} else if !audit.OK {
+			add("audit", pack.ID, "WARN", strings.Join(audit.Violations, "; "))
+		} else {
+			add("audit", pack.ID, "OK", "")
+		}
+		if policyPath != "" {
+			var policySink strings.Builder
+			if err := policy.PolicyCheck(registryPath, pack.ID, policyPath, &policySink); err != nil {
+				add("policy", pack.ID, "FAIL", strings.TrimSpace(policySink.String()))
+			} else {
+				add("policy", pack.ID, "OK", "")
+			}
+		}
+	}
+	for _, dir := range []string{"skills", "plugins", "schemas/examples"} {
+		path := filepath.Join(root, dir)
+		var sink strings.Builder
+		if err := ValidatePath(path, &sink); err != nil {
+			add("validate", dir, "FAIL", strings.TrimSpace(sink.String()))
+		} else {
+			add("validate", dir, "OK", "")
+		}
+	}
+	return report, nil
 }
 
 func Verify(registryPath, packRef string, out io.Writer) error {

@@ -111,6 +111,45 @@ func Upgrade(registryPath, home, packRef, target string, executePlugins bool, ou
 	return InstallWithOptions(registryPath, home, packRef, target, receipt.Plan.Agent, only, executePlugins, false, options, out)
 }
 
+func Rollback(target, packID string, out io.Writer) error {
+	absTarget, err := filepath.Abs(util.ExpandHome(target))
+	if err != nil {
+		return err
+	}
+	historyReceipt, err := latestHistoryFile(filepath.Join(absTarget, "receipts", "history"), packID, ".json")
+	if err != nil {
+		return err
+	}
+	previous, err := LoadReceipt(historyReceipt)
+	if err != nil {
+		return err
+	}
+	current, err := LoadReceipt(filepath.Join(absTarget, "receipts", packID+".json"))
+	if err == nil {
+		for _, item := range current.Plan.Capabilities {
+			if item.Type == "skill" && item.Destination != "" && item.Status == "installed" {
+				_ = os.RemoveAll(item.Destination)
+			}
+		}
+	}
+	result := ExecutePlan(previous.Plan, false)
+	if _, err := WriteReceiptWithoutSnapshot(absTarget, previous.Pack, result); err != nil {
+		return err
+	}
+	packDir := filepath.Join(absTarget, "packs", packID)
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		return err
+	}
+	if err := util.WriteJSON(filepath.Join(packDir, "agent-pack.json"), previous.Pack); err != nil {
+		return err
+	}
+	if err := WriteLockfile(packDir, previous.Pack); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Rolled back %s using %s\n", packID, historyReceipt)
+	return nil
+}
+
 func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 	results := make([]model.PlanItem, 0, len(installPlan.Capabilities))
 	for _, item := range installPlan.Capabilities {
@@ -129,6 +168,13 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 }
 
 func WriteReceipt(target string, pack model.Pack, installPlan model.Plan) (string, error) {
+	if err := SnapshotInstall(target, pack.ID); err != nil {
+		return "", err
+	}
+	return WriteReceiptWithoutSnapshot(target, pack, installPlan)
+}
+
+func WriteReceiptWithoutSnapshot(target string, pack model.Pack, installPlan model.Plan) (string, error) {
 	receiptsDir := filepath.Join(target, "receipts")
 	if err := os.MkdirAll(receiptsDir, 0o755); err != nil {
 		return "", err
@@ -136,6 +182,50 @@ func WriteReceipt(target string, pack model.Pack, installPlan model.Plan) (strin
 	receiptPath := filepath.Join(receiptsDir, pack.ID+".json")
 	receipt := model.Receipt{InstalledAt: time.Now().UTC().Format(time.RFC3339Nano), Pack: pack, Plan: installPlan}
 	return receiptPath, util.WriteJSON(receiptPath, receipt)
+}
+
+func SnapshotInstall(target, packID string) error {
+	timestamp := time.Now().UTC().Format("20060102150405.000000000")
+	receiptPath := filepath.Join(target, "receipts", packID+".json")
+	if _, err := os.Stat(receiptPath); err == nil {
+		historyDir := filepath.Join(target, "receipts", "history")
+		if err := os.MkdirAll(historyDir, 0o755); err != nil {
+			return err
+		}
+		if err := util.CopyFile(receiptPath, filepath.Join(historyDir, packID+"-"+timestamp+".json")); err != nil {
+			return err
+		}
+	}
+	packDir := filepath.Join(target, "packs", packID)
+	if _, err := os.Stat(packDir); err == nil {
+		historyDir := filepath.Join(target, "packs", ".history", packID+"-"+timestamp)
+		if err := util.CopyDir(packDir, historyDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func latestHistoryFile(dir, packID, suffix string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("no rollback history for %s: %w", packID, err)
+	}
+	matches := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, packID+"-") && strings.HasSuffix(name, suffix) {
+			matches = append(matches, filepath.Join(dir, name))
+		}
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no rollback history for %s", packID)
+	}
+	sort.Strings(matches)
+	return matches[len(matches)-1], nil
 }
 
 func LoadReceipt(path string) (model.Receipt, error) {

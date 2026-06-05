@@ -12,6 +12,13 @@ type Pack struct {
 	Description    string         `json:"description"`
 	UpstreamSource string         `json:"upstreamSource,omitempty"`
 	License        string         `json:"license,omitempty"`
+	Maintainers    []string       `json:"maintainers,omitempty"`
+	Stability      string         `json:"stability,omitempty"`
+	Deprecated     bool           `json:"deprecated,omitempty"`
+	Replacement    string         `json:"replacement,omitempty"`
+	LastVerified   string         `json:"lastVerified,omitempty"`
+	ReviewStatus   string         `json:"reviewStatus,omitempty"`
+	Requirements   Requirements   `json:"requirements,omitempty"`
 	Tags           []string       `json:"tags,omitempty"`
 	Categories     []string       `json:"categories,omitempty"`
 	Tools          []string       `json:"tools,omitempty"`
@@ -93,6 +100,11 @@ type Capability struct {
 type Integrity struct {
 	Checksum  string `json:"checksum,omitempty"`
 	Signature string `json:"signature,omitempty"`
+}
+
+type Requirements struct {
+	AgentPacks string            `json:"agentPacks,omitempty"`
+	Tools      map[string]string `json:"tools,omitempty"`
 }
 
 type SkillManifest struct {
@@ -216,6 +228,12 @@ type IndexEntry struct {
 	Name         string   `json:"name"`
 	Version      string   `json:"version"`
 	Description  string   `json:"description"`
+	Maintainers  []string `json:"maintainers,omitempty"`
+	Stability    string   `json:"stability,omitempty"`
+	Deprecated   bool     `json:"deprecated,omitempty"`
+	Replacement  string   `json:"replacement,omitempty"`
+	LastVerified string   `json:"lastVerified,omitempty"`
+	ReviewStatus string   `json:"reviewStatus,omitempty"`
 	Tags         []string `json:"tags,omitempty"`
 	Categories   []string `json:"categories,omitempty"`
 	Tools        []string `json:"tools,omitempty"`

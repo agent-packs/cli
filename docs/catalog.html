@@ -26,6 +26,8 @@
           <h2>${p.name} <code>${p.id}</code></h2>
           <p>${p.description}</p>
           <p><strong>Version:</strong> ${p.version}</p>
+          <p><strong>Status:</strong> ${p.reviewStatus || 'unreviewed'} ${p.stability ? `(${p.stability})` : ''}</p>
+          <p><strong>Maintainers:</strong> ${(p.maintainers || []).join(', ') || 'unknown'}</p>
           <p><strong>Tags:</strong> ${(p.tags || []).join(', ')}</p>
           <p><strong>Tools:</strong> ${(p.tools || []).join(', ')}</p>
           <p><code>agent-packs install ${p.id}</code></p>

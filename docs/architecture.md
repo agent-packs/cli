@@ -9,6 +9,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 - Registry skills: Agent Skill source references under `registry/skills/<id>/SKILL.md`.
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
+- Catalog metadata: maintainers, stability, review status, deprecation, replacement, last verified date, and tool/version requirements.
 - Policy defaults: `registry/policy/default.json`.
 - Receipts: `<target>/receipts/<pack-id>.json`.
 - Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`, including source revision fields when locally resolvable.
@@ -24,9 +25,11 @@ Implemented commands:
 - `agent-packs list [--json]`
 - `agent-packs uninstall <pack>`
 - `agent-packs upgrade <pack>`
+- `agent-packs rollback <pack>`
 - `agent-packs audit <pack> [--json]`
 - `agent-packs version [--json]`
 - `agent-packs init [dir]`
+- `agent-packs new <pack|skill|plugin> <id>`
 - `agent-packs doctor`
 - `agent-packs doctor targets`
 - `agent-packs validate <file-or-directory>`
@@ -41,6 +44,8 @@ Implemented commands:
 - `agent-packs lint <pack>`
 - `agent-packs verify <pack>`
 - `agent-packs resolve <pack>`
+- `agent-packs tree|deps <pack> [--json]`
+- `agent-packs publish --check [--json]`
 - `agent-packs policy check <pack> <policy.json>`
 - `agent-packs licenses <pack>`
 - `agent-packs attribution <pack>`

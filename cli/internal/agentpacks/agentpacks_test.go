@@ -477,6 +477,72 @@ func TestOutdatedReportsPackVersion(t *testing.T) {
 	}
 }
 
+func TestDependencyTreeIncludesReferencedCapabilities(t *testing.T) {
+	temp := t.TempDir()
+	registryRoot := filepath.Join(temp, "registry")
+	packs := filepath.Join(registryRoot, "packs")
+	if err := os.MkdirAll(packs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(registryRoot, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestSkill(t, filepath.Join(registryRoot, "skills"), "review")
+	pack := Pack{ID: "tree-pack", Name: "Tree Pack", Version: "0.1.0", Description: "Tree test", Skills: CapabilityRefs{{ID: "review"}}}
+	writeTestPack(t, packs, pack)
+	tree, err := DependencyTreeForPack(packs, "tree-pack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tree.Dependencies) != 1 || tree.Dependencies[0].Type != "skill" || tree.Dependencies[0].ID != "review" {
+		t.Fatalf("unexpected tree: %#v", tree)
+	}
+}
+
+func TestNewScaffoldsPack(t *testing.T) {
+	temp := t.TempDir()
+	path, err := New(NewOptions{Kind: "pack", ID: "platform-engineer", Dir: temp})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack, err := LoadPack(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pack.ID != "platform-engineer" || pack.Stability != "experimental" || pack.ReviewStatus != "draft" {
+		t.Fatalf("unexpected scaffolded pack: %#v", pack)
+	}
+}
+
+func TestRollbackRestoresPreviousReceipt(t *testing.T) {
+	temp := t.TempDir()
+	pack := testPack("/tmp/example-skill")
+	pack.Capabilities = nil
+	pack.Skills = CapabilityRefs{{ID: "remote", Source: "https://example.com/skill", Format: "agent-skill"}}
+	plan := BuildInstallPlanWithOptions(pack, temp, "generic", "skills", InstallOptions{Mode: "reference", OnConflict: "skip"})
+	result := ExecutePlan(plan, false)
+	if _, err := WriteReceipt(temp, pack, result); err != nil {
+		t.Fatal(err)
+	}
+	pack.Version = "0.2.0"
+	plan = BuildInstallPlanWithOptions(pack, temp, "generic", "skills", InstallOptions{Mode: "reference", OnConflict: "skip"})
+	result = ExecutePlan(plan, false)
+	if _, err := WriteReceipt(temp, pack, result); err != nil {
+		t.Fatal(err)
+	}
+	var output strings.Builder
+	if err := Rollback(temp, "example", &output); err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := LoadReceipt(filepath.Join(temp, "receipts", "example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.Pack.Version != "0.1.0" {
+		t.Fatalf("expected rollback to 0.1.0, got %s", receipt.Pack.Version)
+	}
+}
+
 func testPack(skillSource string) Pack {
 	return Pack{
 		ID:          "example",

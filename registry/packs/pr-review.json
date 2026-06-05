@@ -4,6 +4,12 @@
   "version": "0.1.0",
   "description": "A starter pack for coding agents reviewing pull requests and identifying regressions.",
   "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-05",
+  "reviewStatus": "reviewed",
   "tags": [
     "github",
     "review",

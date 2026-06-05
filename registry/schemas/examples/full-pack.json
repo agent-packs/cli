@@ -4,6 +4,19 @@
   "version": "1.0.0",
   "description": "A complete example showing every supported capability type.",
   "license": "Apache-2.0",
+  "maintainers": [
+    "agent-packs-maintainers"
+  ],
+  "stability": "stable",
+  "lastVerified": "2026-06-05",
+  "reviewStatus": "verified",
+  "requirements": {
+    "agentPacks": ">=0.1.0",
+    "tools": {
+      "codex": ">=0.0.0",
+      "claude-code": ">=0.0.0"
+    }
+  },
   "tags": [
     "review",
     "full-stack",

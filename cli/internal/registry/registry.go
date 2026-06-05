@@ -313,6 +313,8 @@ func GenerateIndex(registry, outputPath string, out io.Writer) error {
 		}
 		entry := model.IndexEntry{
 			ID: pack.ID, Name: pack.Name, Version: pack.Version, Description: pack.Description,
+			Maintainers: pack.Maintainers, Stability: pack.Stability, Deprecated: pack.Deprecated,
+			Replacement: pack.Replacement, LastVerified: pack.LastVerified, ReviewStatus: pack.ReviewStatus,
 			Tags: pack.Tags, Categories: pack.Categories, Tools: pack.Tools, Scope: pack.Scope,
 			Skills: pack.Skills.IDs(), Plugins: pack.Plugins.IDs(), Capabilities: len(expanded.Capabilities),
 		}
@@ -448,6 +450,8 @@ func registryConfigPath(home string) string {
 
 func packMatches(pack model.Pack, query string) bool {
 	fields := []string{pack.ID, pack.Name, pack.Description}
+	fields = append(fields, pack.Maintainers...)
+	fields = append(fields, pack.Stability, pack.ReviewStatus)
 	fields = append(fields, pack.Tags...)
 	fields = append(fields, pack.Categories...)
 	fields = append(fields, pack.Tools...)
@@ -458,4 +462,63 @@ func packMatches(pack model.Pack, query string) bool {
 		}
 	}
 	return false
+}
+
+func DependencyTree(registryPath, packRef string) (model.DependencyTree, error) {
+	pack, err := FindPack(registryPath, packRef)
+	if err != nil {
+		return model.DependencyTree{}, err
+	}
+	nodes, err := dependencyNodes(registryPath, pack, map[string]bool{})
+	if err != nil {
+		return model.DependencyTree{}, err
+	}
+	return model.DependencyTree{Pack: pack.ID, Version: pack.Version, Dependencies: nodes}, nil
+}
+
+func dependencyNodes(registryPath string, pack model.Pack, seen map[string]bool) ([]model.DependencyNode, error) {
+	if seen[pack.ID] {
+		return nil, fmt.Errorf("pack composition cycle includes %s", pack.ID)
+	}
+	seen[pack.ID] = true
+	nodes := []model.DependencyNode{}
+	for _, childRef := range pack.Packs {
+		child, err := FindPack(registryPath, childRef)
+		if err != nil {
+			return nil, err
+		}
+		children, err := dependencyNodes(registryPath, child, seen)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, model.DependencyNode{
+			Type: "pack", ID: child.ID, Name: child.Name, Source: child.Path, Dependencies: children,
+		})
+	}
+	for _, ref := range pack.Skills {
+		capability, err := ResolveCapabilityRef(registryPath, "skill", ref)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, capabilityNode("skill", ref.ID, capability))
+	}
+	for _, ref := range pack.Plugins {
+		capability, err := ResolveCapabilityRef(registryPath, "plugin", ref)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, capabilityNode("plugin", ref.ID, capability))
+	}
+	for _, capability := range pack.Capabilities {
+		nodes = append(nodes, capabilityNode(capability.Type, "", capability))
+	}
+	delete(seen, pack.ID)
+	return nodes, nil
+}
+
+func capabilityNode(kind, id string, capability model.Capability) model.DependencyNode {
+	return model.DependencyNode{
+		Type: kind, ID: id, Name: capability.Name, Source: capability.Source,
+		UpstreamSource: capability.UpstreamSource, Trust: capability.Trust, Format: capability.Format,
+	}
 }

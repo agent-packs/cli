@@ -26,6 +26,40 @@
     "license": {
       "type": "string"
     },
+    "maintainers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stability": {
+      "type": "string",
+      "enum": [
+        "experimental",
+        "stable",
+        "deprecated"
+      ]
+    },
+    "deprecated": {
+      "type": "boolean"
+    },
+    "replacement": {
+      "type": "string"
+    },
+    "lastVerified": {
+      "type": "string"
+    },
+    "reviewStatus": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "reviewed",
+        "verified"
+      ]
+    },
+    "requirements": {
+      "$ref": "#/$defs/requirements"
+    },
     "tags": {
       "type": "array",
       "items": {
@@ -253,6 +287,20 @@
         },
         "signature": {
           "type": "string"
+        }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "agentPacks": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

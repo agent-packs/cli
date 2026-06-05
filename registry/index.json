@@ -1,11 +1,17 @@
 {
-  "generatedAt": "2026-06-05T22:21:29.559035Z",
+  "generatedAt": "2026-06-05T22:45:19.946615Z",
   "packs": [
     {
       "id": "eng-leader",
       "name": "Engineering Leader Pack",
       "version": "0.1.0",
       "description": "A leadership-focused Agent Pack for engineering strategy, planning, quality gates, architecture decisions, delivery health, launch readiness, security risk, and performance health.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-05",
+      "reviewStatus": "reviewed",
       "tags": [
         "engineering-leadership",
         "strategy",
@@ -47,6 +53,12 @@
       "name": "Frontend Engineer Pack",
       "version": "0.1.0",
       "description": "A starter pack for coding agents building polished frontend applications.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-05",
+      "reviewStatus": "reviewed",
       "tags": [
         "frontend",
         "ui",
@@ -78,6 +90,12 @@
       "name": "PR Review Pack",
       "version": "0.1.0",
       "description": "A starter pack for coding agents reviewing pull requests and identifying regressions.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-05",
+      "reviewStatus": "reviewed",
       "tags": [
         "github",
         "review",
