@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,11 +11,21 @@ CLI = ROOT / "dev" / "bin" / "agent-packs"
 
 
 class InstallCommandTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(
+            ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
+            cwd=ROOT / "dev",
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
     def run_cli(self, *args, registry, target):
         env = os.environ.copy()
         env["AGENT_PACKS_REGISTRY"] = str(registry)
         return subprocess.run(
-            [sys.executable, str(CLI), *args, "--target", str(target)],
+            [str(CLI), *args, "--target", str(target)],
             cwd=ROOT,
             env=env,
             text=True,

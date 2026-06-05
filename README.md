@@ -21,17 +21,22 @@ Recommended stack:
 - Web/API registry: TypeScript later, if needed
 - Install scripts: POSIX shell for macOS/Linux bootstrap
 
-This repository starts with a dependency-free Python prototype so the product
-model can be tested immediately in this workspace. The registry and manifest
-formats are intentionally language-neutral.
+This repository now includes a Go CLI prototype under `dev/`. The registry and manifest formats are intentionally language-neutral.
 
-## Prototype Usage
+## Build
 
 ```sh
-python3 dev/bin/agent-packs search
-python3 dev/bin/agent-packs show frontend-engineer
-python3 dev/bin/agent-packs install frontend-engineer --target ./sandbox
-python3 dev/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
+cd dev
+go build -o bin/agent-packs ./cmd/agent-packs
+```
+
+## CLI Usage
+
+```sh
+dev/bin/agent-packs search
+dev/bin/agent-packs show frontend-engineer
+dev/bin/agent-packs install frontend-engineer --target ./sandbox
+dev/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
 ```
 
 The prototype installer supports `--agent`, `--only`, `--dry-run`, and `--execute-plugins`. Skill capabilities with local sources are copied into the selected agent target. Remote skills and plugin commands are recorded as pending unless plugin execution is explicitly enabled.
