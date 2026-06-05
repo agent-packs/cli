@@ -27,6 +27,9 @@ type Pack struct {
 	UpstreamSource string         `json:"upstreamSource,omitempty"`
 	License        string         `json:"license,omitempty"`
 	Tags           []string       `json:"tags,omitempty"`
+	Categories     []string       `json:"categories,omitempty"`
+	Tools          []string       `json:"tools,omitempty"`
+	Scope          []string       `json:"scope,omitempty"`
 	Packs          []string       `json:"packs,omitempty"`
 	Skills         CapabilityRefs `json:"skills,omitempty"`
 	Plugins        CapabilityRefs `json:"plugins,omitempty"`
@@ -136,11 +139,20 @@ type PluginManifest struct {
 	Experimental   map[string]any `json:"experimental,omitempty"`
 }
 
+type InstallOptions struct {
+	Mode       string
+	OnConflict string
+	Scope      string
+}
+
 type Plan struct {
 	Pack         string     `json:"pack"`
 	Version      string     `json:"version"`
 	Agent        string     `json:"agent"`
 	Target       string     `json:"target"`
+	Mode         string     `json:"mode"`
+	OnConflict   string     `json:"onConflict"`
+	Scope        string     `json:"scope"`
 	Capabilities []PlanItem `json:"capabilities"`
 }
 
@@ -148,6 +160,8 @@ type PlanItem struct {
 	Type           string `json:"type"`
 	Name           string `json:"name"`
 	Action         string `json:"action"`
+	Mode           string `json:"mode,omitempty"`
+	OnConflict     string `json:"onConflict,omitempty"`
 	Source         string `json:"source,omitempty"`
 	UpstreamSource string `json:"upstreamSource,omitempty"`
 	Entry          string `json:"entry,omitempty"`
@@ -183,6 +197,8 @@ type LockEntry struct {
 	Source         string    `json:"source"`
 	UpstreamSource string    `json:"upstreamSource,omitempty"`
 	Version        string    `json:"version,omitempty"`
+	Revision       string    `json:"revision,omitempty"`
+	ResolvedAt     string    `json:"resolvedAt"`
 	Integrity      Integrity `json:"integrity,omitempty"`
 	Digest         string    `json:"digest"`
 }
@@ -325,17 +341,58 @@ func Show(registry, id string, out io.Writer) error {
 }
 
 func BuildInstallPlan(pack Pack, target, agent, only string) Plan {
+	return BuildInstallPlanWithOptions(pack, target, agent, only, InstallOptions{Mode: "copy", OnConflict: "overwrite", Scope: "target"})
+}
+
+func BuildInstallPlanWithOptions(pack Pack, target, agent, only string, options InstallOptions) Plan {
+	options = normalizeInstallOptions(options)
 	items := []PlanItem{}
 	for _, capability := range selectCapabilities(pack.Capabilities, only) {
-		items = append(items, planCapability(capability, target, agent))
+		items = append(items, planCapability(capability, target, agent, options))
 	}
-	return Plan{Pack: pack.ID, Version: pack.Version, Agent: agent, Target: target, Capabilities: items}
+	return Plan{Pack: pack.ID, Version: pack.Version, Agent: agent, Target: target, Mode: options.Mode, OnConflict: options.OnConflict, Scope: options.Scope, Capabilities: items}
+}
+
+func normalizeInstallOptions(options InstallOptions) InstallOptions {
+	if options.Mode == "" {
+		options.Mode = "reference"
+	}
+	if options.OnConflict == "" {
+		options.OnConflict = "skip"
+	}
+	if options.Scope == "" {
+		options.Scope = "target"
+	}
+	return options
+}
+
+func printPlanSummary(plan Plan, out io.Writer) {
+	counts := map[string]int{}
+	for _, item := range plan.Capabilities {
+		counts[item.Action]++
+	}
+	if len(plan.Capabilities) == 0 {
+		return
+	}
+	actions := []string{}
+	for action := range counts {
+		actions = append(actions, action)
+	}
+	sort.Strings(actions)
+	parts := []string{}
+	for _, action := range actions {
+		parts = append(parts, fmt.Sprintf("%s=%d", action, counts[action]))
+	}
+	fmt.Fprintf(out, "Plan: %s\n", strings.Join(parts, ", "))
 }
 
 func PrintPlan(plan Plan, out io.Writer) {
 	fmt.Fprintf(out, "Pack: %s\n", plan.Pack)
 	fmt.Fprintf(out, "Agent: %s\n", plan.Agent)
 	fmt.Fprintf(out, "Target: %s\n", plan.Target)
+	fmt.Fprintf(out, "Mode: %s\n", plan.Mode)
+	fmt.Fprintf(out, "Conflict: %s\n", plan.OnConflict)
+	printPlanSummary(plan, out)
 	fmt.Fprintln(out)
 	if len(plan.Capabilities) == 0 {
 		fmt.Fprintln(out, "No matching capabilities.")
@@ -360,6 +417,10 @@ func PrintPlan(plan Plan, out io.Writer) {
 }
 
 func Install(registry, home, packRef, target, agent, only string, executePlugins, dryRun bool, out io.Writer) error {
+	return InstallWithOptions(registry, home, packRef, target, agent, only, executePlugins, dryRun, InstallOptions{Mode: "copy", OnConflict: "overwrite", Scope: "target"}, out)
+}
+
+func InstallWithOptions(registry, home, packRef, target, agent, only string, executePlugins, dryRun bool, options InstallOptions, out io.Writer) error {
 	pack, sourceRegistry, err := ResolvePack(registry, home, packRef)
 	if err != nil {
 		return err
@@ -372,7 +433,7 @@ func Install(registry, home, packRef, target, agent, only string, executePlugins
 	if err != nil {
 		return err
 	}
-	plan := BuildInstallPlan(expanded, absTarget, agent, only)
+	plan := BuildInstallPlanWithOptions(expanded, absTarget, agent, only, options)
 	if dryRun {
 		PrintPlan(plan, out)
 		return nil
@@ -563,6 +624,160 @@ func Doctor(defaultRegistry, home string, out io.Writer) error {
 	} else {
 		fmt.Fprintf(out, "OK    install home writable: %s\n", home)
 	}
+	return nil
+}
+
+func CacheInfo(home string, out io.Writer) error {
+	abs, err := filepath.Abs(expandHome(home))
+	if err != nil {
+		return err
+	}
+	for _, dir := range []string{"sources", "cache", "locks", "registries"} {
+		path := filepath.Join(abs, dir)
+		if err := os.MkdirAll(path, 0o755); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "%s\t%s\n", dir, path)
+	}
+	return nil
+}
+
+func Update(home string, all bool, out io.Writer) error {
+	config, err := LoadRegistryConfig(home)
+	if err != nil {
+		return err
+	}
+	if len(config.Registries) == 0 {
+		fmt.Fprintln(out, "No registries configured.")
+		return nil
+	}
+	names := []string{}
+	for name := range config.Registries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if _, err := ResolveRegistry(home, name); err != nil {
+			fmt.Fprintf(out, "FAIL  %s: %s\n", name, err)
+		} else {
+			fmt.Fprintf(out, "OK    %s updated\n", name)
+		}
+	}
+	return nil
+}
+
+func Outdated(target string, out io.Writer) error {
+	receiptsDir := filepath.Join(expandHome(target), "receipts")
+	entries, err := os.ReadDir(receiptsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintln(out, "No packs installed.")
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		receipt, err := LoadReceipt(filepath.Join(receiptsDir, entry.Name()))
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "%s\tinstalled=%s\tstatus=unknown-without-remote-resolution\n", receipt.Pack.ID, receipt.Pack.Version)
+	}
+	return nil
+}
+
+func ScanSkills(root string, out io.Writer) error {
+	root = expandHome(root)
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && filepath.Base(path) == "SKILL.md" {
+			manifest, err := LoadSkillManifest(path)
+			if err != nil {
+				fmt.Fprintf(out, "WARN  %s: %s\n", path, err)
+				return nil
+			}
+			fmt.Fprintf(out, "%s\t%s\n", manifest.Name, path)
+		}
+		return nil
+	})
+}
+
+func ImportSkills(sourceDir, target string, out io.Writer) error {
+	importDir := filepath.Join(expandHome(target), "sources", "imported")
+	if err := os.MkdirAll(importDir, 0o755); err != nil {
+		return err
+	}
+	return filepath.WalkDir(expandHome(sourceDir), func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || filepath.Base(path) != "SKILL.md" {
+			return nil
+		}
+		manifest, err := LoadSkillManifest(path)
+		if err != nil {
+			return nil
+		}
+		dest := filepath.Join(importDir, slugify(manifest.Name))
+		if err := os.RemoveAll(dest); err != nil {
+			return err
+		}
+		if err := copyDir(filepath.Dir(path), dest); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "imported\t%s\t%s\n", manifest.Name, dest)
+		return nil
+	})
+}
+
+func Lint(registry, packRef string, out io.Writer) error {
+	pack, err := FindPack(registry, packRef)
+	if err != nil {
+		return err
+	}
+	errs := ValidatePack(pack)
+	if len(errs) > 0 {
+		for _, msg := range errs {
+			fmt.Fprintf(out, "FAIL  %s\n", msg)
+		}
+		return ErrInstallFailed
+	}
+	fmt.Fprintf(out, "OK    %s\n", pack.ID)
+	return nil
+}
+
+func Verify(registry, packRef string, out io.Writer) error {
+	pack, err := FindPack(registry, packRef)
+	if err != nil {
+		return err
+	}
+	expanded, err := ExpandPack(registry, pack, map[string]bool{})
+	if err != nil {
+		return err
+	}
+	fail := false
+	seen := map[string]bool{}
+	for _, capability := range expanded.Capabilities {
+		key := capability.Type + ":" + capability.Name
+		if seen[key] {
+			fmt.Fprintf(out, "FAIL  duplicate capability: %s\n", key)
+			fail = true
+		}
+		seen[key] = true
+		if capability.Source == "" {
+			fmt.Fprintf(out, "FAIL  missing source: %s\n", key)
+			fail = true
+		}
+	}
+	if fail {
+		return ErrInstallFailed
+	}
+	fmt.Fprintf(out, "OK    %s verified (%d capabilities)\n", expanded.ID, len(expanded.Capabilities))
 	return nil
 }
 
@@ -926,10 +1141,23 @@ func ValidateCapabilityRef(ref CapabilityRef, capabilityType, prefix string) []s
 func WriteLockfile(packDir string, pack Pack) error {
 	lock := Lockfile{GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano), Pack: pack.ID, Version: pack.Version}
 	for _, capability := range pack.Capabilities {
-		entry := LockEntry{Type: capability.Type, Name: capability.Name, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Version: capability.Version, Integrity: capability.Integrity, Digest: digestCapability(capability)}
+		entry := LockEntry{Type: capability.Type, Name: capability.Name, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Version: capability.Version, Revision: resolveSourceRevision(capability.Source), ResolvedAt: time.Now().UTC().Format(time.RFC3339Nano), Integrity: capability.Integrity, Digest: digestCapability(capability)}
 		lock.Capabilities = append(lock.Capabilities, entry)
 	}
 	return writeJSON(filepath.Join(packDir, "agent-pack.lock"), lock)
+}
+
+func resolveSourceRevision(source string) string {
+	if source == "" || !isLocalSource(source) {
+		return ""
+	}
+	cmd := exec.Command("git", "-C", expandHome(source), "rev-parse", "HEAD")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(stdout.String())
 }
 
 func RegistryAdd(home, name, source string) error {
@@ -1053,6 +1281,9 @@ func registryConfigPath(home string) string {
 func packMatches(pack Pack, query string) bool {
 	fields := []string{pack.ID, pack.Name, pack.Description}
 	fields = append(fields, pack.Tags...)
+	fields = append(fields, pack.Categories...)
+	fields = append(fields, pack.Tools...)
+	fields = append(fields, pack.Scope...)
 	for _, field := range fields {
 		if strings.Contains(strings.ToLower(field), query) {
 			return true
@@ -1080,7 +1311,7 @@ func selectCapabilities(capabilities []Capability, only string) []Capability {
 	return selected
 }
 
-func planCapability(capability Capability, target, agent string) PlanItem {
+func planCapability(capability Capability, target, agent string, options InstallOptions) PlanItem {
 	switch capability.Type {
 	case "skill":
 		entry := capability.Entry
@@ -1088,19 +1319,16 @@ func planCapability(capability Capability, target, agent string) PlanItem {
 			entry = "SKILL.md"
 		}
 		if capability.Reference {
-			return PlanItem{Type: "skill", Name: capability.Name, Action: "reference", Source: capability.Source, UpstreamSource: capability.UpstreamSource, Entry: entry, Status: "planned"}
+			return PlanItem{Type: "skill", Name: capability.Name, Action: skillAction(capability, options), Mode: options.Mode, OnConflict: options.OnConflict, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Entry: entry, Destination: skillDestination(capability, target, agent, options), Status: "planned"}
 		}
-		action := "fetch-copy"
-		if isLocalSource(capability.Source) {
-			action = "copy"
-		}
-		return PlanItem{Type: "skill", Name: capability.Name, Action: action, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Entry: entry, Destination: filepath.Join(skillTargetRoot(target, agent), slugify(capability.Name)), Status: "planned"}
+		action := skillAction(capability, options)
+		return PlanItem{Type: "skill", Name: capability.Name, Action: action, Mode: options.Mode, OnConflict: options.OnConflict, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Entry: entry, Destination: skillDestination(capability, target, agent, options), Status: "planned"}
 	case "plugin":
-		action := "native-install"
-		if capability.Reference {
-			action = "reference"
+		action := "reference"
+		if options.Mode != "reference" && !capability.Reference {
+			action = "native-install"
 		}
-		return PlanItem{Type: "plugin", Name: capability.Name, Action: action, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Format: capability.Format, Command: capability.Install["command"], Method: capability.Install["method"], Package: capability.Install["package"], Marketplace: capability.Install["marketplace"], Status: "planned"}
+		return PlanItem{Type: "plugin", Name: capability.Name, Action: action, Mode: options.Mode, OnConflict: options.OnConflict, Source: capability.Source, UpstreamSource: capability.UpstreamSource, Format: capability.Format, Command: capability.Install["command"], Method: capability.Install["method"], Package: capability.Install["package"], Marketplace: capability.Install["marketplace"], Status: "planned"}
 	default:
 		return PlanItem{Type: capability.Type, Name: capability.Name, Action: "record", Source: capability.Source, Status: "planned"}
 	}
@@ -1129,7 +1357,91 @@ func installSkill(item PlanItem, target string) PlanItem {
 		item.Reason = err.Error()
 		return item
 	}
+	if item.Action == "symlink" {
+		return symlinkSkillFromSource(item, source)
+	}
 	return copySkillFromSource(item, source)
+}
+
+func skillAction(capability Capability, options InstallOptions) string {
+	if options.Mode == "reference" || options.Mode == "native" {
+		return "reference"
+	}
+	if options.Mode == "symlink" {
+		return "symlink"
+	}
+	if isLocalSource(capability.Source) {
+		return "copy"
+	}
+	return "fetch-copy"
+}
+
+func skillDestination(capability Capability, target, agent string, options InstallOptions) string {
+	if options.Mode == "reference" || options.Mode == "native" {
+		return ""
+	}
+	return filepath.Join(skillTargetRoot(target, agent), slugify(capability.Name))
+}
+
+func handleDestinationConflict(destination, onConflict string, item *PlanItem) bool {
+	if _, err := os.Lstat(destination); os.IsNotExist(err) {
+		return true
+	}
+	switch onConflict {
+	case "skip":
+		item.Status = "skipped"
+		item.Reason = "destination exists"
+		return false
+	case "backup":
+		backup := destination + ".bak." + time.Now().UTC().Format("20060102150405")
+		if err := os.Rename(destination, backup); err != nil {
+			item.Status = "failed"
+			item.Reason = err.Error()
+			return false
+		}
+		item.Reason = "existing destination backed up to " + backup
+		return true
+	case "overwrite":
+		if err := os.RemoveAll(destination); err != nil {
+			item.Status = "failed"
+			item.Reason = err.Error()
+			return false
+		}
+		return true
+	default:
+		item.Status = "failed"
+		item.Reason = "invalid conflict policy: " + onConflict
+		return false
+	}
+}
+
+func symlinkSkillFromSource(item PlanItem, source string) PlanItem {
+	destination, err := filepath.Abs(expandHome(item.Destination))
+	if err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	if _, err := os.Stat(source); err != nil {
+		item.Status = "pending"
+		item.Reason = err.Error()
+		return item
+	}
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	if ok := handleDestinationConflict(destination, item.OnConflict, &item); !ok {
+		return item
+	}
+	if err := os.Symlink(source, destination); err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	item.Status = "installed"
+	return item
 }
 
 func materializeSkillSource(source, target string) (string, func(), error) {
@@ -1203,9 +1515,7 @@ func copySkillFromSource(item PlanItem, source string) PlanItem {
 		item.Reason = err.Error()
 		return item
 	}
-	if err := os.RemoveAll(destination); err != nil {
-		item.Status = "failed"
-		item.Reason = err.Error()
+	if ok := handleDestinationConflict(destination, item.OnConflict, &item); !ok {
 		return item
 	}
 	if info.IsDir() {

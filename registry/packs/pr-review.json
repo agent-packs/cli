@@ -15,5 +15,17 @@
   ],
   "plugins": [
     "github-pr-inspection"
+  ],
+  "categories": [
+    "code-review",
+    "engineering"
+  ],
+  "tools": [
+    "codex",
+    "claude-code"
+  ],
+  "scope": [
+    "global",
+    "project"
   ]
 }

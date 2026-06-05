@@ -58,6 +58,24 @@
     },
     "upstreamSource": {
       "type": "string"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {

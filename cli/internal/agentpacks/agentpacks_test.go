@@ -10,7 +10,7 @@ import (
 
 func TestBuildInstallPlanTargetsCodexSkills(t *testing.T) {
 	pack := testPack("/tmp/example-skill")
-	plan := BuildInstallPlan(pack, "/tmp/target", "codex", "skills")
+	plan := BuildInstallPlanWithOptions(pack, "/tmp/target", "codex", "skills", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 
 	if len(plan.Capabilities) != 1 {
 		t.Fatalf("expected 1 capability, got %d", len(plan.Capabilities))
@@ -38,7 +38,7 @@ func TestExecutePlanInstallsLocalSkill(t *testing.T) {
 	}
 
 	pack := testPack(skill)
-	plan := BuildInstallPlan(pack, filepath.Join(temp, "target"), "codex", "skills")
+	plan := BuildInstallPlanWithOptions(pack, filepath.Join(temp, "target"), "codex", "skills", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 	result := ExecutePlan(plan, false)
 	item := result.Capabilities[0]
 
@@ -58,7 +58,7 @@ func TestExecutePlanInstallsLocalSkill(t *testing.T) {
 func TestWriteReceipt(t *testing.T) {
 	temp := t.TempDir()
 	pack := testPack("/tmp/example-skill")
-	plan := BuildInstallPlan(pack, temp, "generic", "plugins")
+	plan := BuildInstallPlanWithOptions(pack, temp, "generic", "plugins", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 	result := ExecutePlan(plan, false)
 
 	receiptPath, err := WriteReceipt(temp, pack, result)
@@ -138,7 +138,7 @@ func TestExpandPackIncludesRegistrySkillsAndPlugins(t *testing.T) {
 		t.Fatalf("unexpected capabilities: %#v", expanded.Capabilities)
 	}
 
-	plan := BuildInstallPlan(expanded, filepath.Join(temp, "target"), "codex", "all")
+	plan := BuildInstallPlanWithOptions(expanded, filepath.Join(temp, "target"), "codex", "all", InstallOptions{Mode: "reference", OnConflict: "skip"})
 	if len(plan.Capabilities) != 2 {
 		t.Fatalf("expected 2 planned capabilities, got %d", len(plan.Capabilities))
 	}
@@ -203,7 +203,7 @@ func TestExpandPackIncludesRemoteSkillAndPluginRefs(t *testing.T) {
 		t.Fatalf("unexpected remote plugin capability: %#v", plugin)
 	}
 
-	plan := BuildInstallPlan(expanded, filepath.Join(temp, "target"), "codex", "all")
+	plan := BuildInstallPlanWithOptions(expanded, filepath.Join(temp, "target"), "codex", "all", InstallOptions{Mode: "reference", OnConflict: "skip"})
 	for _, item := range plan.Capabilities {
 		if item.Action != "reference" || item.Destination != "" {
 			t.Fatalf("remote refs should be reference-only: %#v", item)
@@ -277,7 +277,7 @@ func TestUninstallRemovesInstalledSkillAndReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	pack := testPack(skill)
-	plan := BuildInstallPlan(pack, temp, "codex", "skills")
+	plan := BuildInstallPlanWithOptions(pack, temp, "codex", "skills", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 	result := ExecutePlan(plan, false)
 	if _, err := WriteReceipt(temp, pack, result); err != nil {
 		t.Fatal(err)

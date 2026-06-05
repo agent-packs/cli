@@ -31,12 +31,28 @@ func main() {
 	switch os.Args[1] {
 	case "search":
 		err = runSearch(registry, os.Args[2:])
+	case "explore":
+		err = runSearch(registry, os.Args[2:])
 	case "show":
 		err = runShow(registry, os.Args[2:])
 	case "install":
 		err = runInstall(registry, defaultTarget, os.Args[2:])
 	case "list":
 		err = runList(defaultTarget, os.Args[2:])
+	case "outdated":
+		err = runOutdated(defaultTarget, os.Args[2:])
+	case "update":
+		err = runUpdate(defaultTarget, os.Args[2:])
+	case "cache":
+		err = runCache(defaultTarget, os.Args[2:])
+	case "scan":
+		err = runScan(os.Args[2:])
+	case "import":
+		err = runImport(defaultTarget, os.Args[2:])
+	case "lint":
+		err = runLint(registry, os.Args[2:])
+	case "verify":
+		err = runVerify(registry, os.Args[2:])
 	case "uninstall":
 		err = runUninstall(defaultTarget, os.Args[2:])
 	case "doctor":
@@ -83,6 +99,10 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	only := flags.String("only", "all", "capability filter: all, skills, or plugins")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	mode := flags.String("mode", "reference", "sync mode: reference, symlink, copy, or native")
+	onConflict := flags.String("on-conflict", "skip", "conflict policy: skip, overwrite, or backup")
+	project := flags.String("project", "", "project directory target")
+	global := flags.Bool("global", false, "install into the configured global target")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -96,7 +116,23 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if *only != "all" && *only != "skills" && *only != "plugins" {
 		return fmt.Errorf("invalid --only %q: expected all, skills, or plugins", *only)
 	}
-	return agentpacks.Install(registry, *target, remaining[0], *target, *agent, *only, *executePlugins, *dryRun, os.Stdout)
+	if *mode != "reference" && *mode != "symlink" && *mode != "copy" && *mode != "native" {
+		return fmt.Errorf("invalid --mode %q: expected reference, symlink, copy, or native", *mode)
+	}
+	if *onConflict != "skip" && *onConflict != "overwrite" && *onConflict != "backup" {
+		return fmt.Errorf("invalid --on-conflict %q: expected skip, overwrite, or backup", *onConflict)
+	}
+	installTarget := *target
+	scope := "target"
+	if *project != "" {
+		installTarget = *project
+		scope = "project"
+	}
+	if *global {
+		installTarget = *target
+		scope = "global"
+	}
+	return agentpacks.InstallWithOptions(registry, *target, remaining[0], installTarget, *agent, *only, *executePlugins, *dryRun, agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope}, os.Stdout)
 }
 
 func runList(defaultTarget string, args []string) error {
@@ -128,6 +164,76 @@ func runValidate(args []string) error {
 		return fmt.Errorf("usage: agent-packs validate <file-or-directory>")
 	}
 	return agentpacks.ValidatePath(args[0], os.Stdout)
+}
+
+func runOutdated(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("outdated", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	return agentpacks.Outdated(*target, os.Stdout)
+}
+
+func runUpdate(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("update", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	all := flags.Bool("all", true, "update all configured registries")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	return agentpacks.Update(*target, *all, os.Stdout)
+}
+
+func runCache(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("cache", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	return agentpacks.CacheInfo(*target, os.Stdout)
+}
+
+func runScan(args []string) error {
+	path := "."
+	if len(args) > 1 {
+		return fmt.Errorf("usage: agent-packs scan [path]")
+	}
+	if len(args) == 1 {
+		path = args[0]
+	}
+	return agentpacks.ScanSkills(path, os.Stdout)
+}
+
+func runImport(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("import", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs import <skills-dir> [--target dir]")
+	}
+	return agentpacks.ImportSkills(remaining[0], *target, os.Stdout)
+}
+
+func runLint(registry string, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: agent-packs lint <pack-id>")
+	}
+	return agentpacks.Lint(registry, args[0], os.Stdout)
+}
+
+func runVerify(registry string, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: agent-packs verify <pack-id>")
+	}
+	return agentpacks.Verify(registry, args[0], os.Stdout)
 }
 
 func runRegistry(defaultTarget string, args []string) error {
@@ -169,11 +275,11 @@ func normalizeInstallArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--dry-run" || arg == "--execute-plugins" {
+		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--global" {
 			flags = append(flags, arg)
 			continue
 		}
-		if arg == "--target" || arg == "--agent" || arg == "--only" {
+		if arg == "--target" || arg == "--agent" || arg == "--only" || arg == "--mode" || arg == "--on-conflict" || arg == "--project" {
 			flags = append(flags, arg)
 			if i+1 < len(args) {
 				flags = append(flags, args[i+1])
@@ -181,7 +287,7 @@ func normalizeInstallArgs(args []string) []string {
 			}
 			continue
 		}
-		if strings.HasPrefix(arg, "--target=") || strings.HasPrefix(arg, "--agent=") || strings.HasPrefix(arg, "--only=") {
+		if strings.HasPrefix(arg, "--target=") || strings.HasPrefix(arg, "--agent=") || strings.HasPrefix(arg, "--only=") || strings.HasPrefix(arg, "--mode=") || strings.HasPrefix(arg, "--on-conflict=") || strings.HasPrefix(arg, "--project=") {
 			flags = append(flags, arg)
 			continue
 		}
@@ -233,8 +339,12 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id>")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id|registry/pack-id> [--target dir] [--agent claude|codex|generic] [--only all|skills|plugins] [--dry-run] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id|registry/pack-id> [--target dir] [--agent claude|codex|generic] [--only all|skills|plugins] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--project dir|--global] [--dry-run] [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
+	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|cache ...")
+	fmt.Fprintln(os.Stderr, "  agent-packs scan [path]")
+	fmt.Fprintln(os.Stderr, "  agent-packs import <skills-dir> [--target dir]")
+	fmt.Fprintln(os.Stderr, "  agent-packs lint|verify <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs uninstall <pack-id> [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs doctor")
 	fmt.Fprintln(os.Stderr, "  agent-packs validate <file-or-directory>")

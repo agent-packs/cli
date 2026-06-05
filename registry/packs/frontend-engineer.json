@@ -15,5 +15,17 @@
   ],
   "plugins": [
     "browser-verification-workflow"
+  ],
+  "categories": [
+    "frontend",
+    "engineering"
+  ],
+  "tools": [
+    "codex",
+    "claude-code"
+  ],
+  "scope": [
+    "global",
+    "project"
   ]
 }

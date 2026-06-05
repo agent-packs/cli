@@ -75,10 +75,11 @@ def validate_pack(pack, schema):
     if isinstance(pack.get("id"), str) and not re.fullmatch(id_pattern, pack["id"]):
         errors.append("id does not match schema pattern")
 
-    if "tags" in pack and isinstance(pack["tags"], list):
-        for index, tag in enumerate(pack["tags"]):
-            if not isinstance(tag, str):
-                errors.append(f"tags[{index}] must be a string")
+    for array_field in ("tags", "categories", "tools", "scope"):
+        if array_field in pack and isinstance(pack[array_field], list):
+            for index, value in enumerate(pack[array_field]):
+                if not isinstance(value, str):
+                    errors.append(f"{array_field}[{index}] must be a string")
 
     refs = pack.get("packs")
     if refs is not None:
@@ -188,6 +189,9 @@ def valid_pack():
         "description": "A valid pack for tests.",
         "license": "Apache-2.0",
         "tags": ["example"],
+        "categories": ["test"],
+        "tools": ["codex"],
+        "scope": ["global", "project"],
         "capabilities": [
             {
                 "type": "skill",

@@ -64,7 +64,7 @@ class InstallCommandTest(unittest.TestCase):
             registry.mkdir()
             self.write_pack(registry, example_pack(skill))
 
-            result = self.run_cli("install", "example", "--agent", "codex", "--only", "skills", registry=registry, target=target)
+            result = self.run_cli("install", "example", "--agent", "codex", "--only", "skills", "--mode", "copy", registry=registry, target=target)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             installed_skill = target / ".codex" / "skills" / "example-skill" / "SKILL.md"
@@ -82,7 +82,7 @@ class InstallCommandTest(unittest.TestCase):
             registry.mkdir()
             self.write_pack(registry, example_pack(temp / "missing-skill"))
 
-            result = self.run_cli("install", "example", "--only", "plugins", registry=registry, target=target)
+            result = self.run_cli("install", "example", "--only", "plugins", "--mode", "native", registry=registry, target=target)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             receipt = json.loads((target / "receipts" / "example.json").read_text(encoding="utf-8"))

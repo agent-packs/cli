@@ -85,5 +85,17 @@
       "format": "anthropic-plugin",
       "entry": ".claude-plugin/plugin.json"
     }
+  ],
+  "categories": [
+    "engineering-leadership",
+    "planning"
+  ],
+  "tools": [
+    "codex",
+    "claude-code"
+  ],
+  "scope": [
+    "global",
+    "project"
   ]
 }

@@ -10,7 +10,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
 - Receipts: `<target>/receipts/<pack-id>.json`.
-- Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`.
+- Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`, including source revision fields when locally resolvable.
 
 ## CLI Commands
 
@@ -26,6 +26,13 @@ Implemented commands:
 - `agent-packs registry add <name> <source>`
 - `agent-packs registry list`
 - `agent-packs registry remove <name>`
+- `agent-packs update --all`
+- `agent-packs outdated`
+- `agent-packs cache`
+- `agent-packs scan [path]`
+- `agent-packs import <skills-dir>`
+- `agent-packs lint <pack>`
+- `agent-packs verify <pack>`
 
 ## Install Experience
 

@@ -36,6 +36,14 @@ Additional commands:
 ```sh
 cli/bin/agent-packs registry add local /path/to/agent-packs
 cli/bin/agent-packs install local/frontend-engineer --dry-run
+cli/bin/agent-packs install eng-leader --mode symlink --on-conflict backup --project .
+cli/bin/agent-packs cache
+cli/bin/agent-packs update --all
+cli/bin/agent-packs outdated
+cli/bin/agent-packs scan ~/.codex/skills
+cli/bin/agent-packs import ~/.codex/skills
+cli/bin/agent-packs lint eng-leader
+cli/bin/agent-packs verify eng-leader
 cli/bin/agent-packs list --target ./sandbox
 cli/bin/agent-packs uninstall frontend-engineer --target ./sandbox
 cli/bin/agent-packs doctor
@@ -61,10 +69,24 @@ Agent Packs orchestrates native install flows instead of replacing them.
 - Registry plugins reference their `repository` or `homepage` when available; otherwise they reference their registry directory.
 - Inline local skill capabilities can still be copied into the selected agent skill target when a pack explicitly declares them under `capabilities`.
 - Inline remote skill capabilities can still be fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
+- Sync modes are explicit: `reference` records sources only, `symlink` links materialized skills, `copy` copies skills, and `native` enables native plugin planning.
+- Conflicts are controlled with `--on-conflict skip|overwrite|backup`.
 - Inline plugin commands are preview-safe by default and only run with `--execute-plugins`.
 - Installed packs write receipts under `<target>/receipts/`.
 - Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
 - `uninstall` removes installed inline skill folders and receipts; referenced plugins are reported for native/manual cleanup.
+
+## Lifecycle Commands
+
+Agent Packs supports a basic package-manager lifecycle:
+
+- `cache`: shows and creates central source/cache/lock/registry directories under the Agent Packs home.
+- `update --all`: refreshes configured registries.
+- `outdated`: lists installed packs whose remote status has not been resolved yet.
+- `scan [path]`: discovers existing `SKILL.md` files.
+- `import <skills-dir>`: copies discovered skills into `<target>/sources/imported/`.
+- `lint <pack>`: validates pack metadata.
+- `verify <pack>`: expands a pack and checks duplicate/missing capability sources.
 
 ## Remote Registries
 
@@ -168,6 +190,7 @@ python3 -m unittest discover -s tests
 ## Core Concepts
 
 - Pack: a curated bundle for a role, stack, workflow, or task.
+- Categories/tools/scope: searchable facets for registry discovery and install intent.
 - Skill: an instruction module, often `SKILL.md`.
 - Plugin: a packaged agent extension, such as an Anthropic/Claude Code plugin.
 - Tool: MCP server, shell command, API connector, or executable integration.
