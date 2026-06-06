@@ -1,0 +1,45 @@
+{
+  "id": "superpowers",
+  "name": "Superpowers Pack",
+  "version": "0.1.0",
+  "description": "A composed Agent Pack for obra/superpowers, aggregating its core workflow, quality, collaboration, meta authoring, and plugin distribution packs.",
+  "license": "MIT",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-06",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "superpowers",
+    "skills",
+    "plugins",
+    "workflow",
+    "tdd",
+    "debugging",
+    "subagents"
+  ],
+  "packs": [
+    "superpowers-core-workflow",
+    "superpowers-quality-debugging",
+    "superpowers-collaboration-subagents",
+    "superpowers-meta-authoring",
+    "superpowers-distribution-plugins"
+  ],
+  "upstreamSource": "https://github.com/obra/superpowers",
+  "categories": [
+    "engineering",
+    "workflow"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

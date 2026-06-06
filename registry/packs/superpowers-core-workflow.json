@@ -1,0 +1,129 @@
+{
+  "id": "superpowers-core-workflow",
+  "name": "Superpowers Core Workflow Pack",
+  "version": "0.1.0",
+  "description": "Core Superpowers methodology skills for moving from idea refinement through planning, implementation, TDD, verification, and branch completion.",
+  "license": "MIT",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-06",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "superpowers",
+    "workflow",
+    "planning",
+    "tdd",
+    "verification"
+  ],
+  "skills": [
+    {
+      "id": "superpowers-using-superpowers",
+      "name": "Using Superpowers",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/using-superpowers",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    },
+    {
+      "id": "superpowers-brainstorming",
+      "name": "Brainstorming",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/brainstorming",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    },
+    {
+      "id": "superpowers-writing-plans",
+      "name": "Writing Plans",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/writing-plans",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    },
+    {
+      "id": "superpowers-executing-plans",
+      "name": "Executing Plans",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/executing-plans",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    },
+    {
+      "id": "superpowers-test-driven-development",
+      "name": "Test-Driven Development",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/test-driven-development",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    },
+    {
+      "id": "superpowers-verification-before-completion",
+      "name": "Verification Before Completion",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/verification-before-completion",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    },
+    {
+      "id": "superpowers-finishing-a-development-branch",
+      "name": "Finishing a Development Branch",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/finishing-a-development-branch",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    }
+  ],
+  "upstreamSource": "https://github.com/obra/superpowers",
+  "categories": [
+    "engineering",
+    "workflow"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

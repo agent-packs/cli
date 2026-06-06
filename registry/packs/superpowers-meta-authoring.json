@@ -1,0 +1,50 @@
+{
+  "id": "superpowers-meta-authoring",
+  "name": "Superpowers Meta Authoring Pack",
+  "version": "0.1.0",
+  "description": "Superpowers meta skills for authoring new tested skills.",
+  "license": "MIT",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-06",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "superpowers",
+    "skills",
+    "authoring",
+    "meta"
+  ],
+  "skills": [
+    {
+      "id": "superpowers-writing-skills",
+      "name": "Writing Skills",
+      "source": "https://github.com/obra/superpowers/tree/6fd4507659784c351abbd2bc264c7162cfd386dc/skills/writing-skills",
+      "upstreamSource": "https://github.com/obra/superpowers",
+      "format": "agent-skill",
+      "version": "5.1.0",
+      "entry": "SKILL.md",
+      "repository": "https://github.com/obra/superpowers",
+      "homepage": "https://github.com/obra/superpowers",
+      "license": "MIT",
+      "trust": "community"
+    }
+  ],
+  "upstreamSource": "https://github.com/obra/superpowers",
+  "categories": [
+    "skills",
+    "authoring"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T03:16:30.637361Z",
+  "generatedAt": "2026-06-06T20:24:21.225091Z",
   "packs": [
     {
       "id": "eng-leader",
@@ -530,6 +530,247 @@
         "documentation-and-adrs"
       ],
       "capabilities": 5
+    },
+    {
+      "id": "superpowers",
+      "name": "Superpowers Pack",
+      "version": "0.1.0",
+      "description": "A composed Agent Pack for obra/superpowers, aggregating its core workflow, quality, collaboration, meta authoring, and plugin distribution packs.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "superpowers",
+        "skills",
+        "plugins",
+        "workflow",
+        "tdd",
+        "debugging",
+        "subagents"
+      ],
+      "categories": [
+        "engineering",
+        "workflow"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "capabilities": 19
+    },
+    {
+      "id": "superpowers-collaboration-subagents",
+      "name": "Superpowers Collaboration Subagents Pack",
+      "version": "0.1.0",
+      "description": "Superpowers skills for isolated worktrees, parallel agent dispatch, subagent-driven implementation, and code review workflows.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "superpowers",
+        "subagents",
+        "code-review",
+        "worktrees",
+        "collaboration"
+      ],
+      "categories": [
+        "collaboration",
+        "workflow"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "superpowers-using-git-worktrees",
+        "superpowers-dispatching-parallel-agents",
+        "superpowers-subagent-driven-development",
+        "superpowers-requesting-code-review",
+        "superpowers-receiving-code-review"
+      ],
+      "capabilities": 5
+    },
+    {
+      "id": "superpowers-core-workflow",
+      "name": "Superpowers Core Workflow Pack",
+      "version": "0.1.0",
+      "description": "Core Superpowers methodology skills for moving from idea refinement through planning, implementation, TDD, verification, and branch completion.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "superpowers",
+        "workflow",
+        "planning",
+        "tdd",
+        "verification"
+      ],
+      "categories": [
+        "engineering",
+        "workflow"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "superpowers-using-superpowers",
+        "superpowers-brainstorming",
+        "superpowers-writing-plans",
+        "superpowers-executing-plans",
+        "superpowers-test-driven-development",
+        "superpowers-verification-before-completion",
+        "superpowers-finishing-a-development-branch"
+      ],
+      "capabilities": 7
+    },
+    {
+      "id": "superpowers-distribution-plugins",
+      "name": "Superpowers Distribution Plugins Pack",
+      "version": "0.1.0",
+      "description": "References the Superpowers plugin and extension distribution manifests for Claude Code, Codex, Cursor, Gemini CLI, and OpenCode.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "superpowers",
+        "plugins",
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "categories": [
+        "plugins",
+        "distribution"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "plugins": [
+        "superpowers-claude-code-plugin",
+        "superpowers-codex-plugin",
+        "superpowers-cursor-plugin",
+        "superpowers-gemini-extension",
+        "superpowers-opencode-plugin"
+      ],
+      "capabilities": 5
+    },
+    {
+      "id": "superpowers-meta-authoring",
+      "name": "Superpowers Meta Authoring Pack",
+      "version": "0.1.0",
+      "description": "Superpowers meta skills for authoring new tested skills.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "superpowers",
+        "skills",
+        "authoring",
+        "meta"
+      ],
+      "categories": [
+        "skills",
+        "authoring"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "superpowers-writing-skills"
+      ],
+      "capabilities": 1
+    },
+    {
+      "id": "superpowers-quality-debugging",
+      "name": "Superpowers Quality Debugging Pack",
+      "version": "0.1.0",
+      "description": "Superpowers skills for root-cause debugging and disciplined issue investigation.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "superpowers",
+        "debugging",
+        "quality",
+        "root-cause"
+      ],
+      "categories": [
+        "reliability",
+        "quality"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "superpowers-systematic-debugging"
+      ],
+      "capabilities": 1
     }
   ]
 }

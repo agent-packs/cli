@@ -80,10 +80,14 @@ func parseGitHubTree(source string) (repo, branch, subpath string) {
 		return "", "", ""
 	}
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) < 5 || parts[2] != "tree" {
+	if len(parts) < 4 || parts[2] != "tree" {
 		return "", "", ""
 	}
-	return "https://github.com/" + parts[0] + "/" + parts[1] + ".git", parts[3], filepath.Join(parts[4:]...)
+	subpath = ""
+	if len(parts) > 4 {
+		subpath = filepath.Join(parts[4:]...)
+	}
+	return "https://github.com/" + parts[0] + "/" + parts[1] + ".git", parts[3], subpath
 }
 
 func parseGitHubCommit(source string) (repo, commit, subpath string) {

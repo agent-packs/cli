@@ -47,3 +47,23 @@ func TestResolveSourceAliasMovingRef(t *testing.T) {
 		t.Fatalf("unexpected moving resolution: %#v", moving)
 	}
 }
+
+func TestParseGitHubTreeRoot(t *testing.T) {
+	repo, commit, subpath, kind := ParseGitSource("https://github.com/example/repo/tree/0123456789abcdef0123456789abcdef01234567")
+	if kind != "github-tree" {
+		t.Fatalf("expected github-tree, got %s", kind)
+	}
+	if repo != "https://github.com/example/repo.git" {
+		t.Fatalf("unexpected repo: %s", repo)
+	}
+	if commit != "0123456789abcdef0123456789abcdef01234567" {
+		t.Fatalf("unexpected commit: %s", commit)
+	}
+	if subpath != "" {
+		t.Fatalf("unexpected subpath: %s", subpath)
+	}
+	resolution := ResolveSource("https://github.com/example/repo/tree/0123456789abcdef0123456789abcdef01234567")
+	if !resolution.Pinned || resolution.Warning != "" {
+		t.Fatalf("expected pinned root tree resolution: %#v", resolution)
+	}
+}
