@@ -112,6 +112,15 @@ cli/bin/agent-packs validate registry/plugins
 - `reliability-debugging`: debugging, adversarial review, test hardening, and security hardening workflows.
 - `shipping-ops`: git workflow, CI/CD, launch readiness, migrations, and ADR/documentation workflows.
 - `full-lifecycle-engineer`: composed lifecycle pack from discovery through implementation, review, release, and follow-up.
+- `popular-engineering-skills`: broadly useful public engineering skills selected from high-visibility lifecycle skill repositories.
+- `popular-claude-dev-plugins`: common Claude Code development plugins from Anthropic's official plugin directory.
+- `popular-integration-plugins`: common Claude Code integration plugins for GitHub, GitLab, Playwright, Context7, Linear, Firebase, Terraform, and semantic code tooling.
+- `popular-agent-starter`: a composed starter bundle combining popular engineering skills and Claude Code development plugins.
+
+The `popular-*` packs use public proxies for adoption because most skill/plugin
+ecosystems do not publish install counts. Selection signals include official or
+curated marketplace presence, repository popularity, broad workflow coverage, and
+common agentic coding use cases.
 
 ## Tool Target Matrix
 

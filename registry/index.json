@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T03:08:57.96604Z",
+  "generatedAt": "2026-06-06T03:16:30.637361Z",
   "packs": [
     {
       "id": "eng-leader",
@@ -209,6 +209,170 @@
         "test-driven-development"
       ],
       "capabilities": 5
+    },
+    {
+      "id": "popular-agent-starter",
+      "name": "Popular Agent Starter Pack",
+      "version": "0.1.0",
+      "description": "A composed starter bundle of popular engineering skills and common Claude Code development plugins for agentic coding workflows.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "popular",
+        "starter",
+        "skills",
+        "plugins"
+      ],
+      "categories": [
+        "starter",
+        "popular"
+      ],
+      "tools": [
+        "codex",
+        "claude-code"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "capabilities": 25
+    },
+    {
+      "id": "popular-claude-dev-plugins",
+      "name": "Popular Claude Development Plugins Pack",
+      "version": "0.1.0",
+      "description": "A curated set of broadly useful Claude Code development plugins from Anthropic's official plugin directory.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "popular",
+        "claude-code",
+        "plugins",
+        "development"
+      ],
+      "categories": [
+        "plugins",
+        "development"
+      ],
+      "tools": [
+        "claude-code"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "plugins": [
+        "claude-code-setup",
+        "code-review",
+        "pr-review-toolkit",
+        "feature-dev",
+        "frontend-design",
+        "code-simplifier",
+        "security-guidance",
+        "commit-commands",
+        "session-report",
+        "skill-creator"
+      ],
+      "capabilities": 10
+    },
+    {
+      "id": "popular-engineering-skills",
+      "name": "Popular Engineering Skills Pack",
+      "version": "0.1.0",
+      "description": "A high-signal set of commonly useful engineering skills for agentic coding workflows, selected from public lifecycle skills with broad applicability.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "popular",
+        "skills",
+        "engineering",
+        "coding"
+      ],
+      "categories": [
+        "engineering",
+        "popular"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "using-agent-skills",
+        "spec-driven-development",
+        "planning-and-task-breakdown",
+        "context-engineering",
+        "source-driven-development",
+        "incremental-implementation",
+        "test-driven-development",
+        "api-and-interface-design",
+        "frontend-ui-engineering",
+        "debugging-and-error-recovery",
+        "code-review-and-quality",
+        "security-and-hardening",
+        "performance-optimization",
+        "git-workflow-and-versioning",
+        "ci-cd-and-automation"
+      ],
+      "capabilities": 15
+    },
+    {
+      "id": "popular-integration-plugins",
+      "name": "Popular Integration Plugins Pack",
+      "version": "0.1.0",
+      "description": "A curated set of common Claude Code integration plugins for repository hosting, browser automation, project management, documentation lookup, infrastructure, and semantic code tools.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "popular",
+        "integrations",
+        "plugins",
+        "mcp"
+      ],
+      "categories": [
+        "plugins",
+        "integrations"
+      ],
+      "tools": [
+        "claude-code"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "plugins": [
+        "github",
+        "gitlab",
+        "playwright",
+        "context7",
+        "linear",
+        "firebase",
+        "terraform",
+        "serena"
+      ],
+      "capabilities": 8
     },
     {
       "id": "pr-review",
