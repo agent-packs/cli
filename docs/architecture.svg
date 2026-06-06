@@ -10,6 +10,8 @@
       .cli { fill: #0f766e; stroke: #0f766e; stroke-width: 2; rx: 14; }
       .state { fill: #fefce8; stroke: #ca8a04; stroke-width: 2; rx: 10; }
       .target { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 10; }
+      .targetLogoBg { stroke: #cbd5e1; stroke-width: 1; }
+      .logoGlyph { fill: #ffffff; font: 700 10px Arial, sans-serif; text-anchor: middle; dominant-baseline: central; }
       .module { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
       .flow { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; rx: 10; }
       .title { fill: #0f172a; font: 700 26px Arial, sans-serif; }
@@ -100,20 +102,58 @@
 
   <rect x="1070" y="118" width="125" height="470" class="panel" />
   <text x="1092" y="154" class="label">Targets</text>
-  <rect x="1088" y="182" width="82" height="40" class="target" />
-  <text x="1110" y="207" class="tiny">Codex</text>
-  <rect x="1088" y="240" width="82" height="40" class="target" />
-  <text x="1106" y="265" class="tiny">Claude</text>
-  <rect x="1088" y="298" width="82" height="40" class="target" />
-  <text x="1109" y="323" class="tiny">Cursor</text>
-  <rect x="1088" y="356" width="82" height="40" class="target" />
-  <text x="1109" y="381" class="tiny">Gemini</text>
-  <rect x="1088" y="414" width="82" height="40" class="target" />
-  <text x="1105" y="439" class="tiny">Copilot</text>
-  <rect x="1088" y="472" width="82" height="40" class="target" />
-  <text x="1108" y="497" class="tiny">Goose</text>
-  <rect x="1088" y="530" width="82" height="40" class="target" />
-  <text x="1104" y="555" class="tiny">Generic</text>
+
+  <g aria-label="Codex target">
+    <rect x="1084" y="182" width="100" height="40" class="target" />
+    <circle cx="1100" cy="202" r="12" fill="#10a37f" class="targetLogoBg" />
+    <path d="M1095 199 C1097 194, 1104 194, 1106 199 C1110 201, 1108 208, 1103 209 C1099 213, 1093 209, 1095 203 C1091 200, 1092 195, 1097 194" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" />
+    <text x="1120" y="207" class="tiny">Codex</text>
+  </g>
+
+  <g aria-label="Claude target">
+    <rect x="1084" y="240" width="100" height="40" class="target" />
+    <circle cx="1100" cy="260" r="12" fill="#d97706" class="targetLogoBg" />
+    <path d="M1100 250 L1103 257 L1110 260 L1103 263 L1100 270 L1097 263 L1090 260 L1097 257 Z" fill="#ffffff" />
+    <text x="1120" y="265" class="tiny">Claude</text>
+  </g>
+
+  <g aria-label="Cursor target">
+    <rect x="1084" y="298" width="100" height="40" class="target" />
+    <circle cx="1100" cy="318" r="12" fill="#111827" class="targetLogoBg" />
+    <path d="M1094 309 L1108 319 L1102 321 L1106 328 L1102 330 L1098 323 L1094 328 Z" fill="#ffffff" />
+    <text x="1120" y="323" class="tiny">Cursor</text>
+  </g>
+
+  <g aria-label="Gemini target">
+    <rect x="1084" y="356" width="100" height="40" class="target" />
+    <circle cx="1100" cy="376" r="12" fill="#4f46e5" class="targetLogoBg" />
+    <path d="M1100 365 C1102 371, 1105 374, 1111 376 C1105 378, 1102 381, 1100 387 C1098 381, 1095 378, 1089 376 C1095 374, 1098 371, 1100 365 Z" fill="#ffffff" />
+    <text x="1120" y="381" class="tiny">Gemini</text>
+  </g>
+
+  <g aria-label="Copilot target">
+    <rect x="1084" y="414" width="100" height="40" class="target" />
+    <circle cx="1100" cy="434" r="12" fill="#24292f" class="targetLogoBg" />
+    <path d="M1092 432 C1092 427, 1096 424, 1100 424 C1104 424, 1108 427, 1108 432 L1108 439 C1108 442, 1105 444, 1102 444 L1098 444 C1095 444, 1092 442, 1092 439 Z" fill="none" stroke="#ffffff" stroke-width="1.6" />
+    <circle cx="1096" cy="434" r="1.8" fill="#ffffff" />
+    <circle cx="1104" cy="434" r="1.8" fill="#ffffff" />
+    <text x="1120" y="439" class="tiny">Copilot</text>
+  </g>
+
+  <g aria-label="Goose target">
+    <rect x="1084" y="472" width="100" height="40" class="target" />
+    <circle cx="1100" cy="492" r="12" fill="#2563eb" class="targetLogoBg" />
+    <text x="1100" y="492" class="logoGlyph">G</text>
+    <text x="1120" y="497" class="tiny">Goose</text>
+  </g>
+
+  <g aria-label="Generic target">
+    <rect x="1084" y="530" width="100" height="40" class="target" />
+    <circle cx="1100" cy="550" r="12" fill="#64748b" class="targetLogoBg" />
+    <path d="M1100 542 L1102 546 L1106 546 L1104 550 L1106 554 L1102 554 L1100 558 L1098 554 L1094 554 L1096 550 L1094 546 L1098 546 Z" fill="#ffffff" />
+    <circle cx="1100" cy="550" r="3" fill="#64748b" />
+    <text x="1120" y="555" class="tiny">Generic</text>
+  </g>
 
   <path class="softArrow" d="M280 207 C318 207, 330 210, 365 230" />
   <path class="softArrow" d="M280 279 C320 279, 333 270, 365 260" />
