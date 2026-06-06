@@ -104,8 +104,14 @@ cli/bin/agent-packs validate registry/plugins
 ## Included Packs
 
 - `frontend-engineer`: frontend implementation and browser verification workflows.
+- `frontend-quality`: frontend UI engineering, browser verification, and performance checks.
 - `pr-review`: code review and pull request inspection workflows.
 - `eng-leader`: engineering leadership workflows for strategy, planning, quality, architecture decisions, delivery, launch readiness, security, and performance. Several skills reference Addy Osmani's public `addyosmani/agent-skills` repository via upstream source metadata.
+- `product-discovery`: interview, idea refinement, spec writing, and task breakdown workflows.
+- `implementation-core`: context engineering, source-grounded development, API design, incremental implementation, and TDD workflows.
+- `reliability-debugging`: debugging, adversarial review, test hardening, and security hardening workflows.
+- `shipping-ops`: git workflow, CI/CD, launch readiness, migrations, and ADR/documentation workflows.
+- `full-lifecycle-engineer`: composed lifecycle pack from discovery through implementation, review, release, and follow-up.
 
 ## Tool Target Matrix
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T22:45:19.946615Z",
+  "generatedAt": "2026-06-06T03:08:57.96604Z",
   "packs": [
     {
       "id": "eng-leader",
@@ -86,6 +86,131 @@
       "capabilities": 2
     },
     {
+      "id": "frontend-quality",
+      "name": "Frontend Quality Pack",
+      "version": "0.1.0",
+      "description": "Build, verify, and optimize user-facing interfaces with UI engineering, browser evidence, and performance checks.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "frontend",
+        "browser",
+        "performance",
+        "ui"
+      ],
+      "categories": [
+        "frontend",
+        "quality"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "frontend-ui-engineering",
+        "browser-testing-with-devtools",
+        "performance-optimization"
+      ],
+      "plugins": [
+        "browser-verification-workflow"
+      ],
+      "capabilities": 4
+    },
+    {
+      "id": "full-lifecycle-engineer",
+      "name": "Full Lifecycle Engineer Pack",
+      "version": "0.1.0",
+      "description": "A composed pack for agents that need to take work from discovery through implementation, review, release, and follow-up.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "full-lifecycle",
+        "engineering",
+        "implementation",
+        "release"
+      ],
+      "categories": [
+        "engineering",
+        "workflow"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "using-agent-skills",
+        "code-review-and-quality",
+        "code-simplification"
+      ],
+      "plugins": [
+        "github-pr-inspection"
+      ],
+      "capabilities": 25
+    },
+    {
+      "id": "implementation-core",
+      "name": "Implementation Core Pack",
+      "version": "0.1.0",
+      "description": "A disciplined implementation workflow for context loading, source-grounded decisions, API design, incremental delivery, and tests.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "implementation",
+        "testing",
+        "api",
+        "context"
+      ],
+      "categories": [
+        "engineering",
+        "implementation"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "context-engineering",
+        "source-driven-development",
+        "api-and-interface-design",
+        "incremental-implementation",
+        "test-driven-development"
+      ],
+      "capabilities": 5
+    },
+    {
       "id": "pr-review",
       "name": "PR Review Pack",
       "version": "0.1.0",
@@ -121,6 +246,126 @@
         "github-pr-inspection"
       ],
       "capabilities": 2
+    },
+    {
+      "id": "product-discovery",
+      "name": "Product Discovery Pack",
+      "version": "0.1.0",
+      "description": "Clarify ambiguous ideas, refine product direction, and produce implementation-ready specs before coding begins.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "product",
+        "discovery",
+        "spec",
+        "planning"
+      ],
+      "categories": [
+        "product",
+        "planning"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "interview-me",
+        "idea-refine",
+        "spec-driven-development",
+        "planning-and-task-breakdown"
+      ],
+      "capabilities": 4
+    },
+    {
+      "id": "reliability-debugging",
+      "name": "Reliability Debugging Pack",
+      "version": "0.1.0",
+      "description": "Debug failures, challenge risky assumptions, strengthen tests, and harden code before incidents reach users.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "debugging",
+        "reliability",
+        "testing",
+        "security"
+      ],
+      "categories": [
+        "reliability",
+        "security"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "debugging-and-error-recovery",
+        "doubt-driven-development",
+        "security-and-hardening"
+      ],
+      "capabilities": 3
+    },
+    {
+      "id": "shipping-ops",
+      "name": "Shipping Ops Pack",
+      "version": "0.1.0",
+      "description": "Prepare code for release with git hygiene, CI/CD automation, launch readiness, migrations, and durable documentation.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-06",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "release",
+        "ci-cd",
+        "migration",
+        "documentation"
+      ],
+      "categories": [
+        "release",
+        "operations"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "git-workflow-and-versioning",
+        "ci-cd-and-automation",
+        "shipping-and-launch",
+        "deprecation-and-migration",
+        "documentation-and-adrs"
+      ],
+      "capabilities": 5
     }
   ]
 }

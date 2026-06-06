@@ -1,0 +1,40 @@
+{
+  "id": "product-discovery",
+  "name": "Product Discovery Pack",
+  "version": "0.1.0",
+  "description": "Clarify ambiguous ideas, refine product direction, and produce implementation-ready specs before coding begins.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-06",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "product",
+    "discovery",
+    "spec",
+    "planning"
+  ],
+  "skills": [
+    "interview-me",
+    "idea-refine",
+    "spec-driven-development",
+    "planning-and-task-breakdown"
+  ],
+  "categories": [
+    "product",
+    "planning"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

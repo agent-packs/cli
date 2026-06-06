@@ -1,0 +1,42 @@
+{
+  "id": "frontend-quality",
+  "name": "Frontend Quality Pack",
+  "version": "0.1.0",
+  "description": "Build, verify, and optimize user-facing interfaces with UI engineering, browser evidence, and performance checks.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-06",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "frontend",
+    "browser",
+    "performance",
+    "ui"
+  ],
+  "skills": [
+    "frontend-ui-engineering",
+    "browser-testing-with-devtools",
+    "performance-optimization"
+  ],
+  "plugins": [
+    "browser-verification-workflow"
+  ],
+  "categories": [
+    "frontend",
+    "quality"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}
