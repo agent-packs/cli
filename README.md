@@ -2,13 +2,13 @@
 
 Curated, installable capability bundles for AI coding agents.
 
-Agent Packs bundles public Skills, Plugins, MCP servers, commands, hooks, prompts,
-templates, and composed packs into ready-to-use workflow packs.
+Agent Packs bundles public Skills, Plugins, commands, hooks, prompts, templates,
+and composed packs into ready-to-use workflow packs.
 
 ![Agent Packs high-level architecture](docs/architecture.svg)
 
 Agent Packs aggregates capabilities from public skill repositories, Claude/Codex plugins,
-MCP servers, prompts, templates, commands, hooks, and remote registries. The CLI
+prompts, templates, commands, hooks, and remote registries. The CLI
 normalizes those sources into registry-backed packs, preserves provenance, writes
 receipts and lockfiles, and syncs capabilities into supported coding agents through
 reference, symlink, copy, or native install modes.
@@ -302,7 +302,7 @@ python3 -m unittest discover -s tests
 - Categories/tools/scope: searchable facets for registry discovery and install intent.
 - Skill: an instruction module, often `SKILL.md`.
 - Plugin: a packaged agent extension, such as an Anthropic/Claude Code plugin.
-- Tool: MCP server, shell command, API connector, or executable integration.
+- Tool: shell command, API connector, or executable integration.
 - Recipe: recommended combinations of packs for a larger use case.
 
 ## License

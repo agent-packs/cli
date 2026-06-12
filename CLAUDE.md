@@ -32,7 +32,7 @@ cli/bin/agent-packs index --output registry/index.json
 
 ## Architecture
 
-Agent Packs is a CLI tool (think "Homebrew for agent capabilities") that installs curated bundles of agent skills, plugins, MCP servers, prompts, and templates into AI coding tools (Claude Code, Codex, Cursor, Copilot, Gemini CLI, Goose, OpenCode).
+Agent Packs is a CLI tool (think "Homebrew for agent capabilities") that installs curated bundles of agent skills, plugins, prompts, and templates into AI coding tools (Claude Code, Codex, Cursor, Copilot, Gemini CLI, Goose, OpenCode).
 
 ### CLI (`cli/`)
 

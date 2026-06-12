@@ -90,6 +90,10 @@ func main() {
 		err = runInit(os.Args[2:])
 	case "new":
 		err = runNew(os.Args[2:])
+	case "status":
+		err = runStatus(defaultTarget, os.Args[2:])
+	case "completion":
+		err = runCompletion(os.Args[2:])
 	case "publish":
 		err = runPublish(registry, os.Args[2:])
 	case "help", "--help", "-h":
@@ -753,6 +757,215 @@ func normalizeTargetArgs(args []string) []string {
 	return append(flags, positionals...)
 }
 
+func runStatus(defaultTarget string, args []string) error {
+	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	flags := flag.NewFlagSet("status", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	_ = asJSON
+	return agentpacks.DriftCheck(*target, os.Stdout)
+}
+
+func runCompletion(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("usage: agent-packs completion <bash|zsh|fish>")
+	}
+	switch args[0] {
+	case "bash":
+		fmt.Print(bashCompletion)
+	case "zsh":
+		fmt.Print(zshCompletion)
+	case "fish":
+		fmt.Print(fishCompletion)
+	default:
+		return fmt.Errorf("unsupported shell %q: expected bash, zsh, or fish", args[0])
+	}
+	return nil
+}
+
+const bashCompletion = `# agent-packs bash completion
+# Source this file or add to ~/.bash_completion.d/
+_agent_packs() {
+    local cur prev words cword
+    _init_completion 2>/dev/null || {
+        COMPREPLY=()
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        prev="${COMP_WORDS[COMP_CWORD-1]}"
+        words=("${COMP_WORDS[@]}")
+        cword=$COMP_CWORD
+    }
+
+    local subcommands="search show install list outdated upgrade rollback uninstall status audit verify lint diff tree deps compat scan import validate index registry doctor new init publish policy licenses attribution resolve version completion help"
+
+    if [[ $cword -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
+        return
+    fi
+
+    case "$prev" in
+        --agent|--target-tool)
+            COMPREPLY=($(compgen -W "claude codex cursor gemini copilot opencode goose" -- "$cur"))
+            return ;;
+        --mode)
+            COMPREPLY=($(compgen -W "reference symlink copy native" -- "$cur"))
+            return ;;
+        --on-conflict)
+            COMPREPLY=($(compgen -W "skip overwrite backup" -- "$cur"))
+            return ;;
+        --only)
+            COMPREPLY=($(compgen -W "all skills plugins" -- "$cur"))
+            return ;;
+    esac
+
+    case "${words[1]}" in
+        install|show|audit|verify|lint|upgrade|rollback|uninstall|diff|deps|tree|compat|licenses|attribution|resolve)
+            local packs
+            packs=$(agent-packs search 2>/dev/null | awk '{print $1}')
+            COMPREPLY=($(compgen -W "$packs" -- "$cur"))
+            ;;
+        completion)
+            COMPREPLY=($(compgen -W "bash zsh fish" -- "$cur"))
+            ;;
+        policy)
+            COMPREPLY=($(compgen -W "check" -- "$cur"))
+            ;;
+    esac
+}
+complete -F _agent_packs agent-packs
+`
+
+const zshCompletion = `#compdef agent-packs
+# agent-packs zsh completion
+# Place in a directory on your $fpath, e.g. ~/.zsh/completions/_agent-packs
+
+_agent_packs() {
+    local state line
+    typeset -A opt_args
+
+    _arguments -C \
+        '1: :->command' \
+        '*: :->args' && return 0
+
+    case $state in
+        command)
+            local -a commands
+            commands=(
+                'search:search the registry for packs'
+                'show:show details of a pack'
+                'install:install a pack into an agent tool'
+                'list:list installed packs'
+                'outdated:check for available updates'
+                'upgrade:upgrade an installed pack'
+                'rollback:roll back a pack to a previous install'
+                'uninstall:remove an installed pack'
+                'status:check installed skills for drift or tampering'
+                'audit:generate a supply-chain SBOM for a pack'
+                'verify:verify pack source references'
+                'lint:lint a pack manifest'
+                'diff:diff an installed pack against the registry'
+                'tree:show pack dependency tree'
+                'compat:check pack compatibility with an agent'
+                'validate:validate manifests against schema'
+                'index:regenerate the registry index'
+                'registry:manage remote registries'
+                'doctor:diagnose installation environment'
+                'new:scaffold a new pack, skill, or plugin'
+                'init:create a project .agent-packs.yaml config'
+                'publish:check registry packs for publish readiness'
+                'policy:check packs against a trust policy'
+                'licenses:show licenses for a pack'\''s capabilities'
+                'attribution:show attribution for a pack'\''s capabilities'
+                'version:show the agent-packs version'
+                'completion:output shell completion script'
+                'help:show usage'
+            )
+            _describe 'command' commands
+            ;;
+        args)
+            local pack_ids
+            case ${words[2]} in
+                install|show|audit|verify|lint|upgrade|rollback|uninstall|diff|deps|tree|compat|licenses|attribution|resolve)
+                    pack_ids=(${(f)"$(agent-packs search 2>/dev/null | awk '{print $1}')"})
+                    _describe 'pack' pack_ids
+                    ;;
+                completion)
+                    local shells; shells=(bash zsh fish)
+                    _describe 'shell' shells
+                    ;;
+                policy)
+                    local sub; sub=(check)
+                    _describe 'subcommand' sub
+                    ;;
+            esac
+
+            _arguments \
+                '--agent=[target agent tool]:agent:(claude codex cursor gemini copilot opencode goose)' \
+                '--target-tool=[target tool alias]:agent:(claude codex cursor gemini copilot opencode goose)' \
+                '--mode=[install mode]:mode:(reference symlink copy native)' \
+                '--on-conflict=[conflict policy]:policy:(skip overwrite backup)' \
+                '--only=[capability filter]:filter:(all skills plugins)' \
+                '--target=[install target directory]:directory:_directories' \
+                '--dry-run[print plan without writing files]' \
+                '--execute-plugins[run native plugin install commands]' \
+                '--global[install into global target]' \
+                '--json[output as JSON]'
+            ;;
+    esac
+}
+
+_agent_packs "$@"
+`
+
+const fishCompletion = `# agent-packs fish completion
+# Place in ~/.config/fish/completions/agent-packs.fish
+
+set -l __ap_subcommands search show install list outdated upgrade rollback uninstall status audit verify lint diff tree deps compat validate index registry doctor new init publish policy licenses attribution resolve version completion help
+
+# Subcommand completions
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a search     -d 'Search the registry for packs'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a show       -d 'Show details of a pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a install    -d 'Install a pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a list       -d 'List installed packs'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a outdated   -d 'Check for available updates'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a upgrade    -d 'Upgrade an installed pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a rollback   -d 'Roll back to a previous install'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a uninstall  -d 'Remove an installed pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a status     -d 'Check installed skills for drift'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a audit      -d 'Generate a supply-chain SBOM'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a verify     -d 'Verify pack source references'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a lint       -d 'Lint a pack manifest'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a diff       -d 'Diff installed pack against registry'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a validate   -d 'Validate manifests against schema'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a index      -d 'Regenerate registry index'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a completion -d 'Output shell completion script'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a version    -d 'Show version'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a help       -d 'Show usage'
+
+# Pack ID completions for commands that take a pack argument
+set -l __ap_pack_cmds install show audit verify lint upgrade rollback uninstall diff deps tree compat licenses attribution resolve
+complete -f -c agent-packs \
+    -n "__fish_seen_subcommand_from $__ap_pack_cmds" \
+    -a "(agent-packs search 2>/dev/null | awk '{print \$1}')"
+
+# Shell name for completion subcommand
+complete -f -c agent-packs -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
+
+# Shared flags
+complete -f -c agent-packs -l agent        -a "claude codex cursor gemini copilot opencode goose" -d 'Target agent tool'
+complete -f -c agent-packs -l target-tool  -a "claude codex cursor gemini copilot opencode goose" -d 'Target tool alias'
+complete -f -c agent-packs -l mode         -a "reference symlink copy native"                     -d 'Install mode'
+complete -f -c agent-packs -l on-conflict  -a "skip overwrite backup"                             -d 'Conflict policy'
+complete -f -c agent-packs -l only         -a "all skills plugins"                                 -d 'Capability filter'
+complete -r -c agent-packs -l target       -d 'Installation target directory'
+complete -f -c agent-packs -l dry-run      -d 'Print plan without writing files'
+complete -f -c agent-packs -l execute-plugins -d 'Run native plugin install commands'
+complete -f -c agent-packs -l global       -d 'Install into global target'
+complete -f -c agent-packs -l json         -d 'Output as JSON'
+`
+
 func repoRoot() string {
 	executable, err := os.Executable()
 	if err != nil {
@@ -791,5 +1004,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs uninstall <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs doctor [targets]")
 	fmt.Fprintln(os.Stderr, "  agent-packs validate <file-or-directory>")
+	fmt.Fprintln(os.Stderr, "  agent-packs status [--target dir]")
+	fmt.Fprintln(os.Stderr, "  agent-packs completion <bash|zsh|fish>")
 	fmt.Fprintln(os.Stderr, "  agent-packs registry add|list|remove ...")
 }

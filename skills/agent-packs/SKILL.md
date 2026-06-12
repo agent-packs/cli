@@ -57,7 +57,7 @@ Packs can include:
 - `packs`: other pack IDs.
 - `skills`: registry skill IDs or remote skill references.
 - `plugins`: registry plugin IDs or remote plugin references.
-- `capabilities`: inline skills, plugins, MCP servers, prompts, commands, hooks, templates, or tools.
+- `capabilities`: inline skills, plugins, prompts, commands, hooks, templates, or tools.
 
 Use `source` as the installable or resolvable location. Use `upstreamSource` only when separate attribution is helpful.
 

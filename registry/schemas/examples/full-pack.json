@@ -51,12 +51,6 @@
       "trust": "community"
     },
     {
-      "type": "mcp",
-      "name": "GitHub MCP server",
-      "source": "https://example.com/mcp/github",
-      "format": "mcp-server"
-    },
-    {
       "type": "command",
       "name": "Run repository tests",
       "source": "npm test",

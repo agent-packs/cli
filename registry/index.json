@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-12T22:16:09.127854Z",
+  "generatedAt": "2026-06-12T22:53:30.065457Z",
   "packs": [
     {
       "id": "ai-engineer",
@@ -534,8 +534,7 @@
       "tags": [
         "popular",
         "integrations",
-        "plugins",
-        "mcp"
+        "plugins"
       ],
       "categories": [
         "plugins",

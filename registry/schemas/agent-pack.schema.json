@@ -126,7 +126,6 @@
           "enum": [
             "skill",
             "plugin",
-            "mcp",
             "command",
             "hook",
             "prompt",
@@ -146,7 +145,6 @@
             "agent-skill",
             "anthropic-plugin",
             "codex-plugin",
-            "mcp-server",
             "shell-command",
             "markdown-prompt",
             "template",

@@ -140,7 +140,8 @@ func GetOutdatedReport(registry, target string) (OutdatedReport, error) {
 func PackDiff(registry, target, packRef string, out io.Writer) error {
 	return install.PackDiff(registry, target, packRef, out)
 }
-func CacheInfo(home string, out io.Writer) error { return install.CacheInfo(home, out) }
+func DriftCheck(target string, out io.Writer) error { return install.DriftCheck(target, out) }
+func CacheInfo(home string, out io.Writer) error   { return install.CacheInfo(home, out) }
 func CachePrune(home string, clean bool, out io.Writer) error {
 	return install.CachePrune(home, clean, out)
 }

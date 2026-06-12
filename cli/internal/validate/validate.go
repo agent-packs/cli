@@ -488,7 +488,7 @@ func validatePluginPathField(field string, value any) []string {
 			}
 		}
 	case map[string]any:
-		// Inline component objects are valid for hooks, MCP, LSP, etc.
+		// Inline component objects are valid for hooks, LSP configs, etc.
 	default:
 		errs = append(errs, field+" must be a string, array, or object")
 	}
