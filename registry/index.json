@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-12T22:56:47.387059Z",
+  "generatedAt": "2026-06-12T23:02:19.59146Z",
   "packs": [
     {
       "id": "ai-engineer",
@@ -306,7 +306,7 @@
       "plugins": [
         "github-pr-inspection"
       ],
-      "capabilities": 29
+      "capabilities": 28
     },
     {
       "id": "implementation-core",
@@ -674,10 +674,9 @@
         "debugging-and-error-recovery",
         "doubt-driven-development",
         "security-and-hardening",
-        "observability-and-monitoring",
-        "code-review-and-quality"
+        "observability-and-monitoring"
       ],
-      "capabilities": 5
+      "capabilities": 4
     },
     {
       "id": "shipping-ops",

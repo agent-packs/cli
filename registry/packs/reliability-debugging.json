@@ -21,8 +21,7 @@
     "debugging-and-error-recovery",
     "doubt-driven-development",
     "security-and-hardening",
-    "observability-and-monitoring",
-    "code-review-and-quality"
+    "observability-and-monitoring"
   ],
   "categories": [
     "reliability",
