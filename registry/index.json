@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-12T21:27:22.507186Z",
+  "generatedAt": "2026-06-12T22:16:09.127854Z",
   "packs": [
     {
       "id": "ai-engineer",
@@ -138,6 +138,50 @@
       "capabilities": 10
     },
     {
+      "id": "engineering-craft",
+      "name": "Engineering Craft Pack",
+      "version": "0.1.0",
+      "description": "Cross-cutting engineering skills for modern software teams: observability, database design, accessibility, TypeScript discipline, AI feature development, and monorepo tooling.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-12",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "observability",
+        "database",
+        "accessibility",
+        "typescript",
+        "ai",
+        "monorepo"
+      ],
+      "categories": [
+        "engineering",
+        "craft"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "observability-and-monitoring",
+        "database-schema-design",
+        "accessibility-audit",
+        "typescript-best-practices",
+        "ai-feature-development",
+        "monorepo-workflows"
+      ],
+      "capabilities": 6
+    },
+    {
       "id": "frontend-engineer",
       "name": "Frontend Engineer Pack",
       "version": "0.2.0",
@@ -170,14 +214,13 @@
       ],
       "skills": [
         "frontend-implementation-guidance",
-        "frontend-ui-engineering",
         "accessibility-audit",
         "typescript-best-practices"
       ],
       "plugins": [
         "browser-verification-workflow"
       ],
-      "capabilities": 5
+      "capabilities": 4
     },
     {
       "id": "frontend-quality",

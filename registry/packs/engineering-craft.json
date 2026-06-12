@@ -1,0 +1,44 @@
+{
+  "id": "engineering-craft",
+  "name": "Engineering Craft Pack",
+  "version": "0.1.0",
+  "description": "Cross-cutting engineering skills for modern software teams: observability, database design, accessibility, TypeScript discipline, AI feature development, and monorepo tooling.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-12",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "observability",
+    "database",
+    "accessibility",
+    "typescript",
+    "ai",
+    "monorepo"
+  ],
+  "skills": [
+    "observability-and-monitoring",
+    "database-schema-design",
+    "accessibility-audit",
+    "typescript-best-practices",
+    "ai-feature-development",
+    "monorepo-workflows"
+  ],
+  "categories": [
+    "engineering",
+    "craft"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}
