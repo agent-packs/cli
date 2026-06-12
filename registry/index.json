@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-12T22:53:30.065457Z",
+  "generatedAt": "2026-06-12T22:56:47.387059Z",
   "packs": [
     {
       "id": "ai-engineer",
@@ -590,13 +590,12 @@
         "project"
       ],
       "skills": [
-        "code-review-workflow",
-        "code-review-and-quality"
+        "code-review-workflow"
       ],
       "plugins": [
         "github-pr-inspection"
       ],
-      "capabilities": 3
+      "capabilities": 2
     },
     {
       "id": "product-discovery",
