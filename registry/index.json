@@ -1,6 +1,95 @@
 {
-  "generatedAt": "2026-06-06T20:24:21.225091Z",
+  "generatedAt": "2026-06-12T21:27:22.507186Z",
   "packs": [
+    {
+      "id": "ai-engineer",
+      "name": "AI Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for coding agents building AI-powered features: prompt engineering, LLM integration, evaluation harnesses, AI-aware observability, and safe output handling.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-12",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "ai",
+        "llm",
+        "prompts",
+        "evaluation",
+        "agents",
+        "observability"
+      ],
+      "categories": [
+        "ai",
+        "engineering"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "ai-feature-development",
+        "context-engineering",
+        "api-and-interface-design",
+        "test-driven-development",
+        "observability-and-monitoring",
+        "security-and-hardening"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "backend-engineer",
+      "name": "Backend Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for coding agents building reliable backend services: API design, database schemas, observability, security hardening, and test-driven development.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-12",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "backend",
+        "api",
+        "database",
+        "observability",
+        "security",
+        "testing"
+      ],
+      "categories": [
+        "backend",
+        "engineering"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "api-and-interface-design",
+        "source-driven-development",
+        "database-schema-design",
+        "observability-and-monitoring",
+        "security-and-hardening",
+        "test-driven-development",
+        "debugging-and-error-recovery"
+      ],
+      "capabilities": 7
+    },
     {
       "id": "eng-leader",
       "name": "Engineering Leader Pack",
@@ -51,19 +140,21 @@
     {
       "id": "frontend-engineer",
       "name": "Frontend Engineer Pack",
-      "version": "0.1.0",
-      "description": "A starter pack for coding agents building polished frontend applications.",
+      "version": "0.2.0",
+      "description": "A starter pack for coding agents building polished, accessible frontend applications with strong TypeScript foundations.",
       "maintainers": [
         "sandeshh"
       ],
       "stability": "experimental",
-      "lastVerified": "2026-06-05",
+      "lastVerified": "2026-06-12",
       "reviewStatus": "reviewed",
       "tags": [
         "frontend",
         "ui",
         "react",
-        "design"
+        "design",
+        "accessibility",
+        "typescript"
       ],
       "categories": [
         "frontend",
@@ -78,29 +169,33 @@
         "project"
       ],
       "skills": [
-        "frontend-implementation-guidance"
+        "frontend-implementation-guidance",
+        "frontend-ui-engineering",
+        "accessibility-audit",
+        "typescript-best-practices"
       ],
       "plugins": [
         "browser-verification-workflow"
       ],
-      "capabilities": 2
+      "capabilities": 5
     },
     {
       "id": "frontend-quality",
       "name": "Frontend Quality Pack",
-      "version": "0.1.0",
-      "description": "Build, verify, and optimize user-facing interfaces with UI engineering, browser evidence, and performance checks.",
+      "version": "0.2.0",
+      "description": "Build, verify, and optimize user-facing interfaces with UI engineering, accessibility, browser evidence, and performance checks.",
       "maintainers": [
         "sandeshh"
       ],
       "stability": "experimental",
-      "lastVerified": "2026-06-06",
+      "lastVerified": "2026-06-12",
       "reviewStatus": "reviewed",
       "tags": [
         "frontend",
         "browser",
         "performance",
-        "ui"
+        "ui",
+        "accessibility"
       ],
       "categories": [
         "frontend",
@@ -119,13 +214,14 @@
       ],
       "skills": [
         "frontend-ui-engineering",
+        "accessibility-audit",
         "browser-testing-with-devtools",
         "performance-optimization"
       ],
       "plugins": [
         "browser-verification-workflow"
       ],
-      "capabilities": 4
+      "capabilities": 5
     },
     {
       "id": "full-lifecycle-engineer",
@@ -167,24 +263,25 @@
       "plugins": [
         "github-pr-inspection"
       ],
-      "capabilities": 25
+      "capabilities": 29
     },
     {
       "id": "implementation-core",
       "name": "Implementation Core Pack",
-      "version": "0.1.0",
-      "description": "A disciplined implementation workflow for context loading, source-grounded decisions, API design, incremental delivery, and tests.",
+      "version": "0.2.0",
+      "description": "A disciplined implementation workflow for context loading, source-grounded decisions, API design, incremental delivery, monorepo awareness, and tests.",
       "maintainers": [
         "sandeshh"
       ],
       "stability": "experimental",
-      "lastVerified": "2026-06-06",
+      "lastVerified": "2026-06-12",
       "reviewStatus": "reviewed",
       "tags": [
         "implementation",
         "testing",
         "api",
-        "context"
+        "context",
+        "monorepo"
       ],
       "categories": [
         "engineering",
@@ -206,9 +303,55 @@
         "source-driven-development",
         "api-and-interface-design",
         "incremental-implementation",
-        "test-driven-development"
+        "test-driven-development",
+        "monorepo-workflows"
       ],
-      "capabilities": 5
+      "capabilities": 6
+    },
+    {
+      "id": "platform-engineer",
+      "name": "Platform Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for infrastructure, CI/CD pipelines, container operations, observability setup, monorepo tooling, and reliability engineering.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-12",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "platform",
+        "infrastructure",
+        "ci-cd",
+        "observability",
+        "monorepo",
+        "reliability"
+      ],
+      "categories": [
+        "platform",
+        "infrastructure",
+        "operations"
+      ],
+      "tools": [
+        "codex",
+        "claude-code",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "ci-cd-and-automation",
+        "observability-and-monitoring",
+        "monorepo-workflows",
+        "security-and-hardening",
+        "deprecation-and-migration",
+        "documentation-and-adrs"
+      ],
+      "capabilities": 6
     },
     {
       "id": "popular-agent-starter",
@@ -377,19 +520,20 @@
     {
       "id": "pr-review",
       "name": "PR Review Pack",
-      "version": "0.1.0",
-      "description": "A starter pack for coding agents reviewing pull requests and identifying regressions.",
+      "version": "0.2.0",
+      "description": "A starter pack for coding agents reviewing pull requests, enforcing quality gates, and identifying regressions.",
       "maintainers": [
         "sandeshh"
       ],
       "stability": "experimental",
-      "lastVerified": "2026-06-05",
+      "lastVerified": "2026-06-12",
       "reviewStatus": "reviewed",
       "tags": [
         "github",
         "review",
         "ci",
-        "quality"
+        "quality",
+        "code-review"
       ],
       "categories": [
         "code-review",
@@ -404,12 +548,13 @@
         "project"
       ],
       "skills": [
-        "code-review-workflow"
+        "code-review-workflow",
+        "code-review-and-quality"
       ],
       "plugins": [
         "github-pr-inspection"
       ],
-      "capabilities": 2
+      "capabilities": 3
     },
     {
       "id": "product-discovery",
@@ -454,19 +599,20 @@
     {
       "id": "reliability-debugging",
       "name": "Reliability Debugging Pack",
-      "version": "0.1.0",
-      "description": "Debug failures, challenge risky assumptions, strengthen tests, and harden code before incidents reach users.",
+      "version": "0.2.0",
+      "description": "Debug failures, challenge risky assumptions, strengthen tests, monitor in production, and harden code before incidents reach users.",
       "maintainers": [
         "sandeshh"
       ],
       "stability": "experimental",
-      "lastVerified": "2026-06-06",
+      "lastVerified": "2026-06-12",
       "reviewStatus": "reviewed",
       "tags": [
         "debugging",
         "reliability",
         "testing",
-        "security"
+        "security",
+        "observability"
       ],
       "categories": [
         "reliability",
@@ -486,9 +632,11 @@
       "skills": [
         "debugging-and-error-recovery",
         "doubt-driven-development",
-        "security-and-hardening"
+        "security-and-hardening",
+        "observability-and-monitoring",
+        "code-review-and-quality"
       ],
-      "capabilities": 3
+      "capabilities": 5
     },
     {
       "id": "shipping-ops",

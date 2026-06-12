@@ -1,25 +1,28 @@
 {
   "id": "reliability-debugging",
   "name": "Reliability Debugging Pack",
-  "version": "0.1.0",
-  "description": "Debug failures, challenge risky assumptions, strengthen tests, and harden code before incidents reach users.",
+  "version": "0.2.0",
+  "description": "Debug failures, challenge risky assumptions, strengthen tests, monitor in production, and harden code before incidents reach users.",
   "license": "Apache-2.0",
   "maintainers": [
     "sandeshh"
   ],
   "stability": "experimental",
-  "lastVerified": "2026-06-06",
+  "lastVerified": "2026-06-12",
   "reviewStatus": "reviewed",
   "tags": [
     "debugging",
     "reliability",
     "testing",
-    "security"
+    "security",
+    "observability"
   ],
   "skills": [
     "debugging-and-error-recovery",
     "doubt-driven-development",
-    "security-and-hardening"
+    "security-and-hardening",
+    "observability-and-monitoring",
+    "code-review-and-quality"
   ],
   "categories": [
     "reliability",

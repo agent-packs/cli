@@ -1,23 +1,25 @@
 {
   "id": "pr-review",
   "name": "PR Review Pack",
-  "version": "0.1.0",
-  "description": "A starter pack for coding agents reviewing pull requests and identifying regressions.",
+  "version": "0.2.0",
+  "description": "A starter pack for coding agents reviewing pull requests, enforcing quality gates, and identifying regressions.",
   "license": "Apache-2.0",
   "maintainers": [
     "sandeshh"
   ],
   "stability": "experimental",
-  "lastVerified": "2026-06-05",
+  "lastVerified": "2026-06-12",
   "reviewStatus": "reviewed",
   "tags": [
     "github",
     "review",
     "ci",
-    "quality"
+    "quality",
+    "code-review"
   ],
   "skills": [
-    "code-review-workflow"
+    "code-review-workflow",
+    "code-review-and-quality"
   ],
   "plugins": [
     "github-pr-inspection"

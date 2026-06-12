@@ -1,0 +1,45 @@
+{
+  "id": "platform-engineer",
+  "name": "Platform Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for infrastructure, CI/CD pipelines, container operations, observability setup, monorepo tooling, and reliability engineering.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-12",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "platform",
+    "infrastructure",
+    "ci-cd",
+    "observability",
+    "monorepo",
+    "reliability"
+  ],
+  "skills": [
+    "ci-cd-and-automation",
+    "observability-and-monitoring",
+    "monorepo-workflows",
+    "security-and-hardening",
+    "deprecation-and-migration",
+    "documentation-and-adrs"
+  ],
+  "categories": [
+    "platform",
+    "infrastructure",
+    "operations"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

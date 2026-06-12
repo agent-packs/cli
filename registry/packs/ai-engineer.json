@@ -1,0 +1,44 @@
+{
+  "id": "ai-engineer",
+  "name": "AI Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for coding agents building AI-powered features: prompt engineering, LLM integration, evaluation harnesses, AI-aware observability, and safe output handling.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-12",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "ai",
+    "llm",
+    "prompts",
+    "evaluation",
+    "agents",
+    "observability"
+  ],
+  "skills": [
+    "ai-feature-development",
+    "context-engineering",
+    "api-and-interface-design",
+    "test-driven-development",
+    "observability-and-monitoring",
+    "security-and-hardening"
+  ],
+  "categories": [
+    "ai",
+    "engineering"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

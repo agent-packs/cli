@@ -1,0 +1,45 @@
+{
+  "id": "backend-engineer",
+  "name": "Backend Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for coding agents building reliable backend services: API design, database schemas, observability, security hardening, and test-driven development.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-12",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "backend",
+    "api",
+    "database",
+    "observability",
+    "security",
+    "testing"
+  ],
+  "skills": [
+    "api-and-interface-design",
+    "source-driven-development",
+    "database-schema-design",
+    "observability-and-monitoring",
+    "security-and-hardening",
+    "test-driven-development",
+    "debugging-and-error-recovery"
+  ],
+  "categories": [
+    "backend",
+    "engineering"
+  ],
+  "tools": [
+    "codex",
+    "claude-code",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}
