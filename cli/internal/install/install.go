@@ -494,8 +494,12 @@ func PackDiff(registryPath, target, packRef string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	lock, err := LoadLockfile(filepath.Join(util.ExpandHome(target), "packs", expanded.ID, "agent-pack.lock"))
+	lockPath := filepath.Join(util.ExpandHome(target), "packs", expanded.ID, "agent-pack.lock")
+	lock, err := LoadLockfile(lockPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("pack %q is not installed — run `agent-packs install %s` first", expanded.ID, expanded.ID)
+		}
 		return err
 	}
 	diffCount := 0

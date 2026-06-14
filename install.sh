@@ -63,6 +63,13 @@ if [ "${INSTALL_SKILL}" != "0" ] && [ -d "${tmpdir}/skills/agent-packs" ]; then
   echo "Installed Agent Packs skill to ${SKILL_DIR}"
 fi
 
+if [ -d "${tmpdir}/registry" ]; then
+  SHARE_DIR="${HOME}/.local/share/agent-packs"
+  mkdir -p "${SHARE_DIR}"
+  cp -R "${tmpdir}/registry" "${SHARE_DIR}/registry"
+  echo "Installed registry to ${SHARE_DIR}/registry"
+fi
+
 if ! echo ":${PATH}:" | grep -q ":${INSTALL_DIR}:"; then
   echo "Add ${INSTALL_DIR} to your PATH to use agent-packs"
 fi

@@ -927,7 +927,7 @@ func normalizeInstallArgs(args []string) []string {
 			flags = append(flags, arg)
 			continue
 		}
-		if arg == "--target" || arg == "--agent" || arg == "--target-tool" || arg == "--only" || arg == "--mode" || arg == "--on-conflict" || arg == "--project" || arg == "--scope" || arg == "--method" || arg == "--package" || arg == "--marketplace" || arg == "--command" || arg == "--uninstall-command" || arg == "--from" {
+		if arg == "--target" || arg == "--agent" || arg == "--target-tool" || arg == "--only" || arg == "--mode" || arg == "--on-conflict" || arg == "--project" || arg == "--scope" || arg == "--method" || arg == "--package" || arg == "--marketplace" || arg == "--command" || arg == "--uninstall-command" || arg == "--from" || arg == "--min-trust" {
 			flags = append(flags, arg)
 			if i+1 < len(args) {
 				flags = append(flags, args[i+1])
@@ -935,7 +935,7 @@ func normalizeInstallArgs(args []string) []string {
 			}
 			continue
 		}
-		if strings.HasPrefix(arg, "--target=") || strings.HasPrefix(arg, "--agent=") || strings.HasPrefix(arg, "--target-tool=") || strings.HasPrefix(arg, "--only=") || strings.HasPrefix(arg, "--mode=") || strings.HasPrefix(arg, "--on-conflict=") || strings.HasPrefix(arg, "--project=") || strings.HasPrefix(arg, "--scope=") || strings.HasPrefix(arg, "--method=") || strings.HasPrefix(arg, "--package=") || strings.HasPrefix(arg, "--marketplace=") || strings.HasPrefix(arg, "--command=") || strings.HasPrefix(arg, "--uninstall-command=") || strings.HasPrefix(arg, "--from=") {
+		if strings.HasPrefix(arg, "--target=") || strings.HasPrefix(arg, "--agent=") || strings.HasPrefix(arg, "--target-tool=") || strings.HasPrefix(arg, "--only=") || strings.HasPrefix(arg, "--mode=") || strings.HasPrefix(arg, "--on-conflict=") || strings.HasPrefix(arg, "--project=") || strings.HasPrefix(arg, "--scope=") || strings.HasPrefix(arg, "--method=") || strings.HasPrefix(arg, "--package=") || strings.HasPrefix(arg, "--marketplace=") || strings.HasPrefix(arg, "--command=") || strings.HasPrefix(arg, "--uninstall-command=") || strings.HasPrefix(arg, "--from=") || strings.HasPrefix(arg, "--min-trust=") {
 			flags = append(flags, arg)
 			continue
 		}
