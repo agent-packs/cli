@@ -80,3 +80,61 @@ func TestOutdatedReportSkipsInternalHistoryDirectory(t *testing.T) {
 		t.Fatalf("expected internal history directory to be ignored, got %#v", report.Entries)
 	}
 }
+
+func TestDriftCheckReportsReferenceModeInsteadOfEmpty(t *testing.T) {
+	target := t.TempDir()
+	plan := model.Plan{
+		Pack: "ref-pack", Mode: "reference",
+		Capabilities: []model.PlanItem{
+			{Type: "skill", Name: "skill-a", Action: "reference", Status: "referenced"},
+			{Type: "skill", Name: "skill-b", Action: "reference", Status: "referenced"},
+		},
+	}
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "ref-pack"}, plan); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := DriftCheck(target, &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := out.String()
+	if strings.Contains(text, "No installed packs found") {
+		t.Fatalf("reference-mode install must not report as empty:\n%s", text)
+	}
+	if !strings.Contains(text, "reference mode") || !strings.Contains(text, "ref-pack/skill-a") {
+		t.Fatalf("expected reference-mode capabilities to be listed, got:\n%s", text)
+	}
+}
+
+func TestDriftCheckEmptyTargetReportsNoPacks(t *testing.T) {
+	target := t.TempDir()
+	var out strings.Builder
+	if err := DriftCheck(target, &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "No installed packs found") {
+		t.Fatalf("empty target should report no packs, got: %s", out.String())
+	}
+}
+
+func TestDriftCheckFlagsMissingMaterializedCapability(t *testing.T) {
+	target := t.TempDir()
+	plan := model.Plan{
+		Pack: "copy-pack", Mode: "copy",
+		Capabilities: []model.PlanItem{
+			{Type: "skill", Name: "gone", Action: "copy", Status: "installed",
+				Destination: filepath.Join(target, "does-not-exist", "gone")},
+		},
+	}
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "copy-pack"}, plan); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	err := DriftCheck(target, &out)
+	if err == nil {
+		t.Fatal("expected drift error when a materialized capability is missing")
+	}
+	if !strings.Contains(out.String(), "MISSING") {
+		t.Fatalf("expected MISSING line, got: %s", out.String())
+	}
+}

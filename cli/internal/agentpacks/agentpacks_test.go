@@ -681,6 +681,41 @@ func TestRollbackRestoresPreviousReceipt(t *testing.T) {
 	}
 }
 
+func TestScanSkillsSkipsBackupDirectories(t *testing.T) {
+	root := t.TempDir()
+	skillMD := "---\nname: real-skill\ndescription: A live installed skill.\n---\n"
+
+	live := filepath.Join(root, "real-skill")
+	if err := os.MkdirAll(live, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(live, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// A backup left behind by `--on-conflict backup`: <dest>.bak.<timestamp>.
+	backup := filepath.Join(root, "real-skill.bak.20260614120000")
+	if err := os.MkdirAll(backup, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backup, "SKILL.md"), []byte(skillMD), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := ScanSkills(root, &out); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if strings.Contains(text, ".bak.") {
+		t.Fatalf("scan must not report backup directories, got:\n%s", text)
+	}
+	lines := strings.Count(strings.TrimSpace(text), "\n") + 1
+	if strings.TrimSpace(text) == "" || lines != 1 {
+		t.Fatalf("expected exactly one live skill line, got %d:\n%s", lines, text)
+	}
+}
+
 func testPack(skillSource string) Pack {
 	return Pack{
 		ID:          "example",

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -239,11 +240,20 @@ func ExportPacks(target string, out io.Writer) error {
 	return enc.Encode(exportFile{Packs: packs})
 }
 
+// backupDirPattern matches directories created by `--on-conflict backup`,
+// named <dest>.bak.<14-digit-timestamp>.
+var backupDirPattern = regexp.MustCompile(`\.bak\.\d{14}$`)
+
 func ScanSkills(root string, out io.Writer) error {
 	root = util.ExpandHome(root)
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		// Skip backup directories left by `--on-conflict backup`
+		// (named <dest>.bak.<timestamp>) so they aren't reported as live skills.
+		if d.IsDir() && backupDirPattern.MatchString(d.Name()) {
+			return filepath.SkipDir
 		}
 		if !d.IsDir() && filepath.Base(path) == "SKILL.md" {
 			manifest, err := registry.LoadSkillManifest(path)

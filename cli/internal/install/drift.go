@@ -46,7 +46,14 @@ func collectDriftItems(target string) ([]DriftItem, error) {
 			continue
 		}
 		for _, item := range receipt.Plan.Capabilities {
-			if item.Status != "installed" || item.Destination == "" {
+			if item.Destination == "" {
+				// Reference mode: the pack is installed but nothing is
+				// materialized on disk, so there is no file to verify drift
+				// against. Surface it so `status` doesn't look empty.
+				items = append(items, DriftItem{Pack: receipt.Plan.Pack, Name: item.Name, State: "referenced"})
+				continue
+			}
+			if item.Status != "installed" {
 				continue
 			}
 			items = append(items, checkDrift(receipt.Plan.Pack, item))
@@ -73,10 +80,14 @@ func DriftCheck(target string, out io.Writer) error {
 	}
 
 	drifted := 0
+	referenced := 0
 	for _, it := range items {
 		switch it.State {
 		case "ok":
 			fmt.Fprintf(out, "OK       %s/%s\n", it.Pack, it.Name)
+		case "referenced":
+			fmt.Fprintf(out, "REF      %s/%s — reference mode (not materialized)\n", it.Pack, it.Name)
+			referenced++
 		case "missing":
 			fmt.Fprintf(out, "MISSING  %s/%s — destination %s not found\n", it.Pack, it.Name, it.Dest)
 			drifted++
@@ -86,17 +97,21 @@ func DriftCheck(target string, out io.Writer) error {
 		}
 	}
 
-	if len(items) == 0 {
-		fmt.Fprintln(out, "No tracked installed capabilities")
-		return nil
-	}
-
 	fmt.Fprintln(out)
 	if drifted > 0 {
 		fmt.Fprintf(out, "%d/%d capabilities drifted or missing\n", drifted, len(items))
 		return model.ErrInstallFailed
 	}
-	fmt.Fprintf(out, "All %d capabilities intact\n", len(items))
+	materialized := len(items) - referenced
+	if materialized == 0 {
+		fmt.Fprintf(out, "%d capabilities installed in reference mode (nothing materialized to verify)\n", referenced)
+		return nil
+	}
+	fmt.Fprintf(out, "All %d materialized capabilities intact", materialized)
+	if referenced > 0 {
+		fmt.Fprintf(out, " (%d referenced)", referenced)
+	}
+	fmt.Fprintln(out)
 	return nil
 }
 
