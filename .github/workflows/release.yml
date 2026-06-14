@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -61,3 +62,96 @@ jobs:
             cli/dist/*.zip
             cli/dist/checksums.txt
           generate_release_notes: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update Homebrew tap formula
+        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          SHA_DARWIN_ARM64=$(sha256sum cli/dist/agent-packs_darwin_arm64.tar.gz | awk '{print $1}')
+          SHA_DARWIN_AMD64=$(sha256sum cli/dist/agent-packs_darwin_amd64.tar.gz | awk '{print $1}')
+          SHA_LINUX_ARM64=$(sha256sum cli/dist/agent-packs_linux_arm64.tar.gz | awk '{print $1}')
+          SHA_LINUX_AMD64=$(sha256sum cli/dist/agent-packs_linux_amd64.tar.gz | awk '{print $1}')
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/sandeshh/homebrew-agent-packs.git" /tmp/tap
+          cat > /tmp/tap/Formula/agent-packs.rb <<FORMULA
+          class AgentPacks < Formula
+            desc "Homebrew for AI agent skills and plugins — install curated packs into Claude Code, Cursor, Codex, and more"
+            homepage "https://github.com/sandeshh/agent-packs"
+            version "${VERSION#v}"
+            license "Apache-2.0"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/sandeshh/agent-packs/releases/download/${VERSION}/agent-packs_darwin_arm64.tar.gz"
+                sha256 "${SHA_DARWIN_ARM64}"
+              else
+                url "https://github.com/sandeshh/agent-packs/releases/download/${VERSION}/agent-packs_darwin_amd64.tar.gz"
+                sha256 "${SHA_DARWIN_AMD64}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/sandeshh/agent-packs/releases/download/${VERSION}/agent-packs_linux_arm64.tar.gz"
+                sha256 "${SHA_LINUX_ARM64}"
+              else
+                url "https://github.com/sandeshh/agent-packs/releases/download/${VERSION}/agent-packs_linux_amd64.tar.gz"
+                sha256 "${SHA_LINUX_AMD64}"
+              end
+            end
+
+            def install
+              bin.install "agent-packs"
+            end
+
+            def caveats
+              <<~EOS
+                Get started:
+                  agent-packs search              # Browse the registry
+                  agent-packs install backend-engineer --agent claude
+                  agent-packs doctor              # Check your environment
+
+                Shell completion (add to ~/.zshrc):
+                  eval "\$(agent-packs completion zsh)"
+              EOS
+            end
+
+            test do
+              assert_match version.to_s, shell_output("\#{bin}/agent-packs version")
+            end
+          end
+          FORMULA
+
+          cd /tmp/tap
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add Formula/agent-packs.rb
+          git commit -m "Update agent-packs to ${VERSION}"
+          git push

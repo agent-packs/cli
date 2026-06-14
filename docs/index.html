@@ -246,6 +246,8 @@
 
   <div class="install-tabs">
     <button class="tab-btn active" onclick="setTab('curl', this)">curl</button>
+    <button class="tab-btn" onclick="setTab('brew', this)">Homebrew</button>
+    <button class="tab-btn" onclick="setTab('docker', this)">Docker</button>
     <button class="tab-btn" onclick="setTab('go', this)">Go install</button>
   </div>
   <div class="install-box">
@@ -348,8 +350,8 @@
         <div class="step-num">1</div>
         <div>
           <h3>Install the CLI</h3>
-          <p>Download and install via curl, or use Go install.</p>
-          <div class="code-block">curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh</div>
+          <p>Install via curl, Homebrew, Docker, or Go.</p>
+          <div class="code-block"><span class="cm"># curl (macOS / Linux)</span><br>curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh<br><br><span class="cm"># Homebrew</span><br>brew install sandeshh/agent-packs/agent-packs<br><br><span class="cm"># Docker</span><br>docker run --rm -it ghcr.io/sandeshh/agent-packs:latest</div>
         </div>
       </div>
       <div class="step">
@@ -419,8 +421,10 @@
 
 <script>
   const installCmds = {
-    curl: 'curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh',
-    go: 'go install github.com/sandeshh/agent-packs/cli/cmd/agent-packs@latest',
+    curl:   'curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh',
+    brew:   'brew install sandeshh/agent-packs/agent-packs',
+    docker: 'docker run --rm -it ghcr.io/sandeshh/agent-packs:latest',
+    go:     'go install github.com/sandeshh/agent-packs/cli/cmd/agent-packs@latest',
   };
 
   function setTab(key, btn) {

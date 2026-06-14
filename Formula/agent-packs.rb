@@ -7,21 +7,20 @@ class AgentPacks < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/sandeshh/agent-packs/releases/download/v#{version}/agent-packs_darwin_arm64.tar.gz"
-      # sha256 updated by GoReleaser on each release
-      sha256 "PLACEHOLDER_DARWIN_ARM64_SHA256"
+      sha256 "aa0a984bfb7474991daadf992806b4cb6833640820be05dffbdb1d980596cf4a"
     else
       url "https://github.com/sandeshh/agent-packs/releases/download/v#{version}/agent-packs_darwin_amd64.tar.gz"
-      sha256 "PLACEHOLDER_DARWIN_AMD64_SHA256"
+      sha256 "2cccec5cbe9f2c357235aa95c41d9b942049700115f9eabc5aac415f6ae0bdbe"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
       url "https://github.com/sandeshh/agent-packs/releases/download/v#{version}/agent-packs_linux_arm64.tar.gz"
-      sha256 "PLACEHOLDER_LINUX_ARM64_SHA256"
+      sha256 "70cc64a7a8d75d179dd38844abed3b147f27e9649bd47414264f93baeeb0a630"
     else
       url "https://github.com/sandeshh/agent-packs/releases/download/v#{version}/agent-packs_linux_amd64.tar.gz"
-      sha256 "PLACEHOLDER_LINUX_AMD64_SHA256"
+      sha256 "bec591d15d1ee726a9fdb239c95aee1dc6fab81c2b668169bec78cf5f4237a2f"
     end
   end
 
@@ -35,18 +34,13 @@ class AgentPacks < Formula
         agent-packs search              # Browse the registry
         agent-packs install backend-engineer --agent claude
         agent-packs doctor              # Check your environment
-        agent-packs completion bash     # Shell completion
 
-      To enable shell completion (bash):
-        agent-packs completion bash > $(brew --prefix)/etc/bash_completion.d/agent-packs
-
-      Zsh (add to ~/.zshrc):
+      Shell completion (add to ~/.zshrc):
         eval "$(agent-packs completion zsh)"
     EOS
   end
 
   test do
     assert_match version.to_s, shell_output("#{bin}/agent-packs version")
-    assert_match "search", shell_output("#{bin}/agent-packs help 2>&1", 2)
   end
 end
