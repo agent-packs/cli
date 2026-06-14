@@ -1,0 +1,46 @@
+{
+  "id": "qa-engineer",
+  "name": "QA Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for QA engineers and quality-focused developers: contract testing, load testing, browser testing, security validation, and building robust automated test suites.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-13",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "qa",
+    "testing",
+    "contract-testing",
+    "load-testing",
+    "browser-testing",
+    "automation",
+    "quality"
+  ],
+  "skills": [
+    "test-driven-development",
+    "api-contract-testing",
+    "load-testing",
+    "browser-testing-with-devtools",
+    "security-and-hardening",
+    "debugging-and-error-recovery"
+  ],
+  "categories": [
+    "testing",
+    "quality",
+    "engineering"
+  ],
+  "tools": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

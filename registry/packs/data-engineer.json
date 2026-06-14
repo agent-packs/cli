@@ -1,0 +1,46 @@
+{
+  "id": "data-engineer",
+  "name": "Data Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for coding agents building data pipelines, ETL systems, and streaming architectures: pipeline design, data quality, schema management, and orchestration.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-13",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "data",
+    "etl",
+    "pipeline",
+    "streaming",
+    "kafka",
+    "airflow",
+    "dbt",
+    "data-quality"
+  ],
+  "skills": [
+    "data-pipeline-engineering",
+    "event-driven-architecture",
+    "database-schema-design",
+    "observability-and-monitoring",
+    "api-and-interface-design",
+    "test-driven-development"
+  ],
+  "categories": [
+    "data",
+    "engineering"
+  ],
+  "tools": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

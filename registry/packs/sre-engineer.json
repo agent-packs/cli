@@ -1,0 +1,47 @@
+{
+  "id": "sre-engineer",
+  "name": "SRE Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for site reliability engineers: containerized workloads, infrastructure as code, observability, incident response, and reliability engineering at scale.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-13",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "sre",
+    "reliability",
+    "kubernetes",
+    "terraform",
+    "observability",
+    "incident-response",
+    "infrastructure"
+  ],
+  "skills": [
+    "containerization",
+    "infrastructure-as-code",
+    "observability-and-monitoring",
+    "ci-cd-and-automation",
+    "security-and-hardening",
+    "performance-optimization",
+    "debugging-and-error-recovery"
+  ],
+  "categories": [
+    "infrastructure",
+    "reliability",
+    "engineering"
+  ],
+  "tools": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

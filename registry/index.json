@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-12T23:02:19.59146Z",
+  "generatedAt": "2026-06-14T04:24:18.014505Z",
   "packs": [
     {
       "id": "ai-engineer",
@@ -89,6 +89,99 @@
         "debugging-and-error-recovery"
       ],
       "capabilities": 7
+    },
+    {
+      "id": "cloud-infrastructure",
+      "name": "Cloud Infrastructure Pack",
+      "version": "0.1.0",
+      "description": "Workflows for provisioning and operating cloud infrastructure on AWS, GCP, or Azure: infrastructure as code, container orchestration, security hardening, observability, and automated delivery.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-13",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "cloud",
+        "aws",
+        "gcp",
+        "azure",
+        "terraform",
+        "kubernetes",
+        "infrastructure",
+        "iac"
+      ],
+      "categories": [
+        "infrastructure",
+        "cloud",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "infrastructure-as-code",
+        "containerization",
+        "security-and-hardening",
+        "observability-and-monitoring",
+        "ci-cd-and-automation",
+        "documentation-and-adrs"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "data-engineer",
+      "name": "Data Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for coding agents building data pipelines, ETL systems, and streaming architectures: pipeline design, data quality, schema management, and orchestration.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-13",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "data",
+        "etl",
+        "pipeline",
+        "streaming",
+        "kafka",
+        "airflow",
+        "dbt",
+        "data-quality"
+      ],
+      "categories": [
+        "data",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "data-pipeline-engineering",
+        "event-driven-architecture",
+        "database-schema-design",
+        "observability-and-monitoring",
+        "api-and-interface-design",
+        "test-driven-development"
+      ],
+      "capabilities": 6
     },
     {
       "id": "eng-leader",
@@ -348,6 +441,98 @@
         "incremental-implementation",
         "test-driven-development",
         "monorepo-workflows"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "mobile-engineer",
+      "name": "Mobile Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for building production-quality mobile applications with React Native or Flutter: UI, offline-first patterns, performance, platform permissions, and app store readiness.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-13",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "mobile",
+        "react-native",
+        "flutter",
+        "ios",
+        "android",
+        "offline-first",
+        "performance"
+      ],
+      "categories": [
+        "mobile",
+        "frontend",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "mobile-development",
+        "api-and-interface-design",
+        "accessibility-audit",
+        "performance-optimization",
+        "test-driven-development",
+        "debugging-and-error-recovery"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "open-source-maintainer",
+      "name": "Open Source Maintainer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for maintainers of open source projects: code review, technical documentation, safe deprecation and migration paths, changelog hygiene, security advisories, and contributor onboarding.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-13",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "open-source",
+        "maintainer",
+        "documentation",
+        "code-review",
+        "changelog",
+        "deprecation",
+        "community"
+      ],
+      "categories": [
+        "open-source",
+        "community",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "code-review-workflow",
+        "technical-writing",
+        "security-and-hardening",
+        "deprecation-and-migration",
+        "documentation-and-adrs",
+        "git-workflow-and-versioning"
       ],
       "capabilities": 6
     },
@@ -638,6 +823,52 @@
       "capabilities": 4
     },
     {
+      "id": "qa-engineer",
+      "name": "QA Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for QA engineers and quality-focused developers: contract testing, load testing, browser testing, security validation, and building robust automated test suites.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-13",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "qa",
+        "testing",
+        "contract-testing",
+        "load-testing",
+        "browser-testing",
+        "automation",
+        "quality"
+      ],
+      "categories": [
+        "testing",
+        "quality",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "test-driven-development",
+        "api-contract-testing",
+        "load-testing",
+        "browser-testing-with-devtools",
+        "security-and-hardening",
+        "debugging-and-error-recovery"
+      ],
+      "capabilities": 6
+    },
+    {
       "id": "reliability-debugging",
       "name": "Reliability Debugging Pack",
       "version": "0.2.0",
@@ -718,6 +949,53 @@
         "documentation-and-adrs"
       ],
       "capabilities": 5
+    },
+    {
+      "id": "sre-engineer",
+      "name": "SRE Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for site reliability engineers: containerized workloads, infrastructure as code, observability, incident response, and reliability engineering at scale.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-13",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "sre",
+        "reliability",
+        "kubernetes",
+        "terraform",
+        "observability",
+        "incident-response",
+        "infrastructure"
+      ],
+      "categories": [
+        "infrastructure",
+        "reliability",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "containerization",
+        "infrastructure-as-code",
+        "observability-and-monitoring",
+        "ci-cd-and-automation",
+        "security-and-hardening",
+        "performance-optimization",
+        "debugging-and-error-recovery"
+      ],
+      "capabilities": 7
     },
     {
       "id": "superpowers",
