@@ -245,12 +245,11 @@
   <p>One tool to install, update, and manage skills &amp; plugins across all your AI coding agents — Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
 
   <div class="install-tabs">
-    <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
+    <button class="tab-btn active" onclick="setTab('curl', this)">curl</button>
     <button class="tab-btn" onclick="setTab('go', this)">Go install</button>
-    <button class="tab-btn" onclick="setTab('curl', this)">curl</button>
   </div>
   <div class="install-box">
-    <code id="install-cmd">brew install sandeshh/agent-packs/agent-packs</code>
+    <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh</code>
     <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
   </div>
   <div class="hero-cta">
@@ -349,8 +348,8 @@
         <div class="step-num">1</div>
         <div>
           <h3>Install the CLI</h3>
-          <p>Available via Homebrew, Go install, or a shell script.</p>
-          <div class="code-block">brew install sandeshh/agent-packs/agent-packs</div>
+          <p>Download and install via curl, or use Go install.</p>
+          <div class="code-block">curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh</div>
         </div>
       </div>
       <div class="step">
@@ -420,9 +419,8 @@
 
 <script>
   const installCmds = {
-    brew: 'brew install sandeshh/agent-packs/agent-packs',
+    curl: 'curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh',
     go: 'go install github.com/sandeshh/agent-packs/cli/cmd/agent-packs@latest',
-    curl: 'curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh'
   };
 
   function setTab(key, btn) {
