@@ -113,6 +113,16 @@ func main() {
 		err = runTarget(defaultTarget, os.Args[2:])
 	case "why":
 		err = runWhy(defaultTarget, os.Args[2:])
+	case "tap":
+		err = runTap(defaultTarget, os.Args[2:])
+	case "untap":
+		err = runUntap(defaultTarget, os.Args[2:])
+	case "info":
+		err = runInfo(registry, defaultTarget, os.Args[2:])
+	case "home":
+		err = runHome(registry, defaultTarget, os.Args[2:])
+	case "analytics":
+		err = runAnalytics(defaultTarget, os.Args[2:])
 	case "publish":
 		err = runPublish(registry, os.Args[2:])
 	case "help", "--help", "-h":
@@ -208,6 +218,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	project := flags.String("project", "", "project directory target")
 	global := flags.Bool("global", false, "install into the configured global target")
 	from := flags.String("from", "", "install packs listed in a YAML export file")
+	minTrust := flags.String("min-trust", "", "minimum trust level: core, community, tap, or unverified")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -251,9 +262,10 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Installing", packRef, index, len(remaining))
-		if err := agentpacks.InstallWithOptions(registry, *target, packRef, installTarget, *agent, *only, *executePlugins, *dryRun, options, os.Stdout); err != nil {
+		if err := agentpacks.InstallWithMinTrust(registry, *target, packRef, installTarget, *agent, *only, *executePlugins, *dryRun, options, *minTrust, os.Stdout); err != nil {
 			return err
 		}
+		agentpacks.AnalyticsTrack(defaultTarget, "install", packRef, *agent, "")
 	}
 	return nil
 }
@@ -1050,7 +1062,7 @@ _agent_packs() {
         cword=$COMP_CWORD
     }
 
-    local subcommands="search show install sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry target doctor new init publish policy licenses attribution resolve version completion help"
+    local subcommands="search show install info home sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
@@ -1194,7 +1206,7 @@ _agent_packs "$@"
 const fishCompletion = `# agent-packs fish completion
 # Place in ~/.config/fish/completions/agent-packs.fish
 
-set -l __ap_subcommands search show install sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry target doctor new init publish policy licenses attribution resolve version completion help
+set -l __ap_subcommands search show install info home sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
 
 # Subcommand completions
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a search     -d 'Search the registry for packs'
@@ -1371,6 +1383,101 @@ func runTarget(defaultTarget string, args []string) error {
 	}
 }
 
+func runTap(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("tap", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "agent-packs home directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) == 0 || remaining[0] == "list" {
+		return agentpacks.TapList(*target, os.Stdout)
+	}
+	// Support "tap add org/repo" or "tap org/repo" shorthand
+	ref := remaining[0]
+	if ref == "add" && len(remaining) > 1 {
+		ref = remaining[1]
+	}
+	return agentpacks.Tap(*target, ref, os.Stdout)
+}
+
+func runUntap(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("untap", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "agent-packs home directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs untap <org/repo|name> [--target dir]")
+	}
+	return agentpacks.Untap(*target, remaining[0], os.Stdout)
+}
+
+func runInfo(registry, defaultTarget string, args []string) error {
+	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	flags := flag.NewFlagSet("info", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs info <pack-id> [--target dir] [--json]")
+	}
+	if asJSON {
+		return agentpacks.PackInfoJSON(registry, *target, remaining[0], os.Stdout)
+	}
+	return agentpacks.PackInfo(registry, *target, remaining[0], os.Stdout)
+}
+
+func runHome(registry, defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("home", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs home <pack-id> [--target dir]")
+	}
+	return agentpacks.PackHome(registry, *target, remaining[0])
+}
+
+func runAnalytics(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("analytics", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "agent-packs home directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) == 0 || remaining[0] == "status" {
+		return agentpacks.AnalyticsStatus(*target, os.Stdout)
+	}
+	switch remaining[0] {
+	case "enable":
+		if err := agentpacks.AnalyticsEnable(*target); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, "Analytics enabled. Anonymous install events will be sent.")
+		fmt.Fprintln(os.Stdout, "Disable at any time with: agent-packs analytics disable")
+		return nil
+	case "disable":
+		if err := agentpacks.AnalyticsDisable(*target); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, "Analytics disabled.")
+		return nil
+	default:
+		return fmt.Errorf("usage: agent-packs analytics <enable|disable|status>")
+	}
+}
+
 func readPacksFromFile(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -1439,4 +1546,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs target add|list|remove ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs completion <bash|zsh|fish>")
 	fmt.Fprintln(os.Stderr, "  agent-packs registry add|list|remove ...")
+	fmt.Fprintln(os.Stderr, "  agent-packs tap [list|add] [<org/repo>] [--target dir]")
+	fmt.Fprintln(os.Stderr, "  agent-packs untap <org/repo|name> [--target dir]")
+	fmt.Fprintln(os.Stderr, "  agent-packs info <pack-id> [--target dir] [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs home <pack-id>")
+	fmt.Fprintln(os.Stderr, "  agent-packs analytics <enable|disable|status>")
 }

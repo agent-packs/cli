@@ -227,12 +227,44 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix strin
 	return errs
 }
 
+// injectionPatterns are regexes that flag potential prompt injection in skill content.
+var injectionPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)ignore\s+(all\s+|previous\s+|prior\s+|above\s+)?instructions`),
+	regexp.MustCompile(`(?i)disregard\s+(all\s+|previous\s+|prior\s+)?instructions`),
+	regexp.MustCompile(`(?i)forget\s+(all\s+|your\s+|previous\s+)?instructions`),
+	regexp.MustCompile(`<\|endoftext\|>`),
+	regexp.MustCompile(`<\|im_end\|>`),
+	regexp.MustCompile(`(?i)you\s+are\s+now\s+(a\s+|an\s+)?(?:different|unrestricted|evil|jailbreak)`),
+	regexp.MustCompile(`(?i)act\s+as\s+(?:a\s+|an\s+)?(?:different|unrestricted|evil|jailbreak|dan)`),
+}
+
+func scanSkillInjection(skillPath string) []string {
+	data, err := os.ReadFile(skillPath)
+	if err != nil {
+		return nil
+	}
+	content := string(data)
+	var findings []string
+	for _, pat := range injectionPatterns {
+		if pat.MatchString(content) {
+			findings = append(findings, "possible prompt injection pattern: "+pat.String())
+		}
+	}
+	return findings
+}
+
 func Lint(registryPath, packRef string, out io.Writer) error {
 	pack, err := registry.FindPack(registryPath, packRef)
 	if err != nil {
 		return err
 	}
 	errs := ValidatePack(pack)
+	// Scan local skills for prompt injection patterns.
+	root := registry.RegistryRoot(registryPath)
+	for _, skillRef := range pack.Skills {
+		skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
+		errs = append(errs, scanSkillInjection(skillPath)...)
+	}
 	if len(errs) > 0 {
 		for _, msg := range errs {
 			fmt.Fprintf(out, "FAIL  %s: %s\n", pack.ID, msg)
@@ -248,9 +280,14 @@ func LintAll(registryPath string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	root := registry.RegistryRoot(registryPath)
 	failed := false
 	for _, pack := range packs {
 		errs := ValidatePack(pack)
+		for _, skillRef := range pack.Skills {
+			skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
+			errs = append(errs, scanSkillInjection(skillPath)...)
+		}
 		if len(errs) > 0 {
 			for _, msg := range errs {
 				fmt.Fprintf(out, "FAIL  %s: %s\n", pack.ID, msg)

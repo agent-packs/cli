@@ -3,6 +3,7 @@ package agentpacks
 import (
 	"io"
 
+	"github.com/sandeshh/agent-packs/cli/internal/analytics"
 	"github.com/sandeshh/agent-packs/cli/internal/author"
 	"github.com/sandeshh/agent-packs/cli/internal/config"
 	"github.com/sandeshh/agent-packs/cli/internal/install"
@@ -116,6 +117,9 @@ func Install(registry, home, packRef, target, agent, only string, executePlugins
 }
 func InstallWithOptions(registry, home, packRef, target, agent, only string, executePlugins, dryRun bool, options InstallOptions, out io.Writer) error {
 	return install.InstallWithOptions(registry, home, packRef, target, agent, only, executePlugins, dryRun, options, out)
+}
+func InstallWithMinTrust(registry, home, packRef, target, agent, only string, executePlugins, dryRun bool, options InstallOptions, minTrust string, out io.Writer) error {
+	return install.InstallWithOptionsAndMinTrust(registry, home, packRef, target, agent, only, executePlugins, dryRun, options, minTrust, out)
 }
 func InstallStandalone(registry, ref, kind, target, agent string, executePlugins, dryRun bool, options InstallOptions, out io.Writer) error {
 	return install.InstallStandalone(registry, ref, kind, target, agent, executePlugins, dryRun, options, out)
@@ -244,7 +248,31 @@ func AddCustomTarget(home, id, name, globalSkills, projectSkills string) error {
 }
 func RemoveCustomTarget(home, id string) error              { return targets.RemoveCustomTarget(home, id) }
 func ListCustomTargets(home string, out io.Writer) error    { return targets.ListCustomTargets(home, out) }
-func VersionString() string                                 { return version.String() }
+func VersionString() string { return version.String() }
+
+// Tap / registry management
+func Tap(home, ref string, out io.Writer) error       { return reg.Tap(home, ref, out) }
+func Untap(home, ref string, out io.Writer) error     { return reg.Untap(home, ref, out) }
+func TapList(home string, out io.Writer) error        { return reg.TapList(home, out) }
+
+// Info / Home
+type InfoResult = reg.InfoResult
+
+func PackInfo(registry, home, packRef string, out io.Writer) error {
+	return reg.Info(registry, home, packRef, out)
+}
+func PackInfoJSON(registry, home, packRef string, out io.Writer) error {
+	return reg.InfoJSON(registry, home, packRef, out)
+}
+func PackHome(registry, home, packRef string) error { return reg.OpenHome(registry, home, packRef) }
+
+// Analytics
+func AnalyticsEnable(home string) error              { return analytics.Enable(home) }
+func AnalyticsDisable(home string) error             { return analytics.Disable(home) }
+func AnalyticsStatus(home string, out io.Writer) error { return analytics.Status(home, out) }
+func AnalyticsTrack(home, event, packID, toolID, packVersion string) {
+	analytics.Track(home, event, packID, toolID, packVersion)
+}
 func InitProject(projectDir string, opts config.InitOptions) (string, error) {
 	return config.Init(projectDir, opts)
 }

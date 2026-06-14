@@ -236,6 +236,18 @@ func expandPackInner(registry string, pack model.Pack, seen, contributed map[str
 		contributed[childRef] = true
 		out.Capabilities = append(out.Capabilities, expanded.Capabilities...)
 	}
+	// Requires are implicit skill dependencies — resolved before explicit Skills.
+	for _, reqID := range pack.Requires {
+		if contributed["skill:"+reqID] {
+			continue
+		}
+		skill, err := FindCapability(registry, "skills", reqID)
+		if err != nil {
+			return model.Pack{}, fmt.Errorf("required skill %q not found: %w", reqID, err)
+		}
+		contributed["skill:"+reqID] = true
+		out.Capabilities = append(out.Capabilities, skill)
+	}
 	for _, skillRef := range pack.Skills {
 		skill, err := ResolveCapabilityRef(registry, "skill", skillRef)
 		if err != nil {
@@ -598,4 +610,157 @@ func capabilityNode(kind, id string, capability model.Capability) model.Dependen
 		Type: kind, ID: id, Name: capability.Name, Source: capability.Source,
 		UpstreamSource: capability.UpstreamSource, Trust: capability.Trust, Format: capability.Format,
 	}
+}
+
+// InfoResult holds the data surfaced by Info.
+type InfoResult struct {
+	Pack          model.Pack `json:"pack"`
+	Installed     bool       `json:"installed"`
+	InstalledAt   string     `json:"installedAt,omitempty"`
+	DiskUsageBytes int64     `json:"diskUsageBytes,omitempty"`
+}
+
+func Info(registryPath, home, packRef string, out io.Writer) error {
+	result, err := buildInfoResult(registryPath, home, packRef)
+	if err != nil {
+		return err
+	}
+	pack := result.Pack
+	fmt.Fprintf(out, "%s: %s\n", pack.ID, pack.Name)
+	fmt.Fprintln(out, pack.Description)
+	fmt.Fprintln(out)
+
+	trust := pack.Trust
+	if trust == "" {
+		trust = "unverified"
+	}
+	fmt.Fprintf(out, "Version:       %s\n", pack.Version)
+	fmt.Fprintf(out, "Trust:         %s\n", trust)
+	if pack.Stability != "" {
+		fmt.Fprintf(out, "Stability:     %s\n", pack.Stability)
+	}
+	if pack.LastVerified != "" {
+		fmt.Fprintf(out, "Last verified: %s\n", pack.LastVerified)
+	}
+	if pack.License != "" {
+		fmt.Fprintf(out, "License:       %s\n", pack.License)
+	}
+	if len(pack.Tools) > 0 {
+		fmt.Fprintf(out, "Works with:    %s\n", strings.Join(pack.Tools, ", "))
+	}
+	if len(pack.Tags) > 0 {
+		fmt.Fprintf(out, "Tags:          %s\n", strings.Join(pack.Tags, ", "))
+	}
+	fmt.Fprintln(out)
+	if len(pack.Packs) > 0 {
+		fmt.Fprintf(out, "Includes packs (%d):\n", len(pack.Packs))
+		for _, p := range pack.Packs {
+			fmt.Fprintf(out, "  %s\n", p)
+		}
+	}
+	if len(pack.Requires) > 0 {
+		fmt.Fprintf(out, "Requires skills (%d):\n", len(pack.Requires))
+		for _, r := range pack.Requires {
+			fmt.Fprintf(out, "  %s\n", r)
+		}
+	}
+	if len(pack.Skills) > 0 {
+		fmt.Fprintf(out, "Skills (%d):\n", len(pack.Skills))
+		for _, s := range pack.Skills {
+			fmt.Fprintf(out, "  %s\n", s.ID)
+		}
+	}
+	if len(pack.ConflictsWith) > 0 {
+		fmt.Fprintf(out, "Conflicts with: %s\n", strings.Join(pack.ConflictsWith, ", "))
+	}
+	fmt.Fprintln(out)
+	if result.Installed {
+		fmt.Fprintf(out, "Installed: %s (at %s)\n", pack.Version, result.InstalledAt)
+		if result.DiskUsageBytes > 0 {
+			fmt.Fprintf(out, "Disk usage: %s\n", humanBytes(result.DiskUsageBytes))
+		}
+	} else {
+		fmt.Fprintln(out, "Not installed.")
+		fmt.Fprintf(out, "Install with: agent-packs install %s\n", pack.ID)
+	}
+	if pack.UpstreamSource != "" {
+		fmt.Fprintf(out, "Homepage: %s\n", pack.UpstreamSource)
+	}
+	return nil
+}
+
+func InfoJSON(registryPath, home, packRef string, out io.Writer) error {
+	result, err := buildInfoResult(registryPath, home, packRef)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(result)
+}
+
+func OpenHome(registryPath, home, packRef string) error {
+	pack, err := FindPack(registryPath, packRef)
+	if err != nil {
+		return err
+	}
+	url := pack.UpstreamSource
+	if url == "" {
+		return fmt.Errorf("pack %q has no homepage URL (set upstreamSource in the pack manifest)", packRef)
+	}
+	opener := "open"
+	if _, err := exec.LookPath("xdg-open"); err == nil {
+		opener = "xdg-open"
+	}
+	cmd := exec.Command(opener, url)
+	return cmd.Start()
+}
+
+func buildInfoResult(registryPath, home, packRef string) (InfoResult, error) {
+	pack, err := FindPack(registryPath, packRef)
+	if err != nil {
+		return InfoResult{}, err
+	}
+	result := InfoResult{Pack: pack}
+	receiptsDir := filepath.Join(util.ExpandHome(home), "receipts")
+	receiptPath := filepath.Join(receiptsDir, pack.ID+".json")
+	if data, err := os.ReadFile(receiptPath); err == nil {
+		var receipt struct {
+			InstalledAt string `json:"installed_at"`
+		}
+		if json.Unmarshal(data, &receipt) == nil {
+			result.Installed = true
+			result.InstalledAt = receipt.InstalledAt
+		}
+		skillsDir := filepath.Join(util.ExpandHome(home), "skills")
+		result.DiskUsageBytes = dirSize(skillsDir)
+	}
+	return result, nil
+}
+
+func dirSize(root string) int64 {
+	var total int64
+	_ = filepath.WalkDir(root, func(_ string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if info, err := d.Info(); err == nil {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total
+}
+
+func humanBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }

@@ -18,12 +18,15 @@ type Pack struct {
 	Replacement    string         `json:"replacement,omitempty"`
 	LastVerified   string         `json:"lastVerified,omitempty"`
 	ReviewStatus   string         `json:"reviewStatus,omitempty"`
+	Trust          string         `json:"trust,omitempty"`
 	Requirements   Requirements   `json:"requirements,omitempty"`
 	Tags           []string       `json:"tags,omitempty"`
 	Categories     []string       `json:"categories,omitempty"`
 	Tools          []string       `json:"tools,omitempty"`
 	Scope          []string       `json:"scope,omitempty"`
 	Packs          []string       `json:"packs,omitempty"`
+	Requires       []string       `json:"requires,omitempty"`
+	ConflictsWith  []string       `json:"conflictsWith,omitempty"`
 	Skills         CapabilityRefs `json:"skills,omitempty"`
 	Plugins        CapabilityRefs `json:"plugins,omitempty"`
 	Capabilities   []Capability   `json:"capabilities,omitempty"`

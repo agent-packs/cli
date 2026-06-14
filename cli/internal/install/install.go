@@ -23,6 +23,10 @@ func Install(registryPath, home, packRef, target, agent, only string, executePlu
 }
 
 func InstallWithOptions(registryPath, home, packRef, target, agent, only string, executePlugins, dryRun bool, options model.InstallOptions, out io.Writer) error {
+	return InstallWithOptionsAndMinTrust(registryPath, home, packRef, target, agent, only, executePlugins, dryRun, options, "", out)
+}
+
+func InstallWithOptionsAndMinTrust(registryPath, home, packRef, target, agent, only string, executePlugins, dryRun bool, options model.InstallOptions, minTrust string, out io.Writer) error {
 	pack, sourceRegistry, err := registry.ResolvePack(registryPath, home, packRef)
 	if err != nil {
 		return err
@@ -33,6 +37,14 @@ func InstallWithOptions(registryPath, home, packRef, target, agent, only string,
 			msg += fmt.Sprintf(" — consider using %q instead", pack.Replacement)
 		}
 		fmt.Fprintln(out, msg)
+	}
+	if minTrust != "" {
+		if err := checkTrustLevel(pack, minTrust); err != nil {
+			return err
+		}
+	}
+	if err := checkConflicts(pack, target); err != nil {
+		return err
 	}
 	expanded, err := registry.ExpandPack(sourceRegistry, pack, map[string]bool{})
 	if err != nil {
@@ -721,4 +733,46 @@ func handleDestinationConflict(destination, onConflict string, item *model.PlanI
 		item.Reason = "invalid conflict policy: " + onConflict
 		return false
 	}
+}
+
+var trustOrder = map[string]int{"core": 3, "community": 2, "tap": 1, "unverified": 0, "": 0}
+
+func checkTrustLevel(pack model.Pack, minTrust string) error {
+	packLevel := trustOrder[pack.Trust]
+	required := trustOrder[minTrust]
+	if packLevel < required {
+		t := pack.Trust
+		if t == "" {
+			t = "unverified"
+		}
+		return fmt.Errorf("pack %q trust level %q is below required %q", pack.ID, t, minTrust)
+	}
+	return nil
+}
+
+func checkConflicts(pack model.Pack, target string) error {
+	if len(pack.ConflictsWith) == 0 {
+		return nil
+	}
+	receiptsDir := filepath.Join(target, "receipts")
+	entries, err := os.ReadDir(receiptsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	installed := map[string]bool{}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			id := strings.TrimSuffix(entry.Name(), ".json")
+			installed[id] = true
+		}
+	}
+	for _, conflict := range pack.ConflictsWith {
+		if installed[conflict] {
+			return fmt.Errorf("pack %q conflicts with installed pack %q — uninstall %q first", pack.ID, conflict, conflict)
+		}
+	}
+	return nil
 }
