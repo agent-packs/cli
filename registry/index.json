@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-14T04:24:18.014505Z",
+  "generatedAt": "2026-06-14T17:00:58.039939Z",
   "packs": [
     {
       "id": "ai-engineer",
@@ -180,6 +180,100 @@
         "observability-and-monitoring",
         "api-and-interface-design",
         "test-driven-development"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "database-reliability",
+      "name": "Database Reliability Pack",
+      "version": "0.1.0",
+      "description": "Workflows for database reliability and administration: query optimization, schema migrations, connection pool management, backup and recovery, replication, and database observability.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-14",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "database",
+        "dba",
+        "postgresql",
+        "mysql",
+        "query-optimization",
+        "migrations",
+        "reliability",
+        "replication"
+      ],
+      "categories": [
+        "database",
+        "reliability",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "database-schema-design",
+        "observability-and-monitoring",
+        "performance-optimization",
+        "debugging-and-error-recovery",
+        "security-and-hardening",
+        "documentation-and-adrs"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "devex-engineer",
+      "name": "Developer Experience Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for DX and platform-product engineers: SDK design, internal tooling, developer documentation, onboarding automation, API ergonomics, and contributor experience.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-14",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "devex",
+        "developer-experience",
+        "sdk",
+        "tooling",
+        "documentation",
+        "onboarding",
+        "api-design",
+        "platform"
+      ],
+      "categories": [
+        "platform",
+        "developer-experience",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "api-and-interface-design",
+        "technical-writing",
+        "onboarding-and-archaeology",
+        "ci-cd-and-automation",
+        "dependency-management",
+        "code-review-and-quality"
       ],
       "capabilities": 6
     },
@@ -441,6 +535,53 @@
         "incremental-implementation",
         "test-driven-development",
         "monorepo-workflows"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "ml-engineer",
+      "name": "ML Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for machine learning engineers: experiment tracking and reproducibility, data pipeline engineering, model serving, MLOps, and observability for ML systems.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-14",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "ml",
+        "machine-learning",
+        "mlops",
+        "experiment-tracking",
+        "model-serving",
+        "data-pipeline",
+        "pytorch",
+        "tensorflow"
+      ],
+      "categories": [
+        "ml",
+        "data",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "ml-experiment-tracking",
+        "data-pipeline-engineering",
+        "observability-and-monitoring",
+        "api-and-interface-design",
+        "test-driven-development",
+        "security-and-hardening"
       ],
       "capabilities": 6
     },
@@ -908,6 +1049,98 @@
         "observability-and-monitoring"
       ],
       "capabilities": 4
+    },
+    {
+      "id": "rust-engineer",
+      "name": "Rust Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for coding agents building production Rust: ownership and lifetime patterns, idiomatic error handling, async with Tokio, safe unsafe abstractions, and Clippy hygiene.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-14",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "rust",
+        "systems",
+        "async",
+        "tokio",
+        "ownership",
+        "error-handling",
+        "performance"
+      ],
+      "categories": [
+        "systems",
+        "backend",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "rust-patterns",
+        "test-driven-development",
+        "api-and-interface-design",
+        "performance-optimization",
+        "observability-and-monitoring",
+        "security-and-hardening"
+      ],
+      "capabilities": 6
+    },
+    {
+      "id": "security-engineer",
+      "name": "Security Engineer Pack",
+      "version": "0.1.0",
+      "description": "Workflows for application security engineers: threat modeling, OWASP vulnerability review, secrets scanning, dependency auditing, secure design patterns, and security incident response.",
+      "maintainers": [
+        "sandeshh"
+      ],
+      "stability": "experimental",
+      "lastVerified": "2026-06-14",
+      "reviewStatus": "reviewed",
+      "tags": [
+        "security",
+        "appsec",
+        "threat-modeling",
+        "owasp",
+        "secrets",
+        "vulnerability",
+        "audit",
+        "compliance"
+      ],
+      "categories": [
+        "security",
+        "engineering"
+      ],
+      "tools": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "gemini",
+        "opencode"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ],
+      "skills": [
+        "security-and-hardening",
+        "dependency-management",
+        "api-contract-testing",
+        "observability-and-monitoring",
+        "code-review-and-quality",
+        "documentation-and-adrs"
+      ],
+      "capabilities": 6
     },
     {
       "id": "shipping-ops",

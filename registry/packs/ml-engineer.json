@@ -1,0 +1,47 @@
+{
+  "id": "ml-engineer",
+  "name": "ML Engineer Pack",
+  "version": "0.1.0",
+  "description": "Workflows for machine learning engineers: experiment tracking and reproducibility, data pipeline engineering, model serving, MLOps, and observability for ML systems.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-14",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "ml",
+    "machine-learning",
+    "mlops",
+    "experiment-tracking",
+    "model-serving",
+    "data-pipeline",
+    "pytorch",
+    "tensorflow"
+  ],
+  "skills": [
+    "ml-experiment-tracking",
+    "data-pipeline-engineering",
+    "observability-and-monitoring",
+    "api-and-interface-design",
+    "test-driven-development",
+    "security-and-hardening"
+  ],
+  "categories": [
+    "ml",
+    "data",
+    "engineering"
+  ],
+  "tools": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}

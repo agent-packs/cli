@@ -1,0 +1,47 @@
+{
+  "id": "database-reliability",
+  "name": "Database Reliability Pack",
+  "version": "0.1.0",
+  "description": "Workflows for database reliability and administration: query optimization, schema migrations, connection pool management, backup and recovery, replication, and database observability.",
+  "license": "Apache-2.0",
+  "maintainers": [
+    "sandeshh"
+  ],
+  "stability": "experimental",
+  "lastVerified": "2026-06-14",
+  "reviewStatus": "reviewed",
+  "tags": [
+    "database",
+    "dba",
+    "postgresql",
+    "mysql",
+    "query-optimization",
+    "migrations",
+    "reliability",
+    "replication"
+  ],
+  "skills": [
+    "database-schema-design",
+    "observability-and-monitoring",
+    "performance-optimization",
+    "debugging-and-error-recovery",
+    "security-and-hardening",
+    "documentation-and-adrs"
+  ],
+  "categories": [
+    "database",
+    "reliability",
+    "engineering"
+  ],
+  "tools": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini",
+    "opencode"
+  ],
+  "scope": [
+    "global",
+    "project"
+  ]
+}
