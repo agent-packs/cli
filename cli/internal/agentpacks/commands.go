@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/sandeshh/agent-packs/cli/internal/config"
@@ -18,58 +19,67 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func Doctor(defaultRegistry, home string, out io.Writer) error {
-	checks := []struct{ name, command string }{
+func BuildDoctorReport(defaultRegistry, home string) model.DoctorReport {
+	report := model.DoctorReport{OK: true}
+	add := func(name, status, detail string) {
+		if status == "warn" {
+			report.OK = false
+		}
+		report.Checks = append(report.Checks, model.DoctorCheck{Name: name, Status: status, Detail: detail})
+	}
+
+	binaries := []struct{ name, cmd string }{
 		{"git", "git"}, {"go", "go"},
 		{"claude", "claude"}, {"codex", "codex"}, {"cursor", "cursor"},
 		{"gemini", "gemini"}, {"goose", "goose"}, {"opencode", "opencode"},
 		{"gh", "gh"},
 	}
-	for _, check := range checks {
-		if _, err := exec.LookPath(check.command); err != nil {
-			fmt.Fprintf(out, "WARN  %s not found\n", check.name)
+	for _, b := range binaries {
+		if _, err := exec.LookPath(b.cmd); err != nil {
+			add(b.name+" binary", "warn", b.cmd+" not found in PATH")
 		} else {
-			fmt.Fprintf(out, "OK    %s found\n", check.name)
+			add(b.name+" binary", "ok", "")
 		}
 	}
 
 	if _, err := os.Stat(defaultRegistry); err != nil {
-		fmt.Fprintf(out, "WARN  registry unavailable: %s\n", defaultRegistry)
+		add("registry", "warn", "unavailable: "+defaultRegistry)
 	} else {
-		fmt.Fprintf(out, "OK    registry available: %s\n", defaultRegistry)
+		add("registry", "ok", defaultRegistry)
 	}
 
 	if err := os.MkdirAll(util.ExpandHome(home), 0o755); err != nil {
-		fmt.Fprintf(out, "WARN  install home not writable: %s\n", home)
+		add("install home", "warn", "not writable: "+home)
 	} else {
-		fmt.Fprintf(out, "OK    install home writable: %s\n", home)
+		add("install home", "ok", home)
 	}
 
 	summaries, err := install.ListInstalledReceipts(home)
 	if err == nil {
-		fmt.Fprintf(out, "INFO  %d pack(s) installed in %s\n", len(summaries), home)
+		add("installed packs", "info", fmt.Sprintf("%d pack(s) in %s", len(summaries), home))
 	}
 
-	checkIndexFreshness(defaultRegistry, out)
-	return nil
+	indexCheck := indexFreshnessCheck(defaultRegistry)
+	add("registry index", indexCheck.status, indexCheck.detail)
+
+	return report
 }
 
-func checkIndexFreshness(registryDir string, out io.Writer) {
+type freshnessResult struct{ status, detail string }
+
+func indexFreshnessCheck(registryDir string) freshnessResult {
 	indexPath := filepath.Join(filepath.Dir(registryDir), "index.json")
 	indexData, err := os.ReadFile(indexPath)
 	if err != nil {
-		fmt.Fprintf(out, "WARN  registry index not found: %s\n", indexPath)
-		return
+		return freshnessResult{"warn", "index not found: " + indexPath}
 	}
 	var idx model.RegistryIndex
 	if err := json.Unmarshal(indexData, &idx); err != nil || idx.GeneratedAt == "" {
-		fmt.Fprintf(out, "WARN  registry index unreadable\n")
-		return
+		return freshnessResult{"warn", "index unreadable"}
 	}
 	indexTime, err := time.Parse(time.RFC3339, idx.GeneratedAt)
 	if err != nil {
-		fmt.Fprintf(out, "WARN  registry index has invalid generatedAt\n")
-		return
+		return freshnessResult{"warn", "index has invalid generatedAt"}
 	}
 	entries, _ := os.ReadDir(registryDir)
 	var latestPack time.Time
@@ -83,13 +93,84 @@ func checkIndexFreshness(registryDir string, out io.Writer) {
 		}
 	}
 	if !latestPack.IsZero() && latestPack.After(indexTime) {
-		fmt.Fprintf(out, "WARN  registry index is stale (run agent-packs index --output registry/index.json)\n")
-	} else {
-		fmt.Fprintf(out, "OK    registry index is fresh\n")
+		return freshnessResult{"warn", "index is stale (run: agent-packs index --output registry/index.json)"}
 	}
+	return freshnessResult{"ok", ""}
 }
 
-func Sync(registryPath, home, projectDir, target, agent, mode string, out io.Writer) error {
+func Doctor(defaultRegistry, home string, out io.Writer) error {
+	report := BuildDoctorReport(defaultRegistry, home)
+	for _, c := range report.Checks {
+		switch c.Status {
+		case "ok":
+			if c.Detail != "" {
+				fmt.Fprintf(out, "OK    %s: %s\n", c.Name, c.Detail)
+			} else {
+				fmt.Fprintf(out, "OK    %s\n", c.Name)
+			}
+		case "warn":
+			fmt.Fprintf(out, "WARN  %s: %s\n", c.Name, c.Detail)
+		case "info":
+			fmt.Fprintf(out, "INFO  %s: %s\n", c.Name, c.Detail)
+		}
+	}
+	return nil
+}
+
+func DoctorJSON(defaultRegistry, home string, out io.Writer) error {
+	report := BuildDoctorReport(defaultRegistry, home)
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(report)
+}
+
+func Why(target, name string, out io.Writer) error {
+	absTarget, err := filepath.Abs(util.ExpandHome(target))
+	if err != nil {
+		return err
+	}
+	receiptsDir := filepath.Join(absTarget, "receipts")
+	entries, err := os.ReadDir(receiptsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintln(out, "No packs installed.")
+			return nil
+		}
+		return err
+	}
+
+	query := strings.ToLower(name)
+	found := false
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		receipt, err := install.LoadReceipt(filepath.Join(receiptsDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		for _, item := range receipt.Plan.Capabilities {
+			lname := strings.ToLower(item.Name)
+			lbase := strings.ToLower(filepath.Base(item.Source))
+			if lname == query || lbase == query || strings.Contains(lname, query) {
+				fmt.Fprintf(out, "pack:   %s\n", receipt.Plan.Pack)
+				fmt.Fprintf(out, "name:   %s\n", item.Name)
+				fmt.Fprintf(out, "source: %s\n", item.Source)
+				if item.Destination != "" {
+					fmt.Fprintf(out, "dest:   %s\n", item.Destination)
+				}
+				fmt.Fprintln(out)
+				found = true
+			}
+		}
+	}
+	if !found {
+		fmt.Fprintf(out, "No installed pack provides %q\n", name)
+	}
+	return nil
+}
+
+func Sync(registryPath, home, projectDir, target, agent, mode string, dryRun bool, out io.Writer) error {
 	cfg, err := config.LoadProjectConfig(projectDir)
 	if err != nil {
 		return fmt.Errorf("no .agent-packs.yaml in %s (run agent-packs init first): %w", projectDir, err)
@@ -107,12 +188,16 @@ func Sync(registryPath, home, projectDir, target, agent, mode string, out io.Wri
 
 	options := model.InstallOptions{Mode: mode, OnConflict: "skip"}
 	for _, packID := range cfg.Packs {
-		if installedIDs[packID] {
+		if installedIDs[packID] && !dryRun {
 			fmt.Fprintf(out, "already installed: %s\n", packID)
 			continue
 		}
-		fmt.Fprintf(out, "installing: %s\n", packID)
-		if err := install.InstallWithOptions(registryPath, home, packID, target, agent, "all", false, false, options, out); err != nil {
+		if dryRun {
+			fmt.Fprintf(out, "would install: %s\n", packID)
+		} else {
+			fmt.Fprintf(out, "installing: %s\n", packID)
+		}
+		if err := install.InstallWithOptions(registryPath, home, packID, target, agent, "all", false, dryRun, options, out); err != nil {
 			return fmt.Errorf("failed to install %s: %w", packID, err)
 		}
 	}

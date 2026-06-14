@@ -46,6 +46,7 @@ type (
 	DependencyNode      = model.DependencyNode
 	PublishReport       = model.PublishReport
 	CheckEntry          = model.CheckEntry
+	DoctorCheck         = model.DoctorCheck
 	NewOptions          = author.NewOptions
 )
 
@@ -208,9 +209,11 @@ func ValidatePluginManifest(manifest PluginManifest) []string {
 func Lint(registry, packRef string, out io.Writer) error {
 	return validate.Lint(registry, packRef, out)
 }
+func LintAll(registry string, out io.Writer) error { return validate.LintAll(registry, out) }
 func Verify(registry, packRef string, out io.Writer) error {
 	return validate.Verify(registry, packRef, out)
 }
+func VerifyAll(registry string, out io.Writer) error { return validate.VerifyAll(registry, out) }
 func ResolveSources(registry, packRef string, out io.Writer) error {
 	return validate.ResolveSources(registry, packRef, out)
 }

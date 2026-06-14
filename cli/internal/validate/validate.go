@@ -235,11 +235,58 @@ func Lint(registryPath, packRef string, out io.Writer) error {
 	errs := ValidatePack(pack)
 	if len(errs) > 0 {
 		for _, msg := range errs {
-			fmt.Fprintf(out, "FAIL  %s\n", msg)
+			fmt.Fprintf(out, "FAIL  %s: %s\n", pack.ID, msg)
 		}
 		return model.ErrInstallFailed
 	}
 	fmt.Fprintf(out, "OK    %s\n", pack.ID)
+	return nil
+}
+
+func LintAll(registryPath string, out io.Writer) error {
+	packs, err := registry.LoadPacks(registryPath)
+	if err != nil {
+		return err
+	}
+	failed := false
+	for _, pack := range packs {
+		errs := ValidatePack(pack)
+		if len(errs) > 0 {
+			for _, msg := range errs {
+				fmt.Fprintf(out, "FAIL  %s: %s\n", pack.ID, msg)
+			}
+			failed = true
+		} else {
+			fmt.Fprintf(out, "OK    %s\n", pack.ID)
+		}
+	}
+	if failed {
+		return model.ErrInstallFailed
+	}
+	return nil
+}
+
+func VerifyAll(registryPath string, out io.Writer) error {
+	packs, err := registry.LoadPacks(registryPath)
+	if err != nil {
+		return err
+	}
+	failed := false
+	for _, pack := range packs {
+		var buf strings.Builder
+		if err := Verify(registryPath, pack.ID, &buf); err != nil {
+			fmt.Fprintf(out, "FAIL  %s\n", pack.ID)
+			if msg := strings.TrimSpace(buf.String()); msg != "" {
+				fmt.Fprintf(out, "      %s\n", strings.ReplaceAll(msg, "\n", "\n      "))
+			}
+			failed = true
+		} else {
+			fmt.Fprintf(out, "OK    %s\n", pack.ID)
+		}
+	}
+	if failed {
+		return model.ErrInstallFailed
+	}
 	return nil
 }
 

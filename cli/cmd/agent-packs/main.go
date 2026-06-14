@@ -111,6 +111,8 @@ func main() {
 		err = runExport(defaultTarget, os.Args[2:])
 	case "target":
 		err = runTarget(defaultTarget, os.Args[2:])
+	case "why":
+		err = runWhy(defaultTarget, os.Args[2:])
 	case "publish":
 		err = runPublish(registry, os.Args[2:])
 	case "help", "--help", "-h":
@@ -196,13 +198,13 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("install", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	agent := flags.String("agent", "generic", "target agent/tool")
+	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	targetTool := flags.String("target-tool", "", "target tool alias for --agent")
 	only := flags.String("only", "all", "capability filter: all, skills, or plugins")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
-	mode := flags.String("mode", "reference", "sync mode: reference, symlink, copy, or native")
-	onConflict := flags.String("on-conflict", "skip", "conflict policy: skip, overwrite, or backup")
+	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native ($AGENT_PACKS_MODE)")
+	onConflict := flags.String("on-conflict", envOrDefault("AGENT_PACKS_ON_CONFLICT", "skip"), "conflict policy: skip, overwrite, or backup ($AGENT_PACKS_ON_CONFLICT)")
 	project := flags.String("project", "", "project directory target")
 	global := flags.Bool("global", false, "install into the configured global target")
 	from := flags.String("from", "", "install packs listed in a YAML export file")
@@ -454,8 +456,12 @@ func runDoctor(registry, defaultTarget string, args []string) error {
 	if len(args) == 1 && args[0] == "targets" {
 		return agentpacks.PrintTargetMatrix(os.Stdout)
 	}
+	asJSON, args := extractJSONFlag(args)
 	if len(args) != 0 {
-		return fmt.Errorf("usage: agent-packs doctor [targets]")
+		return fmt.Errorf("usage: agent-packs doctor [targets] [--json]")
+	}
+	if asJSON {
+		return agentpacks.DoctorJSON(registry, defaultTarget, os.Stdout)
 	}
 	return agentpacks.Doctor(registry, defaultTarget, os.Stdout)
 }
@@ -490,12 +496,30 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	all := flags.Bool("all", false, "upgrade all installed packs")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
 	}
 	remaining := flags.Args()
+	if *all {
+		summaries, err := agentpacks.ListInstalledReceipts(*target)
+		if err != nil {
+			return err
+		}
+		if len(summaries) == 0 {
+			fmt.Fprintln(os.Stdout, "No packs installed.")
+			return nil
+		}
+		for index, s := range summaries {
+			printLifecycleHeader("Upgrading", s.ID, index, len(summaries))
+			if err := agentpacks.Upgrade(registry, *target, s.ID, *target, *executePlugins, os.Stdout); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins]")
+		return fmt.Errorf("usage: agent-packs upgrade <pack-id>... [--all] [--target dir] [--execute-plugins]")
 	}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Upgrading", packRef, index, len(remaining))
@@ -809,17 +833,37 @@ func runImport(defaultTarget string, args []string) error {
 }
 
 func runLint(registry string, args []string) error {
+	if len(args) == 1 && args[0] == "--all" {
+		return agentpacks.LintAll(registry, os.Stdout)
+	}
 	if len(args) != 1 {
-		return fmt.Errorf("usage: agent-packs lint <pack-id>")
+		return fmt.Errorf("usage: agent-packs lint <pack-id|--all>")
 	}
 	return agentpacks.Lint(registry, args[0], os.Stdout)
 }
 
 func runVerify(registry string, args []string) error {
+	if len(args) == 1 && args[0] == "--all" {
+		return agentpacks.VerifyAll(registry, os.Stdout)
+	}
 	if len(args) != 1 {
-		return fmt.Errorf("usage: agent-packs verify <pack-id>")
+		return fmt.Errorf("usage: agent-packs verify <pack-id|--all>")
 	}
 	return agentpacks.Verify(registry, args[0], os.Stdout)
+}
+
+func runWhy(defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("why", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs why <skill-name> [--target dir]")
+	}
+	return agentpacks.Why(*target, remaining[0], os.Stdout)
 }
 
 func runResolve(registry string, args []string) error {
@@ -1006,7 +1050,7 @@ _agent_packs() {
         cword=$COMP_CWORD
     }
 
-    local subcommands="search show install skills plugins list outdated upgrade rollback uninstall status audit verify lint diff tree deps compat scan import validate index registry doctor new init publish policy licenses attribution resolve version completion help"
+    local subcommands="search show install sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry target doctor new init publish policy licenses attribution resolve version completion help"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
@@ -1029,7 +1073,7 @@ _agent_packs() {
     esac
 
     case "${words[1]}" in
-        install|show|audit|verify|lint|upgrade|rollback|uninstall|diff|deps|tree|compat|licenses|attribution|resolve)
+        install|show|audit|verify|lint|upgrade|rollback|uninstall|diff|deps|tree|compat|licenses|attribution|resolve|why)
             local packs
             packs=$(agent-packs search 2>/dev/null | awk '{print $1}')
             COMPREPLY=($(compgen -W "$packs" -- "$cur"))
@@ -1039,6 +1083,12 @@ _agent_packs() {
             ;;
         policy)
             COMPREPLY=($(compgen -W "check" -- "$cur"))
+            ;;
+        registry)
+            COMPREPLY=($(compgen -W "add list remove" -- "$cur"))
+            ;;
+        target)
+            COMPREPLY=($(compgen -W "add list remove" -- "$cur"))
             ;;
         skills|plugins)
             COMPREPLY=($(compgen -W "install list upgrade uninstall" -- "$cur"))
@@ -1067,23 +1117,28 @@ _agent_packs() {
                 'search:search the registry for packs'
                 'show:show details of a pack'
                 'install:install a pack into an agent tool'
+                'sync:install packs from .agent-packs.yaml packs list'
+                'freeze:write installed pack IDs to .agent-packs.yaml'
+                'export:write installed packs to a portable YAML file'
                 'skills:manage standalone Agent Skills'
                 'plugins:manage standalone plugins'
                 'list:list installed packs'
                 'outdated:check for available updates'
-                'upgrade:upgrade an installed pack'
+                'upgrade:upgrade an installed pack (--all for all)'
                 'rollback:roll back a pack to a previous install'
                 'uninstall:remove an installed pack'
+                'why:show which pack provides a skill'
                 'status:check installed skills for drift or tampering'
                 'audit:generate a supply-chain SBOM for a pack'
-                'verify:verify pack source references'
-                'lint:lint a pack manifest'
+                'verify:verify pack source references (--all for all)'
+                'lint:lint a pack manifest (--all for all)'
                 'diff:diff an installed pack against the registry'
                 'tree:show pack dependency tree'
                 'compat:check pack compatibility with an agent'
                 'validate:validate manifests against schema'
                 'index:regenerate the registry index'
                 'registry:manage remote registries'
+                'target:manage custom agent tool targets'
                 'doctor:diagnose installation environment'
                 'new:scaffold a new pack, skill, or plugin'
                 'init:create a project .agent-packs.yaml config'
@@ -1100,7 +1155,7 @@ _agent_packs() {
         args)
             local pack_ids
             case ${words[2]} in
-                install|show|audit|verify|lint|upgrade|rollback|uninstall|diff|deps|tree|compat|licenses|attribution|resolve)
+                install|show|audit|verify|lint|upgrade|rollback|uninstall|diff|deps|tree|compat|licenses|attribution|resolve|why)
                     pack_ids=(${(f)"$(agent-packs search 2>/dev/null | awk '{print $1}')"})
                     _describe 'pack' pack_ids
                     ;;
@@ -1110,6 +1165,10 @@ _agent_packs() {
                     ;;
                 policy)
                     local sub; sub=(check)
+                    _describe 'subcommand' sub
+                    ;;
+                registry|target)
+                    local sub; sub=(add list remove)
                     _describe 'subcommand' sub
                     ;;
             esac
@@ -1135,32 +1194,37 @@ _agent_packs "$@"
 const fishCompletion = `# agent-packs fish completion
 # Place in ~/.config/fish/completions/agent-packs.fish
 
-set -l __ap_subcommands search show install skills plugins list outdated upgrade rollback uninstall status audit verify lint diff tree deps compat validate index registry doctor new init publish policy licenses attribution resolve version completion help
+set -l __ap_subcommands search show install sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry target doctor new init publish policy licenses attribution resolve version completion help
 
 # Subcommand completions
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a search     -d 'Search the registry for packs'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a show       -d 'Show details of a pack'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a install    -d 'Install a pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a sync       -d 'Install packs from .agent-packs.yaml'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a freeze     -d 'Write installed packs to .agent-packs.yaml'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a export     -d 'Export installed packs to a portable file'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a skills     -d 'Manage standalone Agent Skills'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a plugins    -d 'Manage standalone plugins'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a list       -d 'List installed packs'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a outdated   -d 'Check for available updates'
-complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a upgrade    -d 'Upgrade an installed pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a upgrade    -d 'Upgrade an installed pack (--all for all)'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a rollback   -d 'Roll back to a previous install'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a uninstall  -d 'Remove an installed pack'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a why        -d 'Show which pack provides a skill'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a status     -d 'Check installed skills for drift'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a audit      -d 'Generate a supply-chain SBOM'
-complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a verify     -d 'Verify pack source references'
-complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a lint       -d 'Lint a pack manifest'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a verify     -d 'Verify pack source references (--all for all)'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a lint       -d 'Lint a pack manifest (--all for all)'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a diff       -d 'Diff installed pack against registry'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a validate   -d 'Validate manifests against schema'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a index      -d 'Regenerate registry index'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a target     -d 'Manage custom agent tool targets'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a completion -d 'Output shell completion script'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a version    -d 'Show version'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a help       -d 'Show usage'
 
 # Pack ID completions for commands that take a pack argument
-set -l __ap_pack_cmds install show audit verify lint upgrade rollback uninstall diff deps tree compat licenses attribution resolve
+set -l __ap_pack_cmds install show audit verify lint upgrade rollback uninstall diff deps tree compat licenses attribution resolve why
 complete -f -c agent-packs \
     -n "__fish_seen_subcommand_from $__ap_pack_cmds" \
     -a "(agent-packs search 2>/dev/null | awk '{print \$1}')"
@@ -1168,6 +1232,7 @@ complete -f -c agent-packs \
 # Shell name for completion subcommand
 complete -f -c agent-packs -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 complete -f -c agent-packs -n "__fish_seen_subcommand_from skills plugins" -a "install list upgrade uninstall"
+complete -f -c agent-packs -n "__fish_seen_subcommand_from registry target" -a "add list remove"
 
 # Shared flags
 complete -f -c agent-packs -l agent        -a "claude codex cursor gemini copilot opencode goose" -d 'Target agent tool'
@@ -1186,17 +1251,18 @@ func runSync(registry, defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("sync", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	agent := flags.String("agent", "generic", "target agent/tool")
-	mode := flags.String("mode", "reference", "sync mode: reference, symlink, copy, or native")
+	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool")
+	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native")
 	project := flags.String("project", ".", "project directory containing .agent-packs.yaml")
+	dryRun := flags.Bool("dry-run", false, "print what would be installed without writing files")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
-		return fmt.Errorf("usage: agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
+		return fmt.Errorf("usage: agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode] [--dry-run]")
 	}
 	*agent = agentpacks.NormalizeAgent(*agent)
-	return agentpacks.Sync(registry, *target, *project, *target, *agent, *mode, os.Stdout)
+	return agentpacks.Sync(registry, *target, *project, *target, *agent, *mode, *dryRun, os.Stdout)
 }
 
 func runFreeze(defaultTarget string, args []string) error {
@@ -1317,6 +1383,13 @@ func readPacksFromFile(path string) ([]string, error) {
 		return nil, fmt.Errorf("--from %s: %w", path, err)
 	}
 	return f.Packs, nil
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func repoRoot() string {

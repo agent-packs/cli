@@ -57,3 +57,14 @@ type CheckEntry struct {
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
 }
+
+type DoctorCheck struct {
+	Name   string `json:"name"`
+	Status string `json:"status"` // ok | warn | info
+	Detail string `json:"detail,omitempty"`
+}
+
+type DoctorReport struct {
+	OK     bool          `json:"ok"`
+	Checks []DoctorCheck `json:"checks"`
+}

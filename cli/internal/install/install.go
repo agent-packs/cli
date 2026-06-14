@@ -27,6 +27,13 @@ func InstallWithOptions(registryPath, home, packRef, target, agent, only string,
 	if err != nil {
 		return err
 	}
+	if pack.Deprecated || pack.Stability == "deprecated" {
+		msg := fmt.Sprintf("WARN  pack %q is deprecated", pack.ID)
+		if pack.Replacement != "" {
+			msg += fmt.Sprintf(" — consider using %q instead", pack.Replacement)
+		}
+		fmt.Fprintln(out, msg)
+	}
 	expanded, err := registry.ExpandPack(sourceRegistry, pack, map[string]bool{})
 	if err != nil {
 		return err

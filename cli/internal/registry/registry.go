@@ -170,6 +170,12 @@ func Show(registry, id string, out io.Writer) error {
 	fmt.Fprintf(out, "%s (%s)\n", pack.Name, pack.ID)
 	fmt.Fprintln(out, pack.Description)
 	fmt.Fprintln(out)
+	if pack.Deprecated || pack.Stability == "deprecated" {
+		fmt.Fprintln(out, "DEPRECATED: This pack is deprecated.")
+		if pack.Replacement != "" {
+			fmt.Fprintf(out, "Replacement: %s\n", pack.Replacement)
+		}
+	}
 	fmt.Fprintf(out, "Version: %s\n", pack.Version)
 	fmt.Fprintf(out, "License: %s\n", license)
 	fmt.Fprintf(out, "Tags: %s\n", strings.Join(pack.Tags, ", "))
