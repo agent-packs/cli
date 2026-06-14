@@ -83,7 +83,8 @@ jobs:
       - name: Prepare GitHub Pages site
         run: |
           mkdir -p site/registry
-          cp docs/catalog.html site/index.html
+          cp docs/index.html site/index.html
+          cp docs/catalog.html site/catalog.html
           cp registry/index.json site/registry/index.json
       - name: Upload catalog artifact
         uses: actions/upload-pages-artifact@v3
@@ -92,7 +93,7 @@ jobs:
 
   deploy-pages:
     needs: test
-    if: github.ref == 'refs/heads/main' && vars.AGENT_PACKS_DEPLOY_PAGES == 'true'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

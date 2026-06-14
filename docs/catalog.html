@@ -3,38 +3,355 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent Packs Catalog</title>
+  <title>Catalog — Agent Packs</title>
+  <meta name="description" content="Browse 34 curated packs and 52 skills for Claude Code, Codex, Cursor, Gemini CLI, and more.">
   <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; color: #0f172a; }
-    input { width: 100%; max-width: 560px; padding: .7rem; margin: 1rem 0; }
-    article { border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
-    code { background: #f1f5f9; padding: .15rem .35rem; border-radius: 4px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --indigo: #6366f1;
+      --indigo-dark: #4f46e5;
+      --indigo-light: #e0e7ff;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-400: #94a3b8;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono: ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); color: var(--slate-800); background: var(--slate-50); line-height: 1.5; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,.94); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--slate-200);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 2rem;
+    }
+    .logo { display: flex; align-items: center; gap: .55rem; text-decoration: none; color: var(--slate-900); font-weight: 800; font-size: 1rem; }
+    .logo-mark { width: 28px; height: 28px; background: var(--indigo); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: .8rem; }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a { text-decoration: none; color: var(--slate-600); font-size: .9rem; transition: color .15s; }
+    .nav-links a:hover { color: var(--indigo); }
+    .nav-gh { display: flex; align-items: center; gap: .4rem; background: var(--slate-900); color: white !important; padding: .4rem .9rem; border-radius: 7px; font-size: .83rem; font-weight: 600; }
+    .nav-gh:hover { background: var(--slate-700) !important; }
+
+    /* ── Search bar ── */
+    .search-bar {
+      background: white; border-bottom: 1px solid var(--slate-200);
+      padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 440px; }
+    .search-icon { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--slate-400); pointer-events: none; }
+    #search {
+      width: 100%; padding: .6rem .75rem .6rem 2.25rem; border: 1px solid var(--slate-200);
+      border-radius: 8px; font-size: .9rem; font-family: var(--font);
+      background: var(--slate-50); color: var(--slate-800); transition: border-color .15s, box-shadow .15s;
+    }
+    #search:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,.15); background: white; }
+    .search-meta { color: var(--slate-500); font-size: .875rem; white-space: nowrap; }
+    .search-meta strong { color: var(--slate-800); }
+
+    /* ── Layout ── */
+    .layout { display: flex; align-items: flex-start; }
+    .sidebar {
+      width: 220px; flex-shrink: 0; position: sticky; top: 117px;
+      padding: 1.5rem 1.25rem; max-height: calc(100vh - 117px); overflow-y: auto;
+      background: white; border-right: 1px solid var(--slate-200);
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: 2px; }
+    .main { flex: 1; padding: 1.5rem 2rem; min-width: 0; }
+
+    /* ── Filters ── */
+    .filter-group { margin-bottom: 1.75rem; }
+    .filter-title {
+      font-size: .71rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--slate-500); margin-bottom: .7rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .filter-clear { font-size: .7rem; font-weight: 500; color: var(--indigo); cursor: pointer; text-transform: none; letter-spacing: 0; }
+    .filter-clear:hover { text-decoration: underline; }
+    .filter-opt { display: flex; align-items: center; gap: .5rem; cursor: pointer; padding: .2rem 0; }
+    .filter-opt input { accent-color: var(--indigo); cursor: pointer; width: 14px; height: 14px; }
+    .filter-opt span { font-size: .845rem; color: var(--slate-700); cursor: pointer; }
+    .filter-count { margin-left: auto !important; font-size: .7rem !important; color: var(--slate-400) !important; background: var(--slate-100); padding: .1rem .4rem; border-radius: 999px; }
+
+    .active-filters { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .9rem; }
+    .active-chip {
+      display: inline-flex; align-items: center; gap: .3rem;
+      background: var(--indigo-light); color: var(--indigo-dark); border: 1px solid rgba(99,102,241,.2);
+      padding: .2rem .55rem; border-radius: 999px; font-size: .73rem; font-weight: 600; cursor: pointer;
+    }
+    .active-chip:hover { background: #c7d2fe; }
+
+    /* ── Pack grid ── */
+    #packs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.1rem; }
+    .pack-card {
+      background: white; border: 1px solid var(--slate-200); border-radius: 14px;
+      padding: 1.4rem; transition: border-color .2s, box-shadow .2s;
+      display: flex; flex-direction: column;
+    }
+    .pack-card:hover { border-color: var(--indigo); box-shadow: 0 4px 24px rgba(99,102,241,.1); }
+    .pack-card:target { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,.25); }
+    .pack-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+    .pack-name { font-weight: 700; color: var(--slate-900); font-size: .975rem; }
+    .pack-badges { display: flex; gap: .35rem; align-items: center; flex-shrink: 0; }
+    .badge { font-size: .67rem; font-weight: 700; padding: .18rem .5rem; border-radius: 5px; }
+    .badge-core { background: #fef9c3; color: #854d0e; }
+    .badge-community { background: #dcfce7; color: #166534; }
+    .badge-stable { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-experimental { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .pack-id { font-family: var(--mono); font-size: .69rem; color: var(--slate-500); margin-bottom: .55rem; }
+    .pack-desc { font-size: .855rem; color: var(--slate-600); line-height: 1.58; margin-bottom: .85rem; flex: 1; }
+
+    .pack-skills { margin-bottom: .8rem; }
+    .skills-label { font-size: .68rem; font-weight: 700; color: var(--slate-500); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .38rem; }
+    .skills-list { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .skill-chip { font-size: .69rem; padding: .15rem .45rem; background: #ede9fe; color: #6d28d9; border-radius: 4px; font-weight: 600; }
+
+    .pack-footer { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+    .pack-tools { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .tool-chip { font-size: .67rem; padding: .15rem .4rem; background: var(--slate-100); color: var(--slate-600); border-radius: 4px; font-weight: 600; }
+    .pack-tags { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .pack-tag { font-size: .67rem; color: var(--slate-400); }
+
+    .pack-install-wrap {
+      display: flex; align-items: center; gap: .4rem; background: var(--slate-50);
+      border: 1px solid var(--slate-200); border-radius: 7px; padding: .4rem .65rem; margin-top: .75rem;
+    }
+    .pack-install { font-family: var(--mono); font-size: .72rem; color: var(--slate-700); flex: 1; }
+    .install-copy {
+      background: none; border: none; color: var(--slate-400); cursor: pointer;
+      padding: .1rem; font-size: .7rem; transition: color .15s; line-height: 1;
+    }
+    .install-copy:hover { color: var(--indigo); }
+
+    /* ── Empty / loading ── */
+    .empty { text-align: center; padding: 4rem 2rem; color: var(--slate-500); grid-column: 1/-1; }
+    .empty-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+    .empty h3 { font-size: 1.1rem; color: var(--slate-700); margin-bottom: .4rem; }
+    .loading { grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--slate-400); font-size: .9rem; }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { padding: 1rem; }
+      #packs-grid { grid-template-columns: 1fr; }
+      .search-bar { padding: .75rem 1rem; }
+      nav { padding: .85rem 1rem; }
+    }
   </style>
 </head>
 <body>
-  <h1>Agent Packs Catalog</h1>
-  <input id="q" placeholder="Search packs, tags, tools...">
-  <main id="packs"></main>
-  <script>
-    const packsEl = document.getElementById('packs');
-    const q = document.getElementById('q');
-    let packs = [];
-    function render() {
-      const query = q.value.toLowerCase();
-      packsEl.innerHTML = packs.filter(p => JSON.stringify(p).toLowerCase().includes(query)).map(p => `
-        <article>
-          <h2>${p.name} <code>${p.id}</code></h2>
-          <p>${p.description}</p>
-          <p><strong>Version:</strong> ${p.version}</p>
-          <p><strong>Status:</strong> ${p.reviewStatus || 'unreviewed'} ${p.stability ? `(${p.stability})` : ''}</p>
-          <p><strong>Maintainers:</strong> ${(p.maintainers || []).join(', ') || 'unknown'}</p>
-          <p><strong>Tags:</strong> ${(p.tags || []).join(', ')}</p>
-          <p><strong>Tools:</strong> ${(p.tools || []).join(', ')}</p>
-          <p><code>agent-packs install ${p.id}</code></p>
-        </article>`).join('');
+
+<nav>
+  <a class="logo" href="index.html">
+    <div class="logo-mark">AP</div>
+    Agent Packs
+  </a>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="https://github.com/sandeshh/agent-packs/blob/main/README.md">Docs</a>
+    <a class="nav-gh" href="https://github.com/sandeshh/agent-packs">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<div class="search-bar">
+  <div class="search-wrap">
+    <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input id="search" type="search" placeholder="Search packs, skills, tags…" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="search-meta">
+    Showing <strong id="result-count">–</strong> of <strong id="total-count">–</strong> packs
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="filter-group">
+      <div class="filter-title">
+        Tool
+        <span class="filter-clear" onclick="clearGroup('tools')">Clear</span>
+      </div>
+      <div id="tool-filters"></div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-title">
+        Stability
+        <span class="filter-clear" onclick="clearGroup('stability')">Clear</span>
+      </div>
+      <div>
+        <label class="filter-opt"><input type="checkbox" value="stable" data-group="stability" onchange="applyFilters()"><span>Stable</span></label>
+        <label class="filter-opt"><input type="checkbox" value="experimental" data-group="stability" onchange="applyFilters()"><span>Experimental</span></label>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-title">Popular Tags</div>
+      <div id="tag-filters"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="active-filters" class="active-filters"></div>
+    <div id="packs-grid"><div class="loading">Loading registry…</div></div>
+  </main>
+</div>
+
+<script>
+  let ALL_PACKS = [];
+  const activeTags = new Set();
+  const activeTools = new Set();
+  const activeStability = new Set();
+
+  const POPULAR_TAGS = [
+    'backend','frontend','mobile','security','data','ml','testing',
+    'database','ci-cd','api','cloud','rust','typescript','sre',
+    'documentation','open-source','performance','ai','observability','devex'
+  ];
+
+  fetch('registry/index.json')
+    .then(r => r.json())
+    .then(data => {
+      ALL_PACKS = data.packs || [];
+      document.getElementById('total-count').textContent = ALL_PACKS.length;
+      buildSidebar();
+      applyFilters();
+      handleHash();
+    })
+    .catch(() => {
+      document.getElementById('packs-grid').innerHTML =
+        '<div class="empty"><div class="empty-icon">⚠️</div><h3>Registry unavailable</h3><p>Run <code style="background:var(--slate-100);padding:.15rem .4rem;border-radius:4px">agent-packs index --output registry/index.json</code> to generate the index.</p></div>';
+    });
+
+  function buildSidebar() {
+    const tools = [...new Set(ALL_PACKS.flatMap(p => p.tools || []))].sort();
+    const toolCounts = Object.fromEntries(tools.map(t => [t, ALL_PACKS.filter(p => (p.tools||[]).includes(t)).length]));
+    document.getElementById('tool-filters').innerHTML = tools.map(t =>
+      `<label class="filter-opt"><input type="checkbox" value="${t}" data-group="tools" onchange="applyFilters()"><span>${t}</span><span class="filter-count">${toolCounts[t]}</span></label>`
+    ).join('');
+
+    const tagCounts = {};
+    ALL_PACKS.forEach(p => (p.tags||[]).forEach(t => tagCounts[t] = (tagCounts[t]||0)+1));
+    document.getElementById('tag-filters').innerHTML = POPULAR_TAGS.filter(t => tagCounts[t]).map(t =>
+      `<label class="filter-opt"><input type="checkbox" value="${t}" data-group="tags" onchange="applyFilters()"><span>${t}</span><span class="filter-count">${tagCounts[t]}</span></label>`
+    ).join('');
+  }
+
+  function clearGroup(group) {
+    document.querySelectorAll(`[data-group="${group}"]`).forEach(el => { el.checked = false; });
+    if (group === 'tools') activeTools.clear();
+    if (group === 'stability') activeStability.clear();
+    if (group === 'tags') activeTags.clear();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    activeTools.clear();
+    activeStability.clear();
+    activeTags.clear();
+    document.querySelectorAll('[data-group="tools"]:checked').forEach(e => activeTools.add(e.value));
+    document.querySelectorAll('[data-group="stability"]:checked').forEach(e => activeStability.add(e.value));
+    document.querySelectorAll('[data-group="tags"]:checked').forEach(e => activeTags.add(e.value));
+
+    const q = document.getElementById('search').value.toLowerCase().trim();
+    const filtered = ALL_PACKS.filter(p => {
+      if (q) {
+        const hay = [p.name, p.id, p.description, ...(p.tags||[]), ...(p.skills||[])].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (activeTools.size && !(p.tools||[]).some(t => activeTools.has(t))) return false;
+      if (activeStability.size && !activeStability.has(p.stability)) return false;
+      if (activeTags.size && !(p.tags||[]).some(t => activeTags.has(t))) return false;
+      return true;
+    });
+
+    document.getElementById('result-count').textContent = filtered.length;
+    renderPacks(filtered);
+    renderChips();
+  }
+
+  function renderPacks(packs) {
+    if (!packs.length) {
+      document.getElementById('packs-grid').innerHTML =
+        '<div class="empty"><div class="empty-icon">🔍</div><h3>No packs found</h3><p>Try a different search term or clear some filters.</p></div>';
+      return;
     }
-    fetch('registry/index.json').then(r => r.json()).then(data => { packs = data.packs || []; render(); }).catch(() => { packsEl.textContent = 'Run agent-packs index --output registry/index.json first.'; });
-    q.addEventListener('input', render);
-  </script>
+    document.getElementById('packs-grid').innerHTML = packs.map(p => `
+      <div class="pack-card" id="pack-${p.id}">
+        <div class="pack-header">
+          <div class="pack-name">${p.name}</div>
+          <div class="pack-badges">
+            ${p.trust === 'core' ? '<span class="badge badge-core">core</span>' : ''}
+            ${p.trust === 'community' ? '<span class="badge badge-community">community</span>' : ''}
+            <span class="badge ${p.stability === 'stable' ? 'badge-stable' : 'badge-experimental'}">${p.stability || 'experimental'}</span>
+          </div>
+        </div>
+        <div class="pack-id">${p.id} &middot; v${p.version}</div>
+        <div class="pack-desc">${p.description}</div>
+        ${(p.skills||[]).length ? `
+          <div class="pack-skills">
+            <div class="skills-label">Skills included</div>
+            <div class="skills-list">
+              ${(p.skills||[]).slice(0,7).map(s => `<span class="skill-chip">${s}</span>`).join('')}
+              ${(p.skills||[]).length > 7 ? `<span class="skill-chip">+${(p.skills||[]).length - 7} more</span>` : ''}
+            </div>
+          </div>` : ''}
+        <div class="pack-footer">
+          <div class="pack-tools">${(p.tools||[]).map(t => `<span class="tool-chip">${t}</span>`).join('')}</div>
+          <div class="pack-tags">${(p.tags||[]).slice(0,3).map(t => `<span class="pack-tag">#${t}</span>`).join('')}</div>
+        </div>
+        <div class="pack-install-wrap">
+          <span class="pack-install">agent-packs install ${p.id}</span>
+          <button class="install-copy" title="Copy" onclick="copyCmd('agent-packs install ${p.id}', this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderChips() {
+    const chips = [
+      ...[...activeTags].map(t => ({ label: `#${t}`, group: 'tags', value: t })),
+      ...[...activeTools].map(t => ({ label: t, group: 'tools', value: t })),
+      ...[...activeStability].map(t => ({ label: t, group: 'stability', value: t })),
+    ];
+    document.getElementById('active-filters').innerHTML = chips.map(c =>
+      `<button class="active-chip" onclick="removeChip('${c.group}','${c.value}')">${c.label} ✕</button>`
+    ).join('');
+  }
+
+  function removeChip(group, value) {
+    const el = document.querySelector(`[data-group="${group}"][value="${value}"]`);
+    if (el) el.checked = false;
+    applyFilters();
+  }
+
+  function copyCmd(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.style.color = 'var(--indigo)';
+      setTimeout(() => { btn.style.color = ''; }, 1500);
+    });
+  }
+
+  function handleHash() {
+    if (location.hash) {
+      const el = document.querySelector(location.hash);
+      if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+    }
+  }
+
+  document.getElementById('search').addEventListener('input', applyFilters);
+</script>
 </body>
 </html>
