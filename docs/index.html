@@ -242,7 +242,7 @@
 <section class="hero">
   <div class="hero-badge">Open Source · Free · No Lock-in</div>
   <h1>Homebrew for<br><span>AI Agent Skills &amp; Plugins</span></h1>
-  <p>Install curated bundles of skills and plugins into your AI coding agent — Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
+  <p>One tool to install, update, and manage skills &amp; plugins across all your AI coding agents — Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
 
   <div class="install-tabs">
     <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
@@ -284,8 +284,14 @@
   <div class="container">
     <p class="section-tag">Why Agent Packs</p>
     <h2 class="section-title">Everything Homebrew does,<br>for AI Skills &amp; Plugins</h2>
-    <p class="section-sub">One CLI to install, update, audit, and rollback agent capabilities across all your tools.</p>
+    <p class="section-sub">One CLI to install, update, audit, and rollback skills &amp; plugins across every AI coding agent you use.</p>
     <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">One Tool, All Agents</div>
+        <div class="feature-desc">Manage skills and plugins across Claude Code, Codex, Cursor, Gemini CLI, and more from a single CLI. Install once, track everywhere.</div>
+        <div class="feature-cmd">agent-packs install backend-engineer --agent claude</div>
+      </div>
       <div class="feature-card">
         <div class="feature-icon">📦</div>
         <div class="feature-title">Tap System</div>
@@ -315,12 +321,6 @@
         <div class="feature-title">Dependency Resolution</div>
         <div class="feature-desc">Packs declare required skills and conflict guards. Auto-expanded before install — no manual juggling.</div>
         <div class="feature-cmd">agent-packs show rust-engineer</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-title">Multi-tool Install</div>
-        <div class="feature-desc">Install the same pack into multiple tools at once. Receipts track what went where for auditing.</div>
-        <div class="feature-cmd">agent-packs install pack --agent cursor</div>
       </div>
     </div>
   </div>
