@@ -60,3 +60,23 @@ func TestPackDiffReturnsHelpfulErrorWhenNotInstalled(t *testing.T) {
 		t.Fatalf("expected helpful not-installed message, got: %v", err)
 	}
 }
+
+func TestOutdatedReportSkipsInternalHistoryDirectory(t *testing.T) {
+	temp := t.TempDir()
+	target := filepath.Join(temp, "home")
+	if err := os.MkdirAll(filepath.Join(target, "packs", ".history", "example-20260614120000"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	registryPacks := filepath.Join(temp, "registry", "packs")
+	if err := os.MkdirAll(registryPacks, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := OutdatedReport(registryPacks, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Entries) != 0 {
+		t.Fatalf("expected internal history directory to be ignored, got %#v", report.Entries)
+	}
+}

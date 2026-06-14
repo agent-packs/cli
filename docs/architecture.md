@@ -48,7 +48,7 @@ Implemented commands:
 - `agent-packs resolve <pack>`
 - `agent-packs tree|deps <pack> [--json]`
 - `agent-packs publish --check [--json]`
-- `agent-packs policy check <pack> <policy.json>`
+- `agent-packs policy check <pack> <policy.json|preset>`
 - `agent-packs licenses <pack>`
 - `agent-packs attribution <pack>`
 - `agent-packs index [--output path]`

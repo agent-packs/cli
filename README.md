@@ -67,7 +67,7 @@ cli/bin/agent-packs install frontend-engineer --target ./sandbox
 cli/bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
 cli/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
 cli/bin/agent-packs skills install ./my-skill --agent codex --mode copy --target ./sandbox
-cli/bin/agent-packs plugins install claude-code-review --mode native --method claude-marketplace --marketplace claude-plugins-official --package code-review --execute-plugins
+cli/bin/agent-packs plugins install claude-code-review --mode native --method claude-marketplace --marketplace claude-plugins-official --package code-review --dry-run
 cli/bin/agent-packs init --agent codex --mode reference --scope project .
 cli/bin/agent-packs version
 ```
@@ -82,7 +82,7 @@ cli/bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
 cli/bin/agent-packs rollback frontend-engineer pr-review --target ./sandbox
 cli/bin/agent-packs tree eng-leader
 cli/bin/agent-packs publish --check
-cli/bin/agent-packs new pack platform-engineer --dir registry/packs
+cli/bin/agent-packs new pack my-custom-pack --dir registry/packs
 cli/bin/agent-packs registry add local /path/to/agent-packs
 cli/bin/agent-packs install local/frontend-engineer --dry-run
 cli/bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
@@ -94,7 +94,7 @@ cli/bin/agent-packs import ~/.codex/skills
 cli/bin/agent-packs lint eng-leader
 cli/bin/agent-packs verify eng-leader
 cli/bin/agent-packs resolve eng-leader
-cli/bin/agent-packs policy check eng-leader policy.json
+cli/bin/agent-packs policy check eng-leader default
 cli/bin/agent-packs licenses eng-leader
 cli/bin/agent-packs attribution eng-leader
 cli/bin/agent-packs index --output registry/index.json
@@ -125,6 +125,8 @@ cli/bin/agent-packs validate registry/plugins
 - `popular-claude-dev-plugins`: common Claude Code development plugins from Anthropic's official plugin directory.
 - `popular-integration-plugins`: common Claude Code integration plugins for GitHub, GitLab, Playwright, Context7, Linear, Firebase, Terraform, and semantic code tooling.
 - `popular-agent-starter`: a composed starter bundle combining popular engineering skills and Claude Code development plugins.
+- `ai-engineer`, `backend-engineer`, `cloud-infrastructure`, `data-engineer`, `database-reliability`, `devex-engineer`, `ml-engineer`, `mobile-engineer`, `open-source-maintainer`, `platform-engineer`, `qa-engineer`, `rust-engineer`, `security-engineer`, and `sre-engineer`: role-focused packs for common engineering specialties.
+- `superpowers`: a composed pack for `obra/superpowers`, plus focused Superpowers workflow, quality/debugging, collaboration/subagent, meta-authoring, and distribution-plugin packs.
 
 The `popular-*` packs use public proxies for adoption because most skill/plugin
 ecosystems do not publish install counts. Selection signals include official or
@@ -191,7 +193,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `lint <pack>`: validates pack metadata.
 - `verify <pack>`: expands a pack, checks duplicate/missing capability sources, and warns about moving remote refs.
 - `resolve <pack>`: classifies sources as local, GitHub tree, pinned, or moving refs.
-- `policy check <pack> <policy.json>`: enforces allow/deny source rules, pinned refs, and native-command policy.
+- `policy check <pack> <policy.json|preset>`: enforces allow/deny source rules, pinned refs, and native-command policy. Built-in presets live under `registry/policy/`, for example `default`, `ci`, and `strict`.
 - `licenses <pack>` and `attribution <pack>`: report license and source attribution.
 - `index [--output path]`: generates a searchable registry index.
 - `diff <pack>`: compares the installed lockfile with the current registry pack.

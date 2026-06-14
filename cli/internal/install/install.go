@@ -400,7 +400,7 @@ func Outdated(registryPath, target string, out io.Writer) error {
 	}
 	count := 0
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
 		lockPath := filepath.Join(packsDir, entry.Name(), "agent-pack.lock")
@@ -449,7 +449,7 @@ func OutdatedReport(registryPath, target string) (model.OutdatedReport, error) {
 		return report, err
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 			continue
 		}
 		lockPath := filepath.Join(packsDir, entry.Name(), "agent-pack.lock")
