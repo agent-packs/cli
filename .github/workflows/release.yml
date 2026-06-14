@@ -40,16 +40,18 @@ jobs:
             GOOS="${os}" GOARCH="${arch}" CGO_ENABLED=0 go build \
               -ldflags "${LDFLAGS}" \
               -o "dist/${out}/agent-packs" ./cmd/agent-packs
-            # Bundle the agent-packs skills so the binary works standalone
+            # Bundle skills and registry so the binary works standalone
             cp -R ../skills "dist/${out}/skills"
-            tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs skills
+            cp -R ../registry "dist/${out}/registry"
+            tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs skills registry
           done
           # Windows amd64
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
             -ldflags "${LDFLAGS}" \
             -o "dist/agent-packs_windows_amd64/agent-packs.exe" ./cmd/agent-packs
           cp -R ../skills dist/agent-packs_windows_amd64/skills
-          cd dist/agent-packs_windows_amd64 && zip -r ../agent-packs_windows_amd64.zip agent-packs.exe skills && cd ../..
+          cp -R ../registry dist/agent-packs_windows_amd64/registry
+          cd dist/agent-packs_windows_amd64 && zip -r ../agent-packs_windows_amd64.zip agent-packs.exe skills registry && cd ../..
           # Checksums
           cd dist && sha256sum *.tar.gz *.zip > checksums.txt
         working-directory: cli

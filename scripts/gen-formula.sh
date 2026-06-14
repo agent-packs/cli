@@ -41,6 +41,7 @@ class AgentPacks < Formula
 
   def install
     bin.install "agent-packs"
+    (share/"agent-packs").install "registry"
   end
 
   def caveats

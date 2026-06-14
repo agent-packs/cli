@@ -15,10 +15,9 @@ import (
 )
 
 func main() {
-	root := repoRoot()
 	registry := os.Getenv("AGENT_PACKS_REGISTRY")
 	if registry == "" {
-		registry = filepath.Join(root, "registry", "packs")
+		registry = resolveDefaultRegistry()
 	}
 	defaultTarget := os.Getenv("AGENT_PACKS_HOME")
 	if defaultTarget == "" {
@@ -1497,6 +1496,24 @@ func envOrDefault(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func resolveDefaultRegistry() string {
+	exe, err := os.Executable()
+	if err == nil {
+		real, err2 := filepath.EvalSymlinks(exe)
+		if err2 != nil {
+			real = exe
+		}
+		// FHS: binary at <prefix>/bin/ → registry at <prefix>/share/agent-packs/registry/packs
+		// Works for Homebrew (Cellar/<pkg>/<ver>/bin → share/), apt, rpm, /usr/local installs.
+		fhsPath := filepath.Join(filepath.Dir(real), "..", "share", "agent-packs", "registry", "packs")
+		if fi, err2 := os.Stat(fhsPath); err2 == nil && fi.IsDir() {
+			return fhsPath
+		}
+	}
+	// Dev fallback: binary is at cli/bin/agent-packs, repo root is 3 levels up.
+	return filepath.Join(repoRoot(), "registry", "packs")
 }
 
 func repoRoot() string {
