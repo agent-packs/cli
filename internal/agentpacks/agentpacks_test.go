@@ -449,6 +449,65 @@ func TestStandaloneSkillLifecycleUsesSkillReceipts(t *testing.T) {
 	}
 }
 
+func TestListStandaloneDiscoversPackAndExternalSkills(t *testing.T) {
+	temp := t.TempDir()
+
+	// A skill that arrived via a pack install (pack-level receipt).
+	packPlan := Plan{
+		Pack:    "superpowers",
+		Version: "1.2.0",
+		Agent:   "claude",
+		Mode:    "copy",
+		Capabilities: []PlanItem{
+			{Type: "skill", Name: "Debugging Workflow", Action: "copy", Status: "installed"},
+			{Type: "plugin", Name: "Distribution Plugin", Action: "reference", Status: "installed"},
+		},
+	}
+	pack := Pack{ID: "superpowers", Name: "Superpowers", Version: "1.2.0", Capabilities: []Capability{
+		{Type: "skill", Name: "Debugging Workflow", Version: "0.4.0"},
+		{Type: "plugin", Name: "Distribution Plugin", Version: "0.9.0"},
+	}}
+	if _, err := WriteReceipt(temp, pack, packPlan); err != nil {
+		t.Fatal(err)
+	}
+
+	// A skill placed on disk by hand, with no receipt at all.
+	externalDir := filepath.Join(temp, ".claude", "skills", "manual-skill")
+	if err := os.MkdirAll(externalDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(externalDir, "SKILL.md"), []byte("---\nname: Manual Skill\ndescription: x\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := ListStandalone(temp, "skills", &out); err != nil {
+		t.Fatal(err)
+	}
+	listing := out.String()
+	if !strings.Contains(listing, "debugging-workflow\t0.4.0\tpack:superpowers") {
+		t.Fatalf("pack-installed skill missing or mislabeled: %s", listing)
+	}
+	if !strings.Contains(listing, "manual-skill\t-\texternal") {
+		t.Fatalf("external skill missing or mislabeled: %s", listing)
+	}
+
+	out.Reset()
+	if err := ListStandalone(temp, "plugins", &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "distribution-plugin\t0.9.0\tpack:superpowers") {
+		t.Fatalf("pack-installed plugin missing or mislabeled: %s", out.String())
+	}
+
+	// Uninstall of a pack-owned skill should point at the pack, not delete it.
+	out.Reset()
+	err := UninstallStandalone(temp, "debugging-workflow", "skills", false, &out)
+	if err == nil || !strings.Contains(err.Error(), "agent-packs uninstall superpowers") {
+		t.Fatalf("expected pack uninstall hint, got: %v", err)
+	}
+}
+
 func TestStandalonePluginLifecycleExecutesCleanupWhenOptedIn(t *testing.T) {
 	temp := t.TempDir()
 	pack := Pack{

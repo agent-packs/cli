@@ -60,6 +60,25 @@ func PackSupportsTool(packTools []string, agent string) bool {
 	return false
 }
 
+// AllSkillRoots returns the unique skill directories under target across every
+// known tool (global and project scopes). It is used to discover skills that
+// were installed outside the agent-packs receipt path.
+func AllSkillRoots(target string) []string {
+	seen := map[string]bool{}
+	roots := []string{}
+	for _, spec := range TargetMatrix {
+		for _, rel := range []string{spec.GlobalSkills, spec.ProjectSkills} {
+			root := filepath.Join(target, rel)
+			if !seen[root] {
+				seen[root] = true
+				roots = append(roots, root)
+			}
+		}
+	}
+	sort.Strings(roots)
+	return roots
+}
+
 func SkillTargetRoot(target, agent, scope string) string {
 	spec, ok := TargetMatrix[NormalizeAgent(agent)]
 	if !ok {
