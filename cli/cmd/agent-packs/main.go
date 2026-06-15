@@ -72,6 +72,8 @@ func main() {
 		err = runTree(registry, os.Args[2:])
 	case "diff":
 		err = runDiff(registry, defaultTarget, os.Args[2:])
+	case "pin":
+		err = runPin(registry, defaultTarget, os.Args[2:])
 	case "compat":
 		err = runCompat(registry, os.Args[2:])
 	case "scan":
@@ -997,7 +999,7 @@ func normalizeTargetArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--execute-plugins" {
+		if arg == "--execute-plugins" || arg == "--check" {
 			flags = append(flags, arg)
 			continue
 		}
@@ -1016,6 +1018,21 @@ func normalizeTargetArgs(args []string) []string {
 		positionals = append(positionals, arg)
 	}
 	return append(flags, positionals...)
+}
+
+func runPin(registry, defaultTarget string, args []string) error {
+	flags := flag.NewFlagSet("pin", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	check := flags.Bool("check", false, "verify the live source still matches recorded pins instead of rewriting them")
+	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs pin <pack-id> [--check] [--target dir]")
+	}
+	return agentpacks.PinPack(registry, *target, remaining[0], *check, os.Stdout)
 }
 
 func runStatus(defaultTarget string, args []string) error {
@@ -1552,6 +1569,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs licenses|attribution|resolve <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path]")
 	fmt.Fprintln(os.Stderr, "  agent-packs diff <pack-id> [--target dir]")
+	fmt.Fprintln(os.Stderr, "  agent-packs pin <pack-id> [--check] [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs compat <pack-id> [--agent tool]")
 	fmt.Fprintln(os.Stderr, "  agent-packs scan [path]")
 	fmt.Fprintln(os.Stderr, "  agent-packs import <skills-dir> [--target dir]")

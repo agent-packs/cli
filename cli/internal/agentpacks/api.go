@@ -171,6 +171,9 @@ func GetOutdatedReport(registry, target string) (OutdatedReport, error) {
 func PackDiff(registry, target, packRef string, out io.Writer) error {
 	return install.PackDiff(registry, target, packRef, out)
 }
+func PinPack(registry, target, packRef string, check bool, out io.Writer) error {
+	return install.PinPack(registry, target, packRef, check, out)
+}
 func DriftCheck(target string, out io.Writer) error     { return install.DriftCheck(target, out) }
 func DriftCheckJSON(target string, out io.Writer) error { return install.DriftCheckJSON(target, out) }
 func CacheInfo(home string, out io.Writer) error    { return install.CacheInfo(home, out) }

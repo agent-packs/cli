@@ -386,7 +386,7 @@ func GenerateIndex(registry, outputPath string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	index := model.RegistryIndex{GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	index := model.RegistryIndex{}
 	for _, pack := range packs {
 		expanded, err := ExpandPack(registry, pack, map[string]bool{})
 		if err != nil {
@@ -404,11 +404,45 @@ func GenerateIndex(registry, outputPath string, out io.Writer) error {
 	if outputPath == "" {
 		outputPath = filepath.Join(RegistryRoot(registry), "index.json")
 	}
+	// Keep the index byte-stable across regenerations: only stamp a new
+	// generatedAt when the substantive content actually changed. This avoids
+	// noisy one-line git diffs (and spurious "stale index" churn) every time
+	// the index is rebuilt from an unchanged registry.
+	index.GeneratedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	if existing, err := loadIndex(outputPath); err == nil {
+		if existing.GeneratedAt != "" && samePacks(existing.Packs, index.Packs) {
+			index.GeneratedAt = existing.GeneratedAt
+		}
+	}
 	if err := util.WriteJSON(outputPath, index); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Wrote %s\n", outputPath)
 	return nil
+}
+
+func loadIndex(path string) (model.RegistryIndex, error) {
+	var index model.RegistryIndex
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return index, err
+	}
+	if err := json.Unmarshal(data, &index); err != nil {
+		return index, err
+	}
+	return index, nil
+}
+
+// samePacks compares two pack-entry slices by their canonical JSON form so that
+// nil vs empty-slice differences (which survive a load/regenerate round-trip but
+// are erased by omitempty marshaling) don't count as a change.
+func samePacks(a, b []model.IndexEntry) bool {
+	aj, err1 := json.Marshal(a)
+	bj, err2 := json.Marshal(b)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return bytes.Equal(aj, bj)
 }
 
 func RegistryAdd(home, name, source string) error {

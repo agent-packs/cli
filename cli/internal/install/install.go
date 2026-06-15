@@ -534,6 +534,122 @@ func PackDiff(registryPath, target, packRef string, out io.Writer) error {
 	return nil
 }
 
+// PinPack resolves each installed capability's source to a concrete revision
+// and content checksum, recording them in the pack lockfile so future operations
+// can detect drift or tampering. With check=true it re-resolves the live source
+// and verifies it still matches the recorded pins instead of rewriting them.
+func PinPack(registryPath, target, packRef string, check bool, out io.Writer) error {
+	pack, err := registry.FindPack(registryPath, packRef)
+	if err != nil {
+		return err
+	}
+	expanded, err := registry.ExpandPack(registryPath, pack, map[string]bool{})
+	if err != nil {
+		return err
+	}
+	lockPath := filepath.Join(util.ExpandHome(target), "packs", expanded.ID, "agent-pack.lock")
+	lock, err := LoadLockfile(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("pack %q is not installed — run `agent-packs install %s` first", expanded.ID, expanded.ID)
+		}
+		return err
+	}
+	capByKey := map[string]model.Capability{}
+	for _, capability := range expanded.Capabilities {
+		capByKey[capability.Type+":"+capability.Name] = capability
+	}
+
+	if check {
+		drifted := 0
+		for i := range lock.Capabilities {
+			entry := &lock.Capabilities[i]
+			if entry.Revision == "" && entry.Integrity.Checksum == "" {
+				fmt.Fprintf(out, "UNPINNED %s — run `agent-packs pin %s` to record a pin\n", entry.Name, expanded.ID)
+				continue
+			}
+			revision, checksum := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
+			drift := false
+			if entry.Revision != "" && revision != "" && revision != entry.Revision {
+				fmt.Fprintf(out, "CHANGED  %s — revision %s → %s\n", entry.Name, shortHash(entry.Revision), shortHash(revision))
+				drift = true
+			}
+			if entry.Integrity.Checksum != "" && checksum != "" && checksum != entry.Integrity.Checksum {
+				fmt.Fprintf(out, "CHANGED  %s — checksum %s → %s\n", entry.Name, shortHash(entry.Integrity.Checksum), shortHash(checksum))
+				drift = true
+			}
+			if drift {
+				drifted++
+			} else {
+				fmt.Fprintf(out, "OK       %s\n", entry.Name)
+			}
+		}
+		fmt.Fprintln(out)
+		if drifted > 0 {
+			fmt.Fprintf(out, "%d/%d capabilities drifted from their pins\n", drifted, len(lock.Capabilities))
+			return model.ErrInstallFailed
+		}
+		fmt.Fprintf(out, "All %d capabilities match their pins\n", len(lock.Capabilities))
+		return nil
+	}
+
+	pinned := 0
+	for i := range lock.Capabilities {
+		entry := &lock.Capabilities[i]
+		revision, checksum := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
+		if revision != "" {
+			entry.Revision = revision
+		}
+		if checksum != "" {
+			entry.Integrity.Checksum = checksum
+		}
+		entry.ResolvedAt = time.Now().UTC().Format(time.RFC3339Nano)
+		pinned++
+		fmt.Fprintf(out, "pinned   %s  rev=%s  sha256=%s\n", entry.Name, shortHash(entry.Revision), shortHash(entry.Integrity.Checksum))
+	}
+	if err := util.WriteJSON(lockPath, lock); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "\nPinned %d capabilities into %s\n", pinned, lockPath)
+	return nil
+}
+
+// resolvePin returns the live revision and content checksum for a lock entry.
+// Both are best-effort: a moving ref resolves to its current commit SHA via
+// `git ls-remote`, and a skill's entry file is hashed after materializing the
+// source. Failures (offline, private repo) yield empty strings rather than error.
+func resolvePin(entry *model.LockEntry, capability model.Capability, target string) (revision, checksum string) {
+	revision = resolve.ResolveSourceLive(entry.Source).Revision
+	if entry.Type != "skill" {
+		return revision, ""
+	}
+	item := capability.Entry
+	if item == "" {
+		item = "SKILL.md"
+	}
+	dir, cleanup, err := resolve.MaterializeSkillSource(entry.Source, util.ExpandHome(target))
+	if err != nil {
+		return revision, ""
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if sum, err := resolve.HashFile(filepath.Join(dir, item)); err == nil {
+		checksum = sum
+	}
+	return revision, checksum
+}
+
+func shortHash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	if len(s) > 12 {
+		return s[:12]
+	}
+	return s
+}
+
 func CacheInfo(home string, out io.Writer) error {
 	abs, err := filepath.Abs(util.ExpandHome(home))
 	if err != nil {

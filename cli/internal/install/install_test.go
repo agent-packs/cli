@@ -138,3 +138,112 @@ func TestDriftCheckFlagsMissingMaterializedCapability(t *testing.T) {
 		t.Fatalf("expected MISSING line, got: %s", out.String())
 	}
 }
+
+// pinTestSetup builds a registry pack that references a local skill source and an
+// installed (but unpinned) lockfile, returning the registry packs dir, the target
+// home, and the pack ID. Local sources keep the test fully offline.
+func pinTestSetup(t *testing.T) (registryPacks, target, packID string) {
+	t.Helper()
+	temp := t.TempDir()
+
+	skillDir := filepath.Join(temp, "local-skill")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("---\nname: local-skill\ndescription: A local skill.\n---\nbody\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	registryPacks = filepath.Join(temp, "registry", "packs")
+	if err := os.MkdirAll(registryPacks, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pack := model.Pack{
+		ID: "pin-pack", Name: "Pin Pack", Version: "0.1.0", Description: "pin test",
+		Capabilities: []model.Capability{
+			{Type: "skill", Name: "local-skill", Source: skillDir, Format: "agent-skill", Entry: "SKILL.md"},
+		},
+	}
+	data, _ := json.MarshalIndent(pack, "", "  ")
+	if err := os.WriteFile(filepath.Join(registryPacks, "pin-pack.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	target = filepath.Join(temp, "home")
+	packDir := filepath.Join(target, "packs", "pin-pack")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lock := model.Lockfile{Pack: "pin-pack", Version: "0.1.0", Capabilities: []model.LockEntry{
+		{Type: "skill", Name: "local-skill", Source: skillDir},
+	}}
+	ld, _ := json.MarshalIndent(lock, "", "  ")
+	if err := os.WriteFile(filepath.Join(packDir, "agent-pack.lock"), ld, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return registryPacks, target, "pin-pack"
+}
+
+func TestPinPackRecordsChecksum(t *testing.T) {
+	registryPacks, target, packID := pinTestSetup(t)
+
+	var out strings.Builder
+	if err := PinPack(registryPacks, target, packID, false, &out); err != nil {
+		t.Fatalf("pin failed: %v", err)
+	}
+	lock, err := LoadLockfile(filepath.Join(target, "packs", packID, "agent-pack.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := lock.Capabilities[0].Integrity.Checksum; !strings.HasPrefix(got, "sha256:") {
+		t.Fatalf("expected a sha256 checksum to be recorded, got %q", got)
+	}
+}
+
+func TestPinCheckPassesAfterPinAndFailsOnTamper(t *testing.T) {
+	registryPacks, target, packID := pinTestSetup(t)
+	lockPath := filepath.Join(target, "packs", packID, "agent-pack.lock")
+
+	if err := PinPack(registryPacks, target, packID, false, &strings.Builder{}); err != nil {
+		t.Fatalf("pin failed: %v", err)
+	}
+
+	// Clean check passes.
+	var clean strings.Builder
+	if err := PinPack(registryPacks, target, packID, true, &clean); err != nil {
+		t.Fatalf("expected clean check to pass, got error: %v\n%s", err, clean.String())
+	}
+	if !strings.Contains(clean.String(), "match their pins") {
+		t.Fatalf("expected match summary, got: %s", clean.String())
+	}
+
+	// Tamper the recorded checksum; check must fail.
+	lock, err := LoadLockfile(lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock.Capabilities[0].Integrity.Checksum = "sha256:tampered"
+	td, _ := json.MarshalIndent(lock, "", "  ")
+	if err := os.WriteFile(lockPath, td, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var tampered strings.Builder
+	if err := PinPack(registryPacks, target, packID, true, &tampered); err == nil {
+		t.Fatalf("expected check to fail after tamper, output:\n%s", tampered.String())
+	}
+	if !strings.Contains(tampered.String(), "CHANGED") {
+		t.Fatalf("expected CHANGED line, got: %s", tampered.String())
+	}
+}
+
+func TestPinPackErrorsWhenNotInstalled(t *testing.T) {
+	registryPacks, target, packID := pinTestSetup(t)
+	if err := os.RemoveAll(filepath.Join(target, "packs", packID)); err != nil {
+		t.Fatal(err)
+	}
+	err := PinPack(registryPacks, target, packID, false, &strings.Builder{})
+	if err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("expected not-installed error, got: %v", err)
+	}
+}
