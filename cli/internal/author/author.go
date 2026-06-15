@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/model"
 )
 
 type NewOptions struct {

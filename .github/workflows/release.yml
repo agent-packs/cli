@@ -32,7 +32,7 @@ jobs:
           COMMIT: ${{ github.sha }}
         run: |
           mkdir -p dist
-          LDFLAGS="-s -w -X github.com/sandeshh/agent-packs/cli/internal/version.Version=${VERSION#v} -X github.com/sandeshh/agent-packs/cli/internal/version.Commit=${COMMIT:0:7}"
+          LDFLAGS="-s -w -X github.com/agent-packs/cli/internal/version.Version=${VERSION#v} -X github.com/agent-packs/cli/internal/version.Commit=${COMMIT:0:7}"
           for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
             os="${target%/*}"
             arch="${target#*/}"
@@ -40,18 +40,17 @@ jobs:
             GOOS="${os}" GOARCH="${arch}" CGO_ENABLED=0 go build \
               -ldflags "${LDFLAGS}" \
               -o "dist/${out}/agent-packs" ./cmd/agent-packs
-            # Bundle skills and registry so the binary works standalone
+            # Bundle the agent-packs skill; the registry is fetched at runtime
+            # from github.com/agent-packs/registry on first use.
             cp -R ../skills "dist/${out}/skills"
-            cp -R ../registry "dist/${out}/registry"
-            tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs skills registry
+            tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs skills
           done
           # Windows amd64
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
             -ldflags "${LDFLAGS}" \
             -o "dist/agent-packs_windows_amd64/agent-packs.exe" ./cmd/agent-packs
           cp -R ../skills dist/agent-packs_windows_amd64/skills
-          cp -R ../registry dist/agent-packs_windows_amd64/registry
-          cd dist/agent-packs_windows_amd64 && zip -r ../agent-packs_windows_amd64.zip agent-packs.exe skills registry && cd ../..
+          cd dist/agent-packs_windows_amd64 && zip -r ../agent-packs_windows_amd64.zip agent-packs.exe skills && cd ../..
           # Checksums
           cd dist && sha256sum *.tar.gz *.zip > checksums.txt
         working-directory: cli

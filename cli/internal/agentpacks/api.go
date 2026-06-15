@@ -3,18 +3,18 @@ package agentpacks
 import (
 	"io"
 
-	"github.com/sandeshh/agent-packs/cli/internal/analytics"
-	"github.com/sandeshh/agent-packs/cli/internal/author"
-	"github.com/sandeshh/agent-packs/cli/internal/config"
-	"github.com/sandeshh/agent-packs/cli/internal/install"
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/plan"
-	"github.com/sandeshh/agent-packs/cli/internal/policy"
-	reg "github.com/sandeshh/agent-packs/cli/internal/registry"
-	"github.com/sandeshh/agent-packs/cli/internal/resolve"
-	"github.com/sandeshh/agent-packs/cli/internal/targets"
-	"github.com/sandeshh/agent-packs/cli/internal/validate"
-	"github.com/sandeshh/agent-packs/cli/internal/version"
+	"github.com/agent-packs/cli/internal/analytics"
+	"github.com/agent-packs/cli/internal/author"
+	"github.com/agent-packs/cli/internal/config"
+	"github.com/agent-packs/cli/internal/install"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/plan"
+	"github.com/agent-packs/cli/internal/policy"
+	reg "github.com/agent-packs/cli/internal/registry"
+	"github.com/agent-packs/cli/internal/resolve"
+	"github.com/agent-packs/cli/internal/targets"
+	"github.com/agent-packs/cli/internal/validate"
+	"github.com/agent-packs/cli/internal/version"
 )
 
 type (
@@ -61,6 +61,8 @@ var (
 func NormalizeAgent(agent string) string { return targets.NormalizeAgent(agent) }
 func ValidAgent(agent string) bool       { return targets.ValidAgent(agent) }
 
+func EnsureLocalRegistry(cacheDir string) (string, error) { return reg.EnsureLocalRegistry(cacheDir) }
+func RefreshLocalRegistry(cacheDir string) error          { return reg.RefreshLocalRegistry(cacheDir) }
 func LoadPacks(registry string) ([]Pack, error)  { return reg.LoadPacks(registry) }
 func LoadPack(path string) (Pack, error)         { return reg.LoadPack(path) }
 func FindPack(registry, id string) (Pack, error) { return reg.FindPack(registry, id) }

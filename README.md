@@ -15,13 +15,19 @@ reference, symlink, copy, or native install modes.
 
 ## Repository Layout
 
+This repository (`agent-packs/cli`) holds the CLI. The pack/skill/plugin data
+lives in a separate repo,
+[`agent-packs/registry`](https://github.com/agent-packs/registry), which the CLI
+fetches at runtime.
+
 - `cli/`: Go CLI module and source.
-- `registry/packs/`: Agent Pack manifests.
-- `registry/skills/`: reusable Agent Skill source references.
-- `registry/plugins/`: reusable Claude Code plugin source references.
-- `registry/schemas/`: JSON Schema and example manifests.
-- `docs/`: architecture notes.
-- `tests/`: Python schema and CLI integration tests.
+- `skills/agent-packs/`: the bundled `agent-packs` skill installed into editors.
+- `docs/`: architecture notes and the GitHub Pages site.
+- `tests/`: Python CLI integration, bundled-skill, and docs tests.
+
+The registry data (`packs/`, `skills/`, `plugins/`, `schemas/`, `policy/`,
+`index.json`) is maintained in
+[`agent-packs/registry`](https://github.com/agent-packs/registry).
 
 ## Build
 
@@ -35,13 +41,13 @@ go build -o bin/agent-packs ./cmd/agent-packs
 Homebrew:
 
 ```sh
-brew install sandeshh/agent-packs/agent-packs
+brew install agent-packs/tap/agent-packs
 ```
 
 Bootstrap installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh
 ```
 
 Or build locally from source (see Build above).
@@ -54,8 +60,32 @@ Agent Packs. Set `AGENT_PACKS_AGENT` to install it for another supported editor,
 choose a custom skill directory.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | AGENT_PACKS_AGENT=opencode sh
-curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | AGENT_PACKS_AGENT=claude sh
+curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | AGENT_PACKS_AGENT=opencode sh
+curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | AGENT_PACKS_AGENT=claude sh
+```
+
+## Registry
+
+The pack/skill/plugin registry lives in a separate repo,
+[`agent-packs/registry`](https://github.com/agent-packs/registry). The CLI fetches
+it on first use and caches it under your user cache dir (e.g.
+`~/.cache/agent-packs/registry`); `agent-packs update` refreshes that cache.
+
+Override registry resolution with environment variables:
+
+- `AGENT_PACKS_REGISTRY` — path to a local `packs/` directory (skips fetching;
+  ideal for working on the registry or for air-gapped/offline use).
+- `AGENT_PACKS_REGISTRY_REPO` — a different registry repo URL (e.g. a fork).
+- `AGENT_PACKS_REGISTRY_REF` — pin to a branch, tag, or commit for reproducibility.
+
+To author packs, clone the registry and point the CLI at it:
+
+```sh
+git clone https://github.com/agent-packs/registry
+cd registry
+AGENT_PACKS_REGISTRY=./packs agent-packs validate packs
+AGENT_PACKS_REGISTRY=./packs agent-packs new pack my-pack --dir packs
+AGENT_PACKS_REGISTRY=./packs agent-packs index --output index.json
 ```
 
 ## CLI Usage
@@ -82,7 +112,6 @@ cli/bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
 cli/bin/agent-packs rollback frontend-engineer pr-review --target ./sandbox
 cli/bin/agent-packs tree eng-leader
 cli/bin/agent-packs publish --check
-cli/bin/agent-packs new pack my-custom-pack --dir registry/packs
 cli/bin/agent-packs registry add local /path/to/agent-packs
 cli/bin/agent-packs install local/frontend-engineer --dry-run
 cli/bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
@@ -97,7 +126,6 @@ cli/bin/agent-packs resolve eng-leader
 cli/bin/agent-packs policy check eng-leader default
 cli/bin/agent-packs licenses eng-leader
 cli/bin/agent-packs attribution eng-leader
-cli/bin/agent-packs index --output registry/index.json
 cli/bin/agent-packs diff frontend-engineer --target ./sandbox
 cli/bin/agent-packs pin frontend-engineer --target ./sandbox
 cli/bin/agent-packs pin frontend-engineer --target ./sandbox --check
@@ -107,9 +135,6 @@ cli/bin/agent-packs list --target ./sandbox
 cli/bin/agent-packs uninstall frontend-engineer pr-review --target ./sandbox
 cli/bin/agent-packs doctor
 cli/bin/agent-packs doctor targets
-cli/bin/agent-packs validate registry/packs
-cli/bin/agent-packs validate registry/skills
-cli/bin/agent-packs validate registry/plugins
 ```
 
 ## Included Packs
@@ -208,7 +233,7 @@ Agent Packs supports a basic package-manager lifecycle:
 Registries are named sources stored in `<target>/registries.json`.
 
 ```sh
-cli/bin/agent-packs registry add official https://github.com/sandeshh/agent-packs --target ~/.agent-packs
+cli/bin/agent-packs registry add official https://github.com/agent-packs/registry --target ~/.agent-packs
 cli/bin/agent-packs registry list --target ~/.agent-packs
 cli/bin/agent-packs install official/frontend-engineer --target ~/.agent-packs
 cli/bin/agent-packs registry remove official --target ~/.agent-packs
@@ -282,7 +307,7 @@ Packs can include other packs with the `packs` field. They can also include reus
 }
 ```
 
-Reusable skills live as Agent Skills at `registry/skills/<id>/SKILL.md`. Reusable plugins live as Claude Code plugins at `registry/plugins/<id>/.claude-plugin/plugin.json`. A pack can reference them by ID, or bypass local registry entries by using object refs with remote `source` URLs. The CLI treats both forms as references rather than installable copies.
+Reusable skills live as Agent Skills at `skills/<id>/SKILL.md` (in the registry repo). Reusable plugins live as Claude Code plugins at `plugins/<id>/.claude-plugin/plugin.json`. A pack can reference them by ID, or bypass local registry entries by using object refs with remote `source` URLs. The CLI treats both forms as references rather than installable copies.
 
 Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.source` on registry skills and `repository` or `homepage` on registry plugins to point at the remote source.
 
@@ -292,7 +317,7 @@ These fields power registry search, publish checks, and the static catalog.
 
 ## Examples
 
-Example manifests live in `registry/schemas/examples/`:
+Example manifests live in the registry repo under `schemas/examples/`:
 
 - `minimal-pack.json`: the smallest valid pack manifest.
 - `full-pack.json`: a complete manifest showing every supported capability type.

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 func customTargetsPath(home string) string {

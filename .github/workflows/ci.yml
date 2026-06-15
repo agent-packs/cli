@@ -36,53 +36,15 @@ jobs:
       - name: Build CLI
         run: go build -o bin/agent-packs ./cmd/agent-packs
         working-directory: cli
-      - name: Python schema and integration tests
+      - name: Python integration and docs tests
         run: .venv/bin/python -m unittest discover -s tests
-      - name: Validate registry
-        run: |
-          cli/bin/agent-packs validate registry/schemas/examples
-          cli/bin/agent-packs validate registry/packs
-          cli/bin/agent-packs validate registry/skills
-          cli/bin/agent-packs validate registry/plugins
-      - name: Verify registry packs
-        run: |
-          cli/bin/agent-packs verify frontend-engineer
-          cli/bin/agent-packs verify pr-review
-          cli/bin/agent-packs verify eng-leader
-      - name: Audit registry packs
-        run: |
-          cli/bin/agent-packs audit frontend-engineer
-          cli/bin/agent-packs audit pr-review
-          cli/bin/agent-packs audit eng-leader || echo "eng-leader has advisory audit warnings for moving upstream refs"
-      - name: Policy check registry packs
-        run: |
-          for pack in frontend-engineer pr-review eng-leader; do
-            cli/bin/agent-packs policy check "$pack" registry/policy/default.json
-          done
-      - name: Publish check
-        run: cli/bin/agent-packs publish --check
-      - name: Check registry index is up to date
-        run: |
-          cli/bin/agent-packs index --output /tmp/index.json
-          .venv/bin/python - <<'PY'
-          import json
-          from pathlib import Path
-
-          committed = json.loads(Path("registry/index.json").read_text())
-          generated = json.loads(Path("/tmp/index.json").read_text())
-          committed.pop("generatedAt", None)
-          generated.pop("generatedAt", None)
-          if committed != generated:
-              raise SystemExit("registry/index.json is stale")
-          PY
-      - name: Generate registry index
-        run: cli/bin/agent-packs index --output registry/index.json
       - name: Prepare GitHub Pages site
+        # The catalog fetches the registry index live from
+        # github.com/agent-packs/registry, so no registry data is bundled here.
         run: |
-          mkdir -p site/registry
+          mkdir -p site
           cp docs/index.html site/index.html
           cp docs/catalog.html site/catalog.html
-          cp registry/index.json site/registry/index.json
       - name: Upload catalog artifact
         uses: actions/upload-pages-artifact@v3
         with:

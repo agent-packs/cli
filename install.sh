@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${AGENT_PACKS_REPO:-sandeshh/agent-packs}"
+REPO="${AGENT_PACKS_REPO:-agent-packs/cli}"
 VERSION="${AGENT_PACKS_VERSION:-latest}"
 INSTALL_DIR="${AGENT_PACKS_INSTALL_DIR:-${HOME}/.local/bin}"
 INSTALL_SKILL="${AGENT_PACKS_INSTALL_SKILL:-1}"
@@ -63,12 +63,8 @@ if [ "${INSTALL_SKILL}" != "0" ] && [ -d "${tmpdir}/skills/agent-packs" ]; then
   echo "Installed Agent Packs skill to ${SKILL_DIR}"
 fi
 
-if [ -d "${tmpdir}/registry" ]; then
-  SHARE_DIR="${HOME}/.local/share/agent-packs"
-  mkdir -p "${SHARE_DIR}"
-  cp -R "${tmpdir}/registry" "${SHARE_DIR}/registry"
-  echo "Installed registry to ${SHARE_DIR}/registry"
-fi
+# The pack registry is fetched on first use from github.com/agent-packs/registry
+# (override with AGENT_PACKS_REGISTRY / AGENT_PACKS_REGISTRY_REPO / _REF).
 
 if ! echo ":${PATH}:" | grep -q ":${INSTALL_DIR}:"; then
   echo "Add ${INSTALL_DIR} to your PATH to use agent-packs"

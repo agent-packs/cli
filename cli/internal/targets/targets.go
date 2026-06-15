@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/model"
 )
 
 var TargetMatrix = map[string]model.TargetSpec{

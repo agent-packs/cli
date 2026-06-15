@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 const defaultHTTPTimeout = 2 * time.Minute

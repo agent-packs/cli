@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/model"
 )
 
 func LoadSkillManifest(path string) (model.SkillManifest, error) {

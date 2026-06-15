@@ -1,4 +1,4 @@
-module github.com/sandeshh/agent-packs/cli
+module github.com/agent-packs/cli
 
 go 1.26
 

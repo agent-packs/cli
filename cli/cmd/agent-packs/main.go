@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/agentpacks"
-	"github.com/sandeshh/agent-packs/cli/internal/output"
+	"github.com/agent-packs/cli/internal/agentpacks"
+	"github.com/agent-packs/cli/internal/output"
 	"gopkg.in/yaml.v3"
 )
 
@@ -653,6 +653,15 @@ func runUpdate(defaultTarget string, args []string) error {
 	all := flags.Bool("all", true, "update all configured registries")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
+	}
+	// Refresh the fetched default registry (Homebrew-style catalog update) when
+	// the CLI is relying on the runtime-fetched copy rather than a local checkout.
+	if os.Getenv("AGENT_PACKS_REGISTRY") == "" && localRegistryPath() == "" {
+		if err := agentpacks.RefreshLocalRegistry(registryCacheDir()); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not refresh default registry: %v\n", err)
+		} else {
+			fmt.Fprintln(os.Stdout, "OK    default registry refreshed")
+		}
 	}
 	return agentpacks.Update(*target, *all, os.Stdout)
 }
@@ -1516,21 +1525,49 @@ func envOrDefault(key, fallback string) string {
 }
 
 func resolveDefaultRegistry() string {
-	exe, err := os.Executable()
-	if err == nil {
+	// 1. A registry that ships alongside the binary or sits in a source checkout
+	//    wins — no network needed for dev or bundled installs.
+	if local := localRegistryPath(); local != "" {
+		return local
+	}
+	// 2. Otherwise fetch the canonical registry repo into the user cache. This is
+	//    the normal path for `go install` and split CLI-only installs.
+	cacheDir := registryCacheDir()
+	if packs, err := agentpacks.EnsureLocalRegistry(cacheDir); err == nil {
+		return packs
+	}
+	// Fall through to the cache path; LoadPacks surfaces an actionable error if
+	// the fetch failed (offline, unreachable repo).
+	return filepath.Join(cacheDir, "registry", "packs")
+}
+
+// localRegistryPath returns a registry shipped with the binary (FHS share/) or
+// present in a source checkout, or "" if neither exists.
+func localRegistryPath() string {
+	if exe, err := os.Executable(); err == nil {
 		real, err2 := filepath.EvalSymlinks(exe)
 		if err2 != nil {
 			real = exe
 		}
-		// FHS: binary at <prefix>/bin/ → registry at <prefix>/share/agent-packs/registry/packs
-		// Works for Homebrew (Cellar/<pkg>/<ver>/bin → share/), apt, rpm, /usr/local installs.
+		// FHS: binary at <prefix>/bin/ → <prefix>/share/agent-packs/registry/packs.
 		fhsPath := filepath.Join(filepath.Dir(real), "..", "share", "agent-packs", "registry", "packs")
 		if fi, err2 := os.Stat(fhsPath); err2 == nil && fi.IsDir() {
 			return fhsPath
 		}
 	}
-	// Dev fallback: binary is at cli/bin/agent-packs, repo root is 3 levels up.
-	return filepath.Join(repoRoot(), "registry", "packs")
+	// Source checkout: binary at cli/bin/agent-packs, registry/ three levels up.
+	devPath := filepath.Join(repoRoot(), "registry", "packs")
+	if fi, err := os.Stat(devPath); err == nil && fi.IsDir() {
+		return devPath
+	}
+	return ""
+}
+
+func registryCacheDir() string {
+	if dir, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(dir, "agent-packs")
+	}
+	return filepath.Join(os.TempDir(), "agent-packs-cache")
 }
 
 func repoRoot() string {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/model"
 )
 
 const defaultPluginTimeout = 2 * time.Minute

@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 var commitSHA = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)

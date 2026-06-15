@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 // DriftItem is a single capability checked for drift; exported for JSON output.

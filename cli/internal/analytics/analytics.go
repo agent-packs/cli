@@ -13,8 +13,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/sandeshh/agent-packs/cli/internal/util"
-	"github.com/sandeshh/agent-packs/cli/internal/version"
+	"github.com/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/version"
 )
 
 const defaultEndpoint = "https://analytics.agent-packs.dev/v1/track"

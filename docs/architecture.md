@@ -62,14 +62,14 @@ Implemented commands:
 Target install experience:
 
 ```sh
-brew install sandeshh/agent-packs/agent-packs
+brew install agent-packs/tap/agent-packs
 agent-packs install frontend-engineer
 ```
 
 Bootstrap fallback:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh
 ```
 
 Release binaries are built by `.github/workflows/release.yml` on version tags (`v*`).

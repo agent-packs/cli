@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/plan"
-	"github.com/sandeshh/agent-packs/cli/internal/registry"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/plan"
+	"github.com/agent-packs/cli/internal/registry"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 func InstallStandalone(registryPath, ref, kind, target, agent string, executePlugins, dryRun bool, options model.InstallOptions, out io.Writer) error {

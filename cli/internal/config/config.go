@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/targets"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/targets"
+	"github.com/agent-packs/cli/internal/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -62,7 +62,7 @@ func Init(projectDir string, opts InitOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	header := "# Agent Packs project configuration\n# https://github.com/sandeshh/agent-packs\n\n"
+	header := "# Agent Packs project configuration\n# https://github.com/agent-packs/cli\n\n"
 	if err := os.WriteFile(path, append([]byte(header), data...), 0o644); err != nil {
 		return "", err
 	}

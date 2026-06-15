@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sandeshh/agent-packs/cli/internal/config"
-	"github.com/sandeshh/agent-packs/cli/internal/install"
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/registry"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/config"
+	"github.com/agent-packs/cli/internal/install"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/registry"
+	"github.com/agent-packs/cli/internal/util"
 	"gopkg.in/yaml.v3"
 )
 

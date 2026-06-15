@@ -15,33 +15,32 @@ mkdir -p "$(dirname "$OUTPUT")"
 cat > "$OUTPUT" <<RUBY
 class AgentPacks < Formula
   desc "Homebrew for AI agent skills and plugins — install curated packs into Claude Code, Cursor, Codex, and more"
-  homepage "https://github.com/sandeshh/agent-packs"
+  homepage "https://github.com/agent-packs/cli"
   version "${VERSION}"
   license "Apache-2.0"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/sandeshh/agent-packs/releases/download/v${VERSION}/agent-packs_darwin_arm64.tar.gz"
+      url "https://github.com/agent-packs/cli/releases/download/v${VERSION}/agent-packs_darwin_arm64.tar.gz"
       sha256 "${SHA_DARWIN_ARM64}"
     else
-      url "https://github.com/sandeshh/agent-packs/releases/download/v${VERSION}/agent-packs_darwin_amd64.tar.gz"
+      url "https://github.com/agent-packs/cli/releases/download/v${VERSION}/agent-packs_darwin_amd64.tar.gz"
       sha256 "${SHA_DARWIN_AMD64}"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/sandeshh/agent-packs/releases/download/v${VERSION}/agent-packs_linux_arm64.tar.gz"
+      url "https://github.com/agent-packs/cli/releases/download/v${VERSION}/agent-packs_linux_arm64.tar.gz"
       sha256 "${SHA_LINUX_ARM64}"
     else
-      url "https://github.com/sandeshh/agent-packs/releases/download/v${VERSION}/agent-packs_linux_amd64.tar.gz"
+      url "https://github.com/agent-packs/cli/releases/download/v${VERSION}/agent-packs_linux_amd64.tar.gz"
       sha256 "${SHA_LINUX_AMD64}"
     end
   end
 
   def install
     bin.install "agent-packs"
-    (share/"agent-packs").install "registry"
   end
 
   def caveats

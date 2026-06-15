@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/targets"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/targets"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 func BuildInstallPlan(pack model.Pack, target, agent, only string) model.Plan {

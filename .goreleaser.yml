@@ -24,9 +24,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/sandeshh/agent-packs/cli/internal/version.Version={{.Version}}
-      - -X github.com/sandeshh/agent-packs/cli/internal/version.Commit={{.Commit}}
-      - -X github.com/sandeshh/agent-packs/cli/internal/version.Date={{.Date}}
+      - -X github.com/agent-packs/cli/internal/version.Version={{.Version}}
+      - -X github.com/agent-packs/cli/internal/version.Commit={{.Commit}}
+      - -X github.com/agent-packs/cli/internal/version.Date={{.Date}}
 
 archives:
   - id: agent-packs
@@ -77,7 +77,7 @@ brews:
       owner: sandeshh
       name: homebrew-agent-packs
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    homepage: "https://github.com/sandeshh/agent-packs"
+    homepage: "https://github.com/agent-packs/cli"
     description: "Homebrew for AI agent skills and plugins — install curated packs into Claude Code, Cursor, Codex, and more"
     license: "Apache-2.0"
     install: |

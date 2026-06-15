@@ -8,12 +8,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/policy"
-	"github.com/sandeshh/agent-packs/cli/internal/registry"
-	"github.com/sandeshh/agent-packs/cli/internal/resolve"
-	"github.com/sandeshh/agent-packs/cli/internal/targets"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/policy"
+	"github.com/agent-packs/cli/internal/registry"
+	"github.com/agent-packs/cli/internal/resolve"
+	"github.com/agent-packs/cli/internal/targets"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 func ValidatePath(path string, out io.Writer) error {

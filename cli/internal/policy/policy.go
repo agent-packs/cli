@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sandeshh/agent-packs/cli/internal/model"
-	"github.com/sandeshh/agent-packs/cli/internal/output"
-	"github.com/sandeshh/agent-packs/cli/internal/registry"
-	"github.com/sandeshh/agent-packs/cli/internal/resolve"
-	"github.com/sandeshh/agent-packs/cli/internal/util"
+	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/output"
+	"github.com/agent-packs/cli/internal/registry"
+	"github.com/agent-packs/cli/internal/resolve"
+	"github.com/agent-packs/cli/internal/util"
 )
 
 func PolicyCheck(registryPath, packRef, policyPath string, out io.Writer) error {
