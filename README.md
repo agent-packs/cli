@@ -206,8 +206,8 @@ Agent Packs supports a basic package-manager lifecycle:
 - `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings.
 - `rollback <pack...>`: restores one or more previous receipt-backed install states when history exists.
 - `uninstall <pack...>`: removes one or more installed packs, including installed inline skill folders, optional plugin cleanup commands, and receipts.
-- `skills install|list|upgrade|uninstall`: manages independent registry or local Agent Skills without wrapping them in a pack.
-- `plugins install|list|upgrade|uninstall`: manages independent registry or local plugins; pass `--method`, `--package`, `--marketplace`, `--command`, or `--uninstall-command` to store native lifecycle metadata outside a pack.
+- `skills install|list|upgrade|uninstall`: manages independent registry or local Agent Skills without wrapping them in a pack. `list` also discovers skills installed outside the standalone path, annotating each with a `source` column: `managed` (standalone receipt), `pack:<id>` (materialized by a pack install), or `external` (present on disk in a tool's skill directory with no receipt).
+- `plugins install|list|upgrade|uninstall`: manages independent registry or local plugins; pass `--method`, `--package`, `--marketplace`, `--command`, or `--uninstall-command` to store native lifecycle metadata outside a pack. `list` also surfaces plugins pulled in by a pack install with a `pack:<id>` source.
 - `audit <pack>`: supply-chain SBOM report (`--json` supported).
 - `version`: prints CLI version (`--json` supported).
 - `init [dir]`: writes `.agent-packs.yaml` project defaults.
