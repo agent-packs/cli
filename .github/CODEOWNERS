@@ -1,0 +1,8 @@
+# Default ownership for all repository changes.
+* @sandeshh
+
+# Release, workflow, and policy changes are security-sensitive.
+/.github/ @sandeshh
+/registry/policy/ @sandeshh
+/install.sh @sandeshh
+/packaging/ @sandeshh

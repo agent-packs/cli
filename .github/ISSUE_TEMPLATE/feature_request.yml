@@ -1,0 +1,34 @@
+name: Feature Request
+description: Suggest an improvement for Agent Packs.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need or workflow gap does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should Agent Packs do?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI
+        - Registry
+        - Installer
+        - Policy/Security
+        - Documentation
+        - Catalog
+        - Other
+    validations:
+      required: true
