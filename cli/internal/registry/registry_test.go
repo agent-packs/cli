@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -18,6 +19,18 @@ func writeMinimalPack(t *testing.T, dir, id string) {
 }`
 	if err := os.WriteFile(filepath.Join(dir, id+".json"), []byte(pack), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLoadPacksMissingRegistryGivesActionableError(t *testing.T) {
+	_, err := LoadPacks(filepath.Join(t.TempDir(), "does-not-exist", "packs"))
+	if err == nil {
+		t.Fatal("expected an error for a missing registry directory")
+	}
+	for _, want := range []string{"registry not found", "AGENT_PACKS_REGISTRY"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error should mention %q, got: %v", want, err)
+		}
 	}
 }
 

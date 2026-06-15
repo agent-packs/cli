@@ -20,6 +20,13 @@ import (
 func LoadPacks(registry string) ([]model.Pack, error) {
 	entries, err := os.ReadDir(registry)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("registry not found at %s\n"+
+				"  The CLI ships its registry alongside the binary (Homebrew, the install.sh\n"+
+				"  script, and the Docker image all set this up). If you built from source or\n"+
+				"  used `go install`, point AGENT_PACKS_REGISTRY at a checkout's registry/packs:\n"+
+				"    export AGENT_PACKS_REGISTRY=/path/to/agent-packs/registry/packs", registry)
+		}
 		return nil, err
 	}
 	var packs []model.Pack
