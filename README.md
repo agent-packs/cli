@@ -98,7 +98,7 @@ cli/bin/agent-packs policy check eng-leader default
 cli/bin/agent-packs licenses eng-leader
 cli/bin/agent-packs attribution eng-leader
 cli/bin/agent-packs index --output registry/index.json
-cli/bin/agent-packs diff eng-leader
+cli/bin/agent-packs diff frontend-engineer --target ./sandbox
 cli/bin/agent-packs pin frontend-engineer --target ./sandbox
 cli/bin/agent-packs pin frontend-engineer --target ./sandbox --check
 cli/bin/agent-packs compat eng-leader --agent codex
