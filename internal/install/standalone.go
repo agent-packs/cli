@@ -12,6 +12,7 @@ import (
 	"github.com/agent-packs/cli/internal/model"
 	"github.com/agent-packs/cli/internal/plan"
 	"github.com/agent-packs/cli/internal/registry"
+	"github.com/agent-packs/cli/internal/targets"
 	"github.com/agent-packs/cli/internal/util"
 )
 
@@ -86,37 +87,188 @@ func UpgradeStandalone(target, id, kind string, executePlugins bool, out io.Writ
 	return nil
 }
 
+// listedItem is one row of `skills list` / `plugins list`, annotated with where
+// the capability came from so that items installed outside the standalone
+// receipt path are still surfaced.
+type listedItem struct {
+	ID          string
+	Version     string
+	Source      string
+	InstalledAt string
+}
+
+// Discovery precedence: a capability tracked by a standalone receipt wins over
+// the same id seen in a pack receipt, which in turn wins over a bare on-disk
+// directory with no receipt at all.
+const (
+	sourceManaged  = 1
+	sourcePack     = 2
+	sourceExternal = 3
+)
+
 func ListStandalone(target, kind string, out io.Writer) error {
-	dir := standaloneReceiptsDir(util.ExpandHome(target), kind)
+	absTarget := util.ExpandHome(target)
+	items := map[string]listedItem{}
+	priority := map[string]int{}
+	add := func(item listedItem, prio int) {
+		if existing, ok := priority[item.ID]; ok && existing <= prio {
+			return
+		}
+		items[item.ID] = item
+		priority[item.ID] = prio
+	}
+
+	for _, item := range standaloneReceiptItems(absTarget, kind) {
+		add(item, sourceManaged)
+	}
+	for _, item := range packReceiptItems(absTarget, kind) {
+		add(item, sourcePack)
+	}
+	if kind == "skills" {
+		for _, item := range diskSkillItems(absTarget) {
+			add(item, sourceExternal)
+		}
+	}
+
+	if len(items) == 0 {
+		fmt.Fprintf(out, "No %s installed.\n", kind)
+		return nil
+	}
+	ids := make([]string, 0, len(items))
+	for id := range items {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	fmt.Fprintln(out, "id\tversion\tsource\tinstalled")
+	for _, id := range ids {
+		item := items[id]
+		fmt.Fprintf(out, "%s\t%s\t%s\t%s\n", item.ID, dashIfEmpty(item.Version), item.Source, dashIfEmpty(item.InstalledAt))
+	}
+	return nil
+}
+
+// standaloneReceiptItems lists capabilities tracked under receipts/<kind>/.
+func standaloneReceiptItems(target, kind string) []listedItem {
+	dir := standaloneReceiptsDir(target, kind)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(out, "No %s installed.\n", kind)
-			return nil
-		}
-		return err
+		return nil
 	}
-	names := []string{}
+	items := []listedItem{}
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		names = append(names, entry.Name())
+		receipt, err := LoadReceipt(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		items = append(items, listedItem{
+			ID:          strings.TrimSuffix(entry.Name(), ".json"),
+			Version:     receipt.Pack.Version,
+			Source:      "managed",
+			InstalledAt: receipt.InstalledAt,
+		})
 	}
-	sort.Strings(names)
-	if len(names) == 0 {
-		fmt.Fprintf(out, "No %s installed.\n", kind)
+	return items
+}
+
+// packReceiptItems lists capabilities of the requested kind that were
+// materialized as part of a pack install (receipts/<pack-id>.json).
+func packReceiptItems(target, kind string) []listedItem {
+	dir := filepath.Join(target, "receipts")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
 		return nil
 	}
-	for _, name := range names {
-		receipt, err := LoadReceipt(filepath.Join(dir, name))
-		if err != nil {
-			return err
+	want := singularKind(kind)
+	items := []listedItem{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
 		}
-		id := strings.TrimSuffix(name, ".json")
-		fmt.Fprintf(out, "%s\t%s\t%s\n", id, receipt.Pack.Version, receipt.InstalledAt)
+		receipt, err := LoadReceipt(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		versions := capabilityVersions(receipt.Pack)
+		for _, capability := range receipt.Plan.Capabilities {
+			if capability.Type != want {
+				continue
+			}
+			id := util.Slugify(capability.Name)
+			items = append(items, listedItem{
+				ID:          id,
+				Version:     versions[capability.Name],
+				Source:      "pack:" + receipt.Pack.ID,
+				InstalledAt: receipt.InstalledAt,
+			})
+		}
 	}
-	return nil
+	return items
+}
+
+// diskSkillItems discovers skill directories present under any tool's skill
+// root that are not tracked by a receipt (e.g. installed by hand).
+func diskSkillItems(target string) []listedItem {
+	items := []listedItem{}
+	seen := map[string]bool{}
+	for _, root := range targets.AllSkillRoots(target) {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(root, entry.Name(), "SKILL.md")); err != nil {
+				continue
+			}
+			id := entry.Name()
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			items = append(items, listedItem{ID: id, Source: "external"})
+		}
+	}
+	return items
+}
+
+// externalUninstallHint returns guidance when id is present but not tracked by
+// a standalone receipt, so uninstall can point at the right command instead of
+// silently failing or deleting capabilities owned by a pack.
+func externalUninstallHint(target, kind, id string) string {
+	for _, item := range packReceiptItems(target, kind) {
+		if item.ID == util.Slugify(id) {
+			packID := strings.TrimPrefix(item.Source, "pack:")
+			return fmt.Sprintf("it was installed by pack %q — run `agent-packs uninstall %s`", packID, packID)
+		}
+	}
+	if kind == "skills" {
+		for _, item := range diskSkillItems(target) {
+			if item.ID == id {
+				return "it exists on disk outside agent-packs — remove the skill directory manually"
+			}
+		}
+	}
+	return ""
+}
+
+func capabilityVersions(pack model.Pack) map[string]string {
+	versions := map[string]string{}
+	for _, capability := range pack.Capabilities {
+		versions[capability.Name] = capability.Version
+	}
+	return versions
+}
+
+func dashIfEmpty(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return value
 }
 
 func UninstallStandalone(target, id, kind string, executePlugins bool, out io.Writer) error {
@@ -127,6 +279,12 @@ func UninstallStandalone(target, id, kind string, executePlugins bool, out io.Wr
 	receiptPath := standaloneReceiptPath(absTarget, kind, id)
 	receipt, err := LoadReceipt(receiptPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			if hint := externalUninstallHint(absTarget, kind, id); hint != "" {
+				return fmt.Errorf("%s %q was not installed via `agent-packs %s install`; %s", singularKind(kind), id, kind, hint)
+			}
+			return fmt.Errorf("%s %q is not installed (no receipt at %s)", singularKind(kind), id, receiptPath)
+		}
 		return err
 	}
 	for _, item := range receipt.Plan.Capabilities {
