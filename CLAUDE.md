@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```sh
 # Build the CLI
-cd cli && go build -o bin/agent-packs ./cmd/agent-packs
+go build -o bin/agent-packs ./cmd/agent-packs
 
 # Run Go unit tests
-cd cli && go test ./...
+go test ./...
 
 # Run a single Go test file or package
-cd cli && go test ./internal/install/...
+go test ./internal/install/...
 
 # Run Python integration and docs tests (requires venv)
 python3 -m venv .venv && .venv/bin/pip install -r tests/requirements.txt
@@ -23,7 +23,7 @@ python3 -m venv .venv && .venv/bin/pip install -r tests/requirements.txt
 
 # Run the CLI against a local registry checkout (registry data is a separate repo)
 git clone https://github.com/agent-packs/registry /tmp/registry
-AGENT_PACKS_REGISTRY=/tmp/registry/packs cli/bin/agent-packs validate packs
+AGENT_PACKS_REGISTRY=/tmp/registry/packs bin/agent-packs validate packs
 ```
 
 ## Repository Split
@@ -40,9 +40,9 @@ a checkout of `agent-packs/registry`.
 
 Agent Packs is a CLI tool (think "Homebrew for agent capabilities") that installs curated bundles of agent skills, plugins, prompts, and templates into AI coding tools (Claude Code, Codex, Cursor, Copilot, Gemini CLI, Goose, OpenCode).
 
-### CLI (`cli/`)
+### CLI (repo root)
 
-Go module with a single binary entry point at `cli/cmd/agent-packs/main.go`. Internal packages follow a strict layered dependency: `model` → `registry`/`resolve`/`targets` → `plan` → `install` → commands.
+Go module with a single binary entry point at `cmd/agent-packs/main.go`. Internal packages follow a strict layered dependency: `model` → `registry`/`resolve`/`targets` → `plan` → `install` → commands.
 
 - **`model/`** — core data types: `Pack`, `Capability`, `CapabilityRef`, `SkillManifest`, `PluginManifest`, install options, receipts, lockfiles, and report types.
 - **`registry/`** — loads and searches JSON manifests from `registry/packs/`; resolves named and `registryname/pack-id` refs; expands composed packs (deduplicating sub-packs); manages remote registries stored in `<target>/registries.json`.

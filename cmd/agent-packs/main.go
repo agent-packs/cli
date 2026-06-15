@@ -1541,24 +1541,23 @@ func resolveDefaultRegistry() string {
 	return filepath.Join(cacheDir, "registry", "packs")
 }
 
-// localRegistryPath returns a registry shipped with the binary (FHS share/) or
-// present in a source checkout, or "" if neither exists.
+// localRegistryPath returns a registry shipped alongside the binary under the
+// FHS share/ layout, or "" if none exists. The registry data otherwise lives in
+// agent-packs/registry and is fetched at runtime; set AGENT_PACKS_REGISTRY to
+// point at a local checkout for development or offline use.
 func localRegistryPath() string {
-	if exe, err := os.Executable(); err == nil {
-		real, err2 := filepath.EvalSymlinks(exe)
-		if err2 != nil {
-			real = exe
-		}
-		// FHS: binary at <prefix>/bin/ → <prefix>/share/agent-packs/registry/packs.
-		fhsPath := filepath.Join(filepath.Dir(real), "..", "share", "agent-packs", "registry", "packs")
-		if fi, err2 := os.Stat(fhsPath); err2 == nil && fi.IsDir() {
-			return fhsPath
-		}
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
 	}
-	// Source checkout: binary at cli/bin/agent-packs, registry/ three levels up.
-	devPath := filepath.Join(repoRoot(), "registry", "packs")
-	if fi, err := os.Stat(devPath); err == nil && fi.IsDir() {
-		return devPath
+	real, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		real = exe
+	}
+	// FHS: binary at <prefix>/bin/ → <prefix>/share/agent-packs/registry/packs.
+	fhsPath := filepath.Join(filepath.Dir(real), "..", "share", "agent-packs", "registry", "packs")
+	if fi, err := os.Stat(fhsPath); err == nil && fi.IsDir() {
+		return fhsPath
 	}
 	return ""
 }
@@ -1568,18 +1567,6 @@ func registryCacheDir() string {
 		return filepath.Join(dir, "agent-packs")
 	}
 	return filepath.Join(os.TempDir(), "agent-packs-cache")
-}
-
-func repoRoot() string {
-	executable, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	realPath, err := filepath.EvalSymlinks(executable)
-	if err != nil {
-		realPath = executable
-	}
-	return filepath.Dir(filepath.Dir(filepath.Dir(realPath)))
 }
 
 func usage() {

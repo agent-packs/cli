@@ -12,18 +12,17 @@ Use this skill when the user is working with Agent Packs itself: installing the 
 ## First Checks
 
 1. Locate the repo if the user is developing Agent Packs. Common path: `/Users/sandesh/dev/agent-packs`.
-2. Prefer the built CLI at `cli/bin/agent-packs` inside the repo. Rebuild with:
+2. Prefer the built CLI at `bin/agent-packs` inside the repo. Rebuild with:
 
 ```sh
-cd cli
 go build -o bin/agent-packs ./cmd/agent-packs
 ```
 
-3. Before changing behavior, inspect `README.md`, `docs/architecture.md`, and the relevant package under `cli/internal/`. The pack/skill/plugin data and JSON Schema live in the separate `agent-packs/registry` repo.
+3. Before changing behavior, inspect `README.md`, `docs/architecture.md`, and the relevant package under `internal/`. The pack/skill/plugin data and JSON Schema live in the separate `agent-packs/registry` repo.
 4. After changes, run the smallest meaningful verification. Typical checks:
 
 ```sh
-cd cli && go test ./...
+go test ./...
 python3 -m unittest discover -s tests
 # Registry authoring/validation runs against a checkout of agent-packs/registry:
 AGENT_PACKS_REGISTRY=/path/to/registry/packs agent-packs validate packs

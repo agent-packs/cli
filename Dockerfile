@@ -1,14 +1,15 @@
 FROM golang:1.26-alpine AS builder
 WORKDIR /src
-COPY cli/ ./cli/
-COPY skills/ ./skills/
-WORKDIR /src/cli
+COPY go.mod go.sum ./
+COPY cmd ./cmd
+COPY internal ./internal
+COPY skills ./skills
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build \
     -ldflags="-s -w \
-      -X github.com/sandeshh/agent-packs/cli/internal/version.Version=${VERSION} \
-      -X github.com/sandeshh/agent-packs/cli/internal/version.Commit=${COMMIT}" \
+      -X github.com/agent-packs/cli/internal/version.Version=${VERSION} \
+      -X github.com/agent-packs/cli/internal/version.Commit=${COMMIT}" \
     -o /agent-packs ./cmd/agent-packs
 
 FROM alpine:3.21

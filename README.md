@@ -32,7 +32,6 @@ The registry data (`packs/`, `skills/`, `plugins/`, `schemas/`, `policy/`,
 ## Build
 
 ```sh
-cd cli
 go build -o bin/agent-packs ./cmd/agent-packs
 ```
 
@@ -91,50 +90,50 @@ AGENT_PACKS_REGISTRY=./packs agent-packs index --output index.json
 ## CLI Usage
 
 ```sh
-cli/bin/agent-packs search
-cli/bin/agent-packs show frontend-engineer
-cli/bin/agent-packs install frontend-engineer --target ./sandbox
-cli/bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
-cli/bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
-cli/bin/agent-packs skills install ./my-skill --agent codex --mode copy --target ./sandbox
-cli/bin/agent-packs plugins install claude-code-review --mode native --method claude-marketplace --marketplace claude-plugins-official --package code-review --dry-run
-cli/bin/agent-packs init --agent codex --mode reference --scope project .
-cli/bin/agent-packs version
+bin/agent-packs search
+bin/agent-packs show frontend-engineer
+bin/agent-packs install frontend-engineer --target ./sandbox
+bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
+bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
+bin/agent-packs skills install ./my-skill --agent codex --mode copy --target ./sandbox
+bin/agent-packs plugins install claude-code-review --mode native --method claude-marketplace --marketplace claude-plugins-official --package code-review --dry-run
+bin/agent-packs init --agent codex --mode reference --scope project .
+bin/agent-packs version
 ```
 
 Additional commands:
 
 ```sh
-cli/bin/agent-packs search frontend --json
-cli/bin/agent-packs show frontend-engineer --json
-cli/bin/agent-packs audit frontend-engineer --json
-cli/bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
-cli/bin/agent-packs rollback frontend-engineer pr-review --target ./sandbox
-cli/bin/agent-packs tree eng-leader
-cli/bin/agent-packs publish --check
-cli/bin/agent-packs registry add local /path/to/agent-packs
-cli/bin/agent-packs install local/frontend-engineer --dry-run
-cli/bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
-cli/bin/agent-packs cache
-cli/bin/agent-packs update --all
-cli/bin/agent-packs outdated
-cli/bin/agent-packs scan ~/.codex/skills
-cli/bin/agent-packs import ~/.codex/skills
-cli/bin/agent-packs lint eng-leader
-cli/bin/agent-packs verify eng-leader
-cli/bin/agent-packs resolve eng-leader
-cli/bin/agent-packs policy check eng-leader default
-cli/bin/agent-packs licenses eng-leader
-cli/bin/agent-packs attribution eng-leader
-cli/bin/agent-packs diff frontend-engineer --target ./sandbox
-cli/bin/agent-packs pin frontend-engineer --target ./sandbox
-cli/bin/agent-packs pin frontend-engineer --target ./sandbox --check
-cli/bin/agent-packs compat eng-leader --agent codex
-cli/bin/agent-packs cache prune
-cli/bin/agent-packs list --target ./sandbox
-cli/bin/agent-packs uninstall frontend-engineer pr-review --target ./sandbox
-cli/bin/agent-packs doctor
-cli/bin/agent-packs doctor targets
+bin/agent-packs search frontend --json
+bin/agent-packs show frontend-engineer --json
+bin/agent-packs audit frontend-engineer --json
+bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
+bin/agent-packs rollback frontend-engineer pr-review --target ./sandbox
+bin/agent-packs tree eng-leader
+bin/agent-packs publish --check
+bin/agent-packs registry add local /path/to/agent-packs
+bin/agent-packs install local/frontend-engineer --dry-run
+bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
+bin/agent-packs cache
+bin/agent-packs update --all
+bin/agent-packs outdated
+bin/agent-packs scan ~/.codex/skills
+bin/agent-packs import ~/.codex/skills
+bin/agent-packs lint eng-leader
+bin/agent-packs verify eng-leader
+bin/agent-packs resolve eng-leader
+bin/agent-packs policy check eng-leader default
+bin/agent-packs licenses eng-leader
+bin/agent-packs attribution eng-leader
+bin/agent-packs diff frontend-engineer --target ./sandbox
+bin/agent-packs pin frontend-engineer --target ./sandbox
+bin/agent-packs pin frontend-engineer --target ./sandbox --check
+bin/agent-packs compat eng-leader --agent codex
+bin/agent-packs cache prune
+bin/agent-packs list --target ./sandbox
+bin/agent-packs uninstall frontend-engineer pr-review --target ./sandbox
+bin/agent-packs doctor
+bin/agent-packs doctor targets
 ```
 
 ## Included Packs
@@ -171,7 +170,7 @@ Supported tools include `codex`, `claude`, `cursor`, `gemini`, `copilot`, `goose
 Initialize a project config with defaults for agent, sync mode, and install scope:
 
 ```sh
-cli/bin/agent-packs init --agent codex --mode reference --scope project .
+bin/agent-packs init --agent codex --mode reference --scope project .
 ```
 
 This writes `.agent-packs.yaml` in the project directory.
@@ -233,10 +232,10 @@ Agent Packs supports a basic package-manager lifecycle:
 Registries are named sources stored in `<target>/registries.json`.
 
 ```sh
-cli/bin/agent-packs registry add official https://github.com/agent-packs/registry --target ~/.agent-packs
-cli/bin/agent-packs registry list --target ~/.agent-packs
-cli/bin/agent-packs install official/frontend-engineer --target ~/.agent-packs
-cli/bin/agent-packs registry remove official --target ~/.agent-packs
+bin/agent-packs registry add official https://github.com/agent-packs/registry --target ~/.agent-packs
+bin/agent-packs registry list --target ~/.agent-packs
+bin/agent-packs install official/frontend-engineer --target ~/.agent-packs
+bin/agent-packs registry remove official --target ~/.agent-packs
 ```
 
 A registry source can be a local repository path or a Git URL. Remote registries are cloned into `<target>/registries/<name>/` and resolved from either `registry/packs/` or `packs/`.
@@ -328,7 +327,7 @@ Example manifests live in the registry repo under `schemas/examples/`:
 ## Tests
 
 ```sh
-cd cli && go test ./...
+go test ./...
 python3 -m unittest discover -s tests
 ```
 

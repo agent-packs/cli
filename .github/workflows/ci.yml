@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-          cache-dependency-path: cli/go.sum
+          cache-dependency-path: go.sum
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
@@ -32,10 +32,8 @@ jobs:
           .venv/bin/pip install -r tests/requirements.txt
       - name: Go tests
         run: go test ./...
-        working-directory: cli
       - name: Build CLI
         run: go build -o bin/agent-packs ./cmd/agent-packs
-        working-directory: cli
       - name: Python integration and docs tests
         run: .venv/bin/python -m unittest discover -s tests
       - name: Prepare GitHub Pages site

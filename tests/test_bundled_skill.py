@@ -38,7 +38,7 @@ class BundledSkillTest(unittest.TestCase):
     def test_release_archive_includes_bundled_skill(self):
         release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
-        self.assertIn("cp -R ../skills", release)
+        self.assertIn("cp -R skills", release)
         self.assertIn("agent-packs skills", release)
 
 

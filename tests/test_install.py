@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI = ROOT / "cli" / "bin" / "agent-packs"
+CLI = ROOT / "bin" / "agent-packs"
 
 
 class InstallCommandTest(unittest.TestCase):
@@ -15,7 +15,7 @@ class InstallCommandTest(unittest.TestCase):
     def setUpClass(cls):
         subprocess.run(
             ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
-            cwd=ROOT / "cli",
+            cwd=ROOT,
             check=True,
             text=True,
             capture_output=True,

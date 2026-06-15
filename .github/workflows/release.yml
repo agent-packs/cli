@@ -22,9 +22,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: cli/go.mod
+          go-version-file: go.mod
           cache: true
-          cache-dependency-path: cli/go.sum
+          cache-dependency-path: go.sum
 
       - name: Build multi-platform binaries
         env:
@@ -42,26 +42,25 @@ jobs:
               -o "dist/${out}/agent-packs" ./cmd/agent-packs
             # Bundle the agent-packs skill; the registry is fetched at runtime
             # from github.com/agent-packs/registry on first use.
-            cp -R ../skills "dist/${out}/skills"
+            cp -R skills "dist/${out}/skills"
             tar -C "dist/${out}" -czf "dist/${out}.tar.gz" agent-packs skills
           done
           # Windows amd64
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
             -ldflags "${LDFLAGS}" \
             -o "dist/agent-packs_windows_amd64/agent-packs.exe" ./cmd/agent-packs
-          cp -R ../skills dist/agent-packs_windows_amd64/skills
+          cp -R skills dist/agent-packs_windows_amd64/skills
           cd dist/agent-packs_windows_amd64 && zip -r ../agent-packs_windows_amd64.zip agent-packs.exe skills && cd ../..
           # Checksums
           cd dist && sha256sum *.tar.gz *.zip > checksums.txt
-        working-directory: cli
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            cli/dist/*.tar.gz
-            cli/dist/*.zip
-            cli/dist/checksums.txt
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
           generate_release_notes: true
 
       - name: Set up Docker Buildx
@@ -106,12 +105,12 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ github.ref_name }}
         run: |
-          SHA_DARWIN_ARM64=$(sha256sum cli/dist/agent-packs_darwin_arm64.tar.gz | awk '{print $1}')
-          SHA_DARWIN_AMD64=$(sha256sum cli/dist/agent-packs_darwin_amd64.tar.gz | awk '{print $1}')
-          SHA_LINUX_ARM64=$(sha256sum cli/dist/agent-packs_linux_arm64.tar.gz | awk '{print $1}')
-          SHA_LINUX_AMD64=$(sha256sum cli/dist/agent-packs_linux_amd64.tar.gz | awk '{print $1}')
+          SHA_DARWIN_ARM64=$(sha256sum dist/agent-packs_darwin_arm64.tar.gz | awk '{print $1}')
+          SHA_DARWIN_AMD64=$(sha256sum dist/agent-packs_darwin_amd64.tar.gz | awk '{print $1}')
+          SHA_LINUX_ARM64=$(sha256sum dist/agent-packs_linux_arm64.tar.gz | awk '{print $1}')
+          SHA_LINUX_AMD64=$(sha256sum dist/agent-packs_linux_amd64.tar.gz | awk '{print $1}')
 
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/sandeshh/homebrew-agent-packs.git" /tmp/tap
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/agent-packs/homebrew-tap.git" /tmp/tap
           bash scripts/gen-formula.sh \
             "${VERSION}" "${SHA_DARWIN_ARM64}" "${SHA_DARWIN_AMD64}" \
             "${SHA_LINUX_ARM64}" "${SHA_LINUX_AMD64}" \

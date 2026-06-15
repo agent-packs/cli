@@ -8,7 +8,7 @@ before:
 
 builds:
   - id: agent-packs
-    main: ./cli/cmd/agent-packs
+    main: ./cmd/agent-packs
     binary: agent-packs
     env:
       - CGO_ENABLED=0
