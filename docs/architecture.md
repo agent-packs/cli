@@ -53,6 +53,7 @@ Implemented commands:
 - `agent-packs attribution <pack>`
 - `agent-packs index [--output path]`
 - `agent-packs diff <pack>`
+- `agent-packs pin <pack> [--check]`
 - `agent-packs compat <pack> [--json]`
 - `agent-packs cache prune|clean`
 
@@ -61,7 +62,7 @@ Implemented commands:
 Target install experience:
 
 ```sh
-brew install sandeshh/tap/agent-packs
+brew install sandeshh/agent-packs/agent-packs
 agent-packs install frontend-engineer
 ```
 
@@ -72,10 +73,13 @@ curl -fsSL https://raw.githubusercontent.com/sandeshh/agent-packs/main/install.s
 ```
 
 Release binaries are built by `.github/workflows/release.yml` on version tags (`v*`).
-Release archives include the bundled `skills/agent-packs` skill for supported
-agentic code editors. The bootstrap installer installs it to the selected
-editor's skill directory with `AGENT_PACKS_AGENT` and defaults to Codex;
-Homebrew packages it under `pkgshare`.
+Release archives bundle both the `skills/agent-packs` skill and the `registry/`
+so the binary works standalone. The bootstrap installer installs the skill to
+the selected editor's skill directory with `AGENT_PACKS_AGENT` (defaults to
+Codex) and copies the registry to `~/.local/share/agent-packs/registry`. The
+Homebrew formula installs the registry under `share/agent-packs/registry`; the
+CLI resolves the default registry from `<prefix>/share/agent-packs/registry`
+when `AGENT_PACKS_REGISTRY` is unset.
 
 ## Catalog And CI
 

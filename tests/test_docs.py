@@ -25,6 +25,31 @@ class DocumentationExamplesTest(unittest.TestCase):
         self.assertIn("agent-packs plugins install claude-code-review", readme)
         self.assertIn("--dry-run", readme)
 
+    def test_docs_use_correct_homebrew_tap_path(self):
+        # The published tap installs as sandeshh/agent-packs/agent-packs;
+        # sandeshh/tap/... is a stale, non-existent path.
+        for rel in ("README.md", "docs/architecture.md"):
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            self.assertNotIn("sandeshh/tap/agent-packs", text, rel)
+            if "brew install" in text:
+                self.assertIn("brew install sandeshh/agent-packs/agent-packs", text, rel)
+
+    def test_pin_command_is_documented(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+        self.assertIn("pin <pack>", readme)
+        self.assertIn("agent-packs pin <pack>", architecture)
+
+    def test_landing_page_diagram_uses_real_plugins(self):
+        # The architecture diagram must reference real registry plugins, not
+        # invented names, and anchor on a pack that actually bundles plugins.
+        html = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("github-tools", html)
+        self.assertNotIn("database-browser", html)
+        for plugin in ("eng-leader-workflows", "github-pr-inspection"):
+            self.assertTrue((ROOT / "registry" / "plugins" / plugin).is_dir(), plugin)
+            self.assertIn(plugin, html, plugin)
+
 
 if __name__ == "__main__":
     unittest.main()

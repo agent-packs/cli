@@ -32,10 +32,10 @@ go build -o bin/agent-packs ./cmd/agent-packs
 
 ## Install
 
-Homebrew (after the first release is published):
+Homebrew:
 
 ```sh
-brew install sandeshh/tap/agent-packs
+brew install sandeshh/agent-packs/agent-packs
 ```
 
 Bootstrap installer:
@@ -99,6 +99,8 @@ cli/bin/agent-packs licenses eng-leader
 cli/bin/agent-packs attribution eng-leader
 cli/bin/agent-packs index --output registry/index.json
 cli/bin/agent-packs diff eng-leader
+cli/bin/agent-packs pin frontend-engineer --target ./sandbox
+cli/bin/agent-packs pin frontend-engineer --target ./sandbox --check
 cli/bin/agent-packs compat eng-leader --agent codex
 cli/bin/agent-packs cache prune
 cli/bin/agent-packs list --target ./sandbox
@@ -197,6 +199,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `licenses <pack>` and `attribution <pack>`: report license and source attribution.
 - `index [--output path]`: generates a searchable registry index.
 - `diff <pack>`: compares the installed lockfile with the current registry pack.
+- `pin <pack> [--check]`: resolves each installed capability's moving ref to a concrete commit and content checksum and records them in the lockfile; `--check` re-resolves the live sources and fails if any drifted from the recorded pins.
 - `compat <pack> --agent <tool>`: checks tool compatibility metadata.
 - `cache prune|clean`: removes cached state; `clean` also removes imported sources.
 
