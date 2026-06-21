@@ -48,6 +48,19 @@ type CapabilityRef struct {
 	License        string            `json:"license,omitempty"`
 	Install        map[string]string `json:"install,omitempty"`
 	Trust          string            `json:"trust,omitempty"`
+
+	// bareString records that this ref was parsed from a bare JSON string
+	// (e.g. "frontend-guidance") rather than a JSON object. Bare-string refs
+	// carry no provenance metadata and are exempt from object-ref validation
+	// such as the required `trust` field. It is unexported and not serialized.
+	bareString bool
+}
+
+// IsObjectRef reports whether the ref was authored as a JSON object rather than
+// a bare string. Object refs are subject to object-ref validation (e.g. a
+// required, enum-constrained `trust` value); bare-string refs are not.
+func (ref CapabilityRef) IsObjectRef() bool {
+	return !ref.bareString
 }
 
 func (refs CapabilityRefs) IDs() []string {
@@ -70,6 +83,7 @@ func (ref *CapabilityRef) UnmarshalJSON(data []byte) error {
 	var id string
 	if err := json.Unmarshal(data, &id); err == nil {
 		ref.ID = id
+		ref.bareString = true
 		return nil
 	}
 	type alias CapabilityRef

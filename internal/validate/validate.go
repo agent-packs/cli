@@ -207,10 +207,10 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 		errs = append(errs, "capabilities, packs, skills, or plugins is required")
 	}
 	for i, ref := range pack.Skills {
-		errs = append(errs, ValidateCapabilityRef(ref, "skill", fmt.Sprintf("skills[%d]", i))...)
+		errs = append(errs, ValidateCapabilityRef(ref, "skill", fmt.Sprintf("skills[%d]", i), schemaDir)...)
 	}
 	for i, ref := range pack.Plugins {
-		errs = append(errs, ValidateCapabilityRef(ref, "plugin", fmt.Sprintf("plugins[%d]", i))...)
+		errs = append(errs, ValidateCapabilityRef(ref, "plugin", fmt.Sprintf("plugins[%d]", i), schemaDir)...)
 	}
 	for i, capability := range pack.Capabilities {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
@@ -219,7 +219,7 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 	return errs
 }
 
-func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix string) []string {
+func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, schemaDir string) []string {
 	var errs []string
 	if ref.ID == "" {
 		errs = append(errs, prefix+".id is required")
@@ -232,6 +232,12 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix strin
 	}
 	if ref.Install != nil && ref.Install["method"] == "" {
 		errs = append(errs, prefix+".install.method is required")
+	}
+	// Object refs (those authored as JSON objects rather than bare strings)
+	// must declare a valid `trust` value. Bare-string refs carry no provenance
+	// metadata and are exempt, matching the schema's oneOf[string, object].
+	if ref.IsObjectRef() {
+		errs = append(errs, validateTrust(ref.Trust, AllowedTrustLevels(schemaDir), prefix)...)
 	}
 	return errs
 }

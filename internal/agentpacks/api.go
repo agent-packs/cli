@@ -206,8 +206,8 @@ func ValidatePack(pack Pack) []string               { return validate.ValidatePa
 func ValidateCapability(capability Capability, prefix string) []string {
 	return validate.ValidateCapability(capability, prefix)
 }
-func ValidateCapabilityRef(ref CapabilityRef, capabilityType, prefix string) []string {
-	return validate.ValidateCapabilityRef(ref, capabilityType, prefix)
+func ValidateCapabilityRef(ref CapabilityRef, capabilityType, prefix, schemaDir string) []string {
+	return validate.ValidateCapabilityRef(ref, capabilityType, prefix, schemaDir)
 }
 func ValidateCapabilityManifestPath(path string) []string {
 	return validate.ValidateCapabilityManifestPath(path)

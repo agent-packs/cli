@@ -1,0 +1,123 @@
+# Changelog
+
+All notable changes to the Agent Packs CLI are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+This changelog covers the CLI (`agent-packs/cli`). Pack, skill, and plugin data
+lives in the separate [`agent-packs/registry`](https://github.com/agent-packs/registry)
+repository and is versioned independently.
+
+## [Unreleased]
+
+### Added
+- `agent-packs index --check` verifies that `index.json` is up to date without
+  rewriting it, exiting non-zero on drift (useful in CI).
+- Pack `categories` are now enforced against a canonical allowlist during
+  `validate`, `lint`, and `publish --check`. The allowed set is read from the
+  registry JSON schema when available, with a documented in-CLI fallback list.
+- Trust-tier enforcement for object skill/plugin refs: every object ref must
+  declare a `trust` value (`official`, `community`, or `verified`), validated by
+  `validate`, `lint`, and `publish --check`. The enum is read from the registry
+  schema with a documented fallback. Bare-string refs remain exempt.
+
+### Changed
+- Expanded automated test coverage across core CLI packages.
+
+## [0.3.0] - 2026-06-15
+
+### Added
+- `list` commands now discover externally-installed skills and plugins (those
+  installed outside Agent Packs), giving a complete view of an editor's
+  capabilities.
+
+### Changed
+- Bumped landing-page version badge to v0.3.0.
+- Updated GitHub Actions and Python test dependencies (Dependabot).
+
+## [0.2.1] - 2026-06-14
+
+### Fixed
+- Flattened the Go module to the repository root so `go install` works against
+  the CLI.
+
+### Changed
+- Updated Homebrew formula to v0.2.0.
+
+## [0.2.0] - 2026-06-14
+
+### Changed
+- Split the registry data into the standalone `agent-packs/registry` repository
+  and moved the Go module to `agent-packs/cli`. The CLI now fetches the registry
+  at runtime instead of bundling it.
+- Bumped landing-page badge to v0.2.0 and updated the Homebrew formula to v0.1.3.
+
+## [0.1.3] - 2026-06-14
+
+### Added
+- GitHub governance configuration.
+
+### Fixed
+- Corrected the Docker registry path and added an actionable "registry not
+  found" error message.
+- Made the README `diff` example runnable against the sandbox install.
+
+### Changed
+- Hardened GitHub workflow permissions.
+- Updated Homebrew formula to v0.1.2 and bumped the landing-page badge to v0.1.3.
+
+## [0.1.2] - 2026-06-14
+
+### Added
+- Integrity pinning for capability sources and a deterministic registry index.
+- Regression tests covering documented workflows and site commands.
+
+### Fixed
+- Corrected `status`/`scan` reporting bugs.
+- Fixed the outdated history scan and broken site commands.
+- Improved documentation and landing-page accuracy.
+
+## [0.1.1] - 2026-06-14
+
+### Fixed
+- Registry-not-found error when the CLI was installed via Homebrew.
+- Corrected Homebrew formula checksums for v0.1.0.
+
+### Added
+- Packs architecture section with an SVG diagram on the landing page.
+
+## [0.1.0] - 2026-06-14
+
+Initial public release of the Agent Packs CLI — a "Homebrew for agent
+capabilities" that installs curated bundles of skills, plugins, prompts, and
+templates into AI coding tools (Claude Code, Codex, Cursor, Copilot, Gemini CLI,
+Goose, OpenCode).
+
+### Added
+- Core install pipeline: registry resolution, install planning, and execution
+  with `reference`, `copy`, `symlink`, and `native` materialization modes.
+- Receipt and lockfile tracking per install, enabling `upgrade`, `rollback`,
+  `diff`, and `uninstall` flows.
+- Pack composition via the `packs` field with recursive deduplication.
+- Multi-pack and standalone skill/plugin lifecycle commands, including plugin
+  uninstall support.
+- Authoring and publishing workflow: `new`, `validate`, `lint`, `verify`,
+  `audit`, `publish --check`, and policy presets.
+- Drift detection, shell completions, deprecation warnings, `upgrade --all`,
+  `why`, `doctor` (with `--json`), `sync`/`freeze`, custom targets, version
+  pinning, search filtering, and export / install-from.
+- Bundled `agent-packs` helper skill installed into supported editors during
+  bootstrap.
+- Docker image and Homebrew tap publishing; GitHub Pages landing page with a
+  searchable catalog.
+- `CLAUDE.md` with build, test, and architecture guidance.
+
+[Unreleased]: https://github.com/agent-packs/cli/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/agent-packs/cli/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/agent-packs/cli/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/agent-packs/cli/compare/v0.1.3...v0.2.0
+[0.1.3]: https://github.com/agent-packs/cli/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/agent-packs/cli/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/agent-packs/cli/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/agent-packs/cli/releases/tag/v0.1.0

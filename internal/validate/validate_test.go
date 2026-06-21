@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -194,6 +195,159 @@ func TestValidatePathRejectsBadCategory(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `category "research" is not allowed`) {
 		t.Fatalf("expected category error in output, got: %s", out.String())
+	}
+}
+
+func packFromJSON(t *testing.T, raw string) model.Pack {
+	t.Helper()
+	var p model.Pack
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		t.Fatalf("unmarshal pack: %v", err)
+	}
+	return p
+}
+
+func TestValidatePackTrustObjectRefValid(t *testing.T) {
+	p := packFromJSON(t, `{
+      "id": "trust-ok",
+      "name": "Trust OK",
+      "version": "1.0.0",
+      "description": "d",
+      "skills": [{"id": "s1", "source": "https://example.com/s", "format": "agent-skill", "trust": "community"}],
+      "plugins": [{"id": "p1", "source": "https://example.com/p", "format": "anthropic-plugin", "trust": "official"}]
+    }`)
+	if errs := ValidatePack(p); len(errs) != 0 {
+		t.Fatalf("expected no errors for valid trust, got %v", errs)
+	}
+}
+
+func TestValidatePackTrustMissingOnObjectRef(t *testing.T) {
+	p := packFromJSON(t, `{
+      "id": "trust-missing",
+      "name": "Trust Missing",
+      "version": "1.0.0",
+      "description": "d",
+      "skills": [{"id": "s1", "source": "https://example.com/s", "format": "agent-skill"}]
+    }`)
+	errs := ValidatePack(p)
+	if !containsSubstr(errs, "skills[0].trust is required") {
+		t.Fatalf("expected missing-trust error, got %v", errs)
+	}
+	if !containsSubstr(errs, "valid values:") {
+		t.Fatalf("expected message to list valid trust values, got %v", errs)
+	}
+	joined := strings.Join(errs, " ")
+	for _, level := range canonicalTrustLevels {
+		if !strings.Contains(joined, level) {
+			t.Fatalf("expected valid-trust list to include %q, got %v", level, errs)
+		}
+	}
+}
+
+func TestValidatePackTrustOutsideEnum(t *testing.T) {
+	p := packFromJSON(t, `{
+      "id": "trust-bad",
+      "name": "Trust Bad",
+      "version": "1.0.0",
+      "description": "d",
+      "plugins": [{"id": "p1", "source": "https://example.com/p", "format": "anthropic-plugin", "trust": "trusted"}]
+    }`)
+	errs := ValidatePack(p)
+	if !containsSubstr(errs, `plugins[0].trust "trusted" is not allowed`) {
+		t.Fatalf("expected off-enum trust rejection, got %v", errs)
+	}
+}
+
+func TestValidatePackBareStringRefExemptFromTrust(t *testing.T) {
+	// Bare-string refs carry no provenance metadata and must remain valid
+	// without a trust value (matching the schema's oneOf[string, object]).
+	p := packFromJSON(t, `{
+      "id": "bare-ok",
+      "name": "Bare OK",
+      "version": "1.0.0",
+      "description": "d",
+      "skills": ["frontend-implementation-guidance"]
+    }`)
+	if errs := ValidatePack(p); len(errs) != 0 {
+		t.Fatalf("expected bare-string skill ref to pass without trust, got %v", errs)
+	}
+}
+
+func TestValidatePackTrustFromSchema(t *testing.T) {
+	dir := t.TempDir()
+	schemaDir := filepath.Join(dir, "schemas")
+	if err := os.MkdirAll(schemaDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A schema whose trust enum is intentionally narrower than the canonical
+	// fallback, to prove the CLI reads the enum from the schema.
+	schema := `{
+      "$defs": {
+        "skillRef": {
+          "oneOf": [
+            {"type": "string"},
+            {"type": "object", "required": ["id","trust"], "properties": {"trust": {"enum": ["official"]}}}
+          ]
+        },
+        "pluginRef": {
+          "oneOf": [
+            {"type": "string"},
+            {"type": "object", "required": ["id","trust"], "properties": {"trust": {"enum": ["official"]}}}
+          ]
+        }
+      }
+    }`
+	if err := os.WriteFile(filepath.Join(schemaDir, "agent-pack.schema.json"), []byte(schema), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := packFromJSON(t, `{
+      "id": "schema-trust",
+      "name": "Schema Trust",
+      "version": "1.0.0",
+      "description": "d",
+      "skills": [{"id": "s1", "source": "https://example.com/s", "format": "agent-skill", "trust": "community"}]
+    }`)
+	// "community" is in the canonical fallback but NOT in this schema's enum.
+	errs := ValidatePackWithSchemaDir(p, dir)
+	if !containsSubstr(errs, `skills[0].trust "community" is not allowed`) {
+		t.Fatalf("expected schema enum to reject 'community', got %v", errs)
+	}
+	if !containsSubstr(errs, "official") {
+		t.Fatalf("expected message to list schema enum value, got %v", errs)
+	}
+}
+
+func TestAllowedTrustLevelsFallbackMatchesCanonical(t *testing.T) {
+	got := AllowedTrustLevels("")
+	if len(got) != len(canonicalTrustLevels) {
+		t.Fatalf("fallback length mismatch: got %d want %d", len(got), len(canonicalTrustLevels))
+	}
+}
+
+func TestValidatePathRejectsMissingTrust(t *testing.T) {
+	dir := t.TempDir()
+	packDir := filepath.Join(dir, "packs")
+	if err := os.MkdirAll(packDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	packJSON := `{
+      "id": "no-trust",
+      "name": "No Trust",
+      "version": "1.0.0",
+      "description": "d",
+      "plugins": [{"id": "p1", "source": "https://example.com/p", "format": "anthropic-plugin"}]
+    }`
+	packPath := filepath.Join(packDir, "no-trust.json")
+	if err := os.WriteFile(packPath, []byte(packJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := ValidatePath(packPath, &out); err == nil {
+		t.Fatal("expected ValidatePath to fail for object ref missing trust")
+	}
+	if !strings.Contains(out.String(), "plugins[0].trust is required") {
+		t.Fatalf("expected trust error in output, got: %s", out.String())
 	}
 }
 
