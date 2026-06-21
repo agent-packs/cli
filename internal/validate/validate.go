@@ -59,7 +59,7 @@ func ValidatePath(path string, out io.Writer) error {
 			failed = true
 			continue
 		}
-		errs := ValidatePack(pack)
+		errs := ValidatePackWithSchemaDir(pack, filepath.Dir(p))
 		if len(errs) > 0 {
 			fmt.Fprintf(out, "FAIL  %s\n", p)
 			for _, msg := range errs {
@@ -173,6 +173,14 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 }
 
 func ValidatePack(pack model.Pack) []string {
+	return ValidatePackWithSchemaDir(pack, "")
+}
+
+// ValidatePackWithSchemaDir validates a pack, sourcing the allowed category set
+// from the registry JSON schema found by walking up from schemaDir. When
+// schemaDir is empty (e.g. validating a standalone file with no registry
+// context) the canonical fallback list is used.
+func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 	var errs []string
 	if pack.ID == "" || !regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`).MatchString(pack.ID) {
 		errs = append(errs, "id must be kebab-case")
@@ -207,6 +215,7 @@ func ValidatePack(pack model.Pack) []string {
 	for i, capability := range pack.Capabilities {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
 	}
+	errs = append(errs, validateCategories(pack.Categories, AllowedCategories(schemaDir))...)
 	return errs
 }
 
@@ -258,9 +267,9 @@ func Lint(registryPath, packRef string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	errs := ValidatePack(pack)
 	// Scan local skills for prompt injection patterns.
 	root := registry.RegistryRoot(registryPath)
+	errs := ValidatePackWithSchemaDir(pack, root)
 	for _, skillRef := range pack.Skills {
 		skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
 		errs = append(errs, scanSkillInjection(skillPath)...)
@@ -283,7 +292,7 @@ func LintAll(registryPath string, out io.Writer) error {
 	root := registry.RegistryRoot(registryPath)
 	failed := false
 	for _, pack := range packs {
-		errs := ValidatePack(pack)
+		errs := ValidatePackWithSchemaDir(pack, root)
 		for _, skillRef := range pack.Skills {
 			skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
 			errs = append(errs, scanSkillInjection(skillPath)...)
@@ -365,7 +374,7 @@ func PublishReport(registryPath, policyPath string) (model.PublishReport, error)
 		} else {
 			seen[pack.ID] = pack.Path
 		}
-		if errs := ValidatePack(pack); len(errs) > 0 {
+		if errs := ValidatePackWithSchemaDir(pack, root); len(errs) > 0 {
 			add("schema", pack.ID, "FAIL", strings.Join(errs, "; "))
 		} else {
 			add("schema", pack.ID, "OK", "")

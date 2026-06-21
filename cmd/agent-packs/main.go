@@ -715,11 +715,15 @@ func runIndex(registry string, args []string) error {
 	flags := flag.NewFlagSet("index", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	output := flags.String("output", "", "output index path")
+	check := flags.Bool("check", false, "verify the index at --output is up to date without writing it (exit non-zero on drift)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
-		return fmt.Errorf("usage: agent-packs index [--output path]")
+		return fmt.Errorf("usage: agent-packs index [--output path] [--check]")
+	}
+	if *check {
+		return agentpacks.CheckIndex(registry, *output, os.Stdout)
 	}
 	return agentpacks.GenerateIndex(registry, *output, os.Stdout)
 }
@@ -1591,7 +1595,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs publish --check [--policy file] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs policy check <pack-id> <policy.json|preset>")
 	fmt.Fprintln(os.Stderr, "  agent-packs licenses|attribution|resolve <pack-id>")
-	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path]")
+	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path] [--check]")
 	fmt.Fprintln(os.Stderr, "  agent-packs diff <pack-id> [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs pin <pack-id> [--check] [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs compat <pack-id> [--agent tool]")

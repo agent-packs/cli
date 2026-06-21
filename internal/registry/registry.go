@@ -388,16 +388,18 @@ func RegistryRoot(registry string) string {
 	return filepath.Dir(registry)
 }
 
-func GenerateIndex(registry, outputPath string, out io.Writer) error {
+// buildIndex regenerates the registry index in memory (without a generatedAt
+// stamp). The generatedAt field is left blank for callers to set.
+func buildIndex(registry string) (model.RegistryIndex, error) {
 	packs, err := LoadPacks(registry)
 	if err != nil {
-		return err
+		return model.RegistryIndex{}, err
 	}
 	index := model.RegistryIndex{}
 	for _, pack := range packs {
 		expanded, err := ExpandPack(registry, pack, map[string]bool{})
 		if err != nil {
-			return err
+			return model.RegistryIndex{}, err
 		}
 		entry := model.IndexEntry{
 			ID: pack.ID, Name: pack.Name, Version: pack.Version, Description: pack.Description,
@@ -408,9 +410,22 @@ func GenerateIndex(registry, outputPath string, out io.Writer) error {
 		}
 		index.Packs = append(index.Packs, entry)
 	}
+	return index, nil
+}
+
+func indexOutputPath(registry, outputPath string) string {
 	if outputPath == "" {
-		outputPath = filepath.Join(RegistryRoot(registry), "index.json")
+		return filepath.Join(RegistryRoot(registry), "index.json")
 	}
+	return outputPath
+}
+
+func GenerateIndex(registry, outputPath string, out io.Writer) error {
+	index, err := buildIndex(registry)
+	if err != nil {
+		return err
+	}
+	outputPath = indexOutputPath(registry, outputPath)
 	// Keep the index byte-stable across regenerations: only stamp a new
 	// generatedAt when the substantive content actually changed. This avoids
 	// noisy one-line git diffs (and spurious "stale index" churn) every time
@@ -426,6 +441,130 @@ func GenerateIndex(registry, outputPath string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "Wrote %s\n", outputPath)
 	return nil
+}
+
+// CheckIndex regenerates the index in memory and compares it against the file
+// at outputPath, ignoring the generatedAt field. It never writes the file. When
+// the on-disk index matches it prints a success line and returns nil; on drift
+// it prints a concise per-pack diff summary and returns model.ErrInstallFailed.
+func CheckIndex(registry, outputPath string, out io.Writer) error {
+	generated, err := buildIndex(registry)
+	if err != nil {
+		return err
+	}
+	outputPath = indexOutputPath(registry, outputPath)
+	existing, err := loadIndex(outputPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(out, "FAIL  %s does not exist; run: agent-packs index --output %s\n", outputPath, outputPath)
+			return model.ErrInstallFailed
+		}
+		return err
+	}
+	diffs := diffIndexPacks(existing.Packs, generated.Packs)
+	if len(diffs) == 0 {
+		fmt.Fprintf(out, "OK    %s is up to date (%d packs)\n", outputPath, len(generated.Packs))
+		return nil
+	}
+	fmt.Fprintf(out, "FAIL  %s is out of date (run: agent-packs index --output %s)\n", outputPath, outputPath)
+	for _, d := range diffs {
+		fmt.Fprintf(out, "  - %s\n", d)
+	}
+	return model.ErrInstallFailed
+}
+
+// diffIndexPacks returns a concise, deterministic summary of how the on-disk
+// index (existing) differs from a freshly regenerated one. The generatedAt
+// field is not part of IndexEntry, so it is inherently ignored.
+func diffIndexPacks(existing, generated []model.IndexEntry) []string {
+	existingByID := map[string]model.IndexEntry{}
+	for _, e := range existing {
+		existingByID[e.ID] = e
+	}
+	generatedByID := map[string]model.IndexEntry{}
+	for _, g := range generated {
+		generatedByID[g.ID] = g
+	}
+	ids := map[string]bool{}
+	for id := range existingByID {
+		ids[id] = true
+	}
+	for id := range generatedByID {
+		ids[id] = true
+	}
+	sortedIDs := make([]string, 0, len(ids))
+	for id := range ids {
+		sortedIDs = append(sortedIDs, id)
+	}
+	sort.Strings(sortedIDs)
+	var diffs []string
+	for _, id := range sortedIDs {
+		e, inExisting := existingByID[id]
+		g, inGenerated := generatedByID[id]
+		switch {
+		case inExisting && !inGenerated:
+			diffs = append(diffs, fmt.Sprintf("%s: present in index but no longer in registry", id))
+		case !inExisting && inGenerated:
+			diffs = append(diffs, fmt.Sprintf("%s: missing from index (new pack)", id))
+		default:
+			for _, field := range changedIndexFields(e, g) {
+				diffs = append(diffs, fmt.Sprintf("%s: field %q differs", id, field))
+			}
+		}
+	}
+	return diffs
+}
+
+// changedIndexFields reports which top-level IndexEntry fields differ between
+// two entries with the same id, by comparing each field's canonical JSON form.
+func changedIndexFields(a, b model.IndexEntry) []string {
+	fields := map[string][2]any{
+		"name":         {a.Name, b.Name},
+		"version":      {a.Version, b.Version},
+		"description":  {a.Description, b.Description},
+		"maintainers":  {a.Maintainers, b.Maintainers},
+		"stability":    {a.Stability, b.Stability},
+		"deprecated":   {a.Deprecated, b.Deprecated},
+		"replacement":  {a.Replacement, b.Replacement},
+		"lastVerified": {a.LastVerified, b.LastVerified},
+		"reviewStatus": {a.ReviewStatus, b.ReviewStatus},
+		"tags":         {a.Tags, b.Tags},
+		"categories":   {a.Categories, b.Categories},
+		"tools":        {a.Tools, b.Tools},
+		"scope":        {a.Scope, b.Scope},
+		"skills":       {a.Skills, b.Skills},
+		"plugins":      {a.Plugins, b.Plugins},
+		"capabilities": {a.Capabilities, b.Capabilities},
+	}
+	var changed []string
+	for name, pair := range fields {
+		if !sameIndexFieldValue(pair[0], pair[1]) {
+			changed = append(changed, name)
+		}
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+// sameIndexFieldValue compares two IndexEntry field values by canonical JSON,
+// treating a nil slice and an empty slice as equal. This matches the equality
+// semantics GenerateIndex uses (see samePacks): omitempty erases the nil-vs-
+// empty distinction on disk, so the check must not flag it as drift.
+func sameIndexFieldValue(a, b any) bool {
+	aj := normalizeFieldJSON(a)
+	bj := normalizeFieldJSON(b)
+	return bytes.Equal(aj, bj)
+}
+
+func normalizeFieldJSON(v any) []byte {
+	if s, ok := v.([]string); ok && len(s) == 0 {
+		return []byte("[]")
+	}
+	data, _ := json.Marshal(v)
+	if bytes.Equal(data, []byte("null")) {
+		return []byte("[]")
+	}
+	return data
 }
 
 func loadIndex(path string) (model.RegistryIndex, error) {

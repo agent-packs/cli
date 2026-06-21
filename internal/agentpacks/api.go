@@ -97,6 +97,9 @@ func Show(registry, id string, out io.Writer) error          { return reg.Show(r
 func GenerateIndex(registry, outputPath string, out io.Writer) error {
 	return reg.GenerateIndex(registry, outputPath, out)
 }
+func CheckIndex(registry, outputPath string, out io.Writer) error {
+	return reg.CheckIndex(registry, outputPath, out)
+}
 func DependencyTreeForPack(registry, packRef string) (DependencyTree, error) {
 	return reg.DependencyTree(registry, packRef)
 }
