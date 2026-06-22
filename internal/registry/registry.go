@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/targets"
 	"github.com/agent-packs/cli/internal/util"
 )
 
@@ -121,9 +122,12 @@ func Search(registry, query string, out io.Writer) error {
 
 // SearchFilter holds optional facet filters for MatchPacks.
 type SearchFilter struct {
-	Tag       string
-	Category  string
-	Stability string
+	Tag          string
+	Category     string
+	Stability    string
+	Tool         string
+	ReviewStatus string
+	Scope        string
 }
 
 func MatchPacks(registry, query string) ([]model.Pack, error) {
@@ -148,6 +152,15 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 			continue
 		}
 		if f.Stability != "" && pack.Stability != f.Stability {
+			continue
+		}
+		if f.Tool != "" && !targets.PackSupportsTool(pack.Tools, f.Tool) {
+			continue
+		}
+		if f.ReviewStatus != "" && !strings.EqualFold(pack.ReviewStatus, f.ReviewStatus) {
+			continue
+		}
+		if f.Scope != "" && !containsString(pack.Scope, f.Scope) {
 			continue
 		}
 		matches = append(matches, pack)
@@ -794,10 +807,10 @@ func capabilityNode(kind, id string, capability model.Capability) model.Dependen
 
 // InfoResult holds the data surfaced by Info.
 type InfoResult struct {
-	Pack          model.Pack `json:"pack"`
-	Installed     bool       `json:"installed"`
-	InstalledAt   string     `json:"installedAt,omitempty"`
-	DiskUsageBytes int64     `json:"diskUsageBytes,omitempty"`
+	Pack           model.Pack `json:"pack"`
+	Installed      bool       `json:"installed"`
+	InstalledAt    string     `json:"installedAt,omitempty"`
+	DiskUsageBytes int64      `json:"diskUsageBytes,omitempty"`
 }
 
 func Info(registryPath, home, packRef string, out io.Writer) error {

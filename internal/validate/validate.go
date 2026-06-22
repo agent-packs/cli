@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/agent-packs/cli/internal/model"
 	"github.com/agent-packs/cli/internal/policy"
@@ -372,6 +373,11 @@ func PublishReport(registryPath, policyPath string) (model.PublishReport, error)
 	packs, err := registry.LoadPacks(registryPath)
 	if err != nil {
 		return report, err
+	}
+	metadata := MetadataCoverage(packs, time.Now().UTC())
+	report.Metadata = &metadata
+	for _, check := range metadataChecks(metadata) {
+		report.Checks = append(report.Checks, check)
 	}
 	seen := map[string]string{}
 	for _, pack := range packs {

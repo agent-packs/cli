@@ -105,6 +105,7 @@ Additional commands:
 
 ```sh
 bin/agent-packs search frontend --json
+bin/agent-packs search --tool codex --scope project --review-status reviewed --details
 bin/agent-packs show frontend-engineer --json
 bin/agent-packs audit frontend-engineer --json
 bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
@@ -213,7 +214,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `init [dir]`: writes `.agent-packs.yaml` project defaults.
 - `new pack|skill|plugin <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
-- `publish --check`: runs contributor checks before opening a registry PR.
+- `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
 - `scan [path]`: discovers existing `SKILL.md` files.
 - `import <skills-dir>`: copies discovered skills into `<target>/sources/imported/`.
 - `lint <pack>`: validates pack metadata.

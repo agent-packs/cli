@@ -46,9 +46,10 @@ type DependencyNode struct {
 }
 
 type PublishReport struct {
-	Registry string       `json:"registry"`
-	OK       bool         `json:"ok"`
-	Checks   []CheckEntry `json:"checks"`
+	Registry string                  `json:"registry"`
+	OK       bool                    `json:"ok"`
+	Checks   []CheckEntry            `json:"checks"`
+	Metadata *MetadataCoverageReport `json:"metadata,omitempty"`
 }
 
 type CheckEntry struct {
@@ -56,6 +57,40 @@ type CheckEntry struct {
 	Target  string `json:"target"`
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
+}
+
+type MetadataCoverageReport struct {
+	Packs     int                       `json:"packs"`
+	Fields    []MetadataFieldCoverage   `json:"fields"`
+	Refs      MetadataRefCoverage       `json:"refs"`
+	Freshness MetadataFreshnessCoverage `json:"freshness"`
+}
+
+type MetadataFieldCoverage struct {
+	Name    string   `json:"name"`
+	Present int      `json:"present"`
+	Total   int      `json:"total"`
+	Missing []string `json:"missing,omitempty"`
+}
+
+type MetadataRefCoverage struct {
+	BareSkillRefs     int      `json:"bareSkillRefs"`
+	ObjectSkillRefs   int      `json:"objectSkillRefs"`
+	BarePluginRefs    int      `json:"barePluginRefs"`
+	ObjectPluginRefs  int      `json:"objectPluginRefs"`
+	PacksWithBareRefs int      `json:"packsWithBareRefs"`
+	Packs             []string `json:"packs,omitempty"`
+}
+
+type MetadataFreshnessCoverage struct {
+	Fresh         int      `json:"fresh"`
+	Stale         int      `json:"stale"`
+	Invalid       int      `json:"invalid"`
+	Missing       int      `json:"missing"`
+	ThresholdDays int      `json:"thresholdDays"`
+	StalePacks    []string `json:"stalePacks,omitempty"`
+	InvalidPacks  []string `json:"invalidPacks,omitempty"`
+	MissingPacks  []string `json:"missingPacks,omitempty"`
 }
 
 type DoctorCheck struct {

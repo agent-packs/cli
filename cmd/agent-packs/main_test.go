@@ -2,7 +2,10 @@ package main
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/agent-packs/cli/internal/agentpacks"
 )
 
 func TestNormalizeInstallArgsMinTrust(t *testing.T) {
@@ -35,5 +38,34 @@ func TestNormalizeInstallArgsFlagsBeforePositionals(t *testing.T) {
 	}
 	if got[0] == "my-pack" {
 		t.Fatalf("pack ID should not be first when flags are present, got %v", got)
+	}
+}
+
+func TestPrintSearchResultsDetails(t *testing.T) {
+	packs := []agentpacks.Pack{{
+		ID:           "frontend-engineer",
+		Name:         "Frontend Engineer",
+		Stability:    "experimental",
+		ReviewStatus: "reviewed",
+		LastVerified: "2026-06-16",
+		Tools:        []string{"codex", "claude-code"},
+		Scope:        []string{"global", "project"},
+		Tags:         []string{"frontend"},
+	}}
+	var out strings.Builder
+	printSearchResults(&out, packs, true)
+	got := out.String()
+	for _, want := range []string{
+		"frontend-engineer",
+		"experimental",
+		"reviewed",
+		"2026-06-16",
+		"codex,claude-code",
+		"global,project",
+		"agent-packs install frontend-engineer",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("detailed search output missing %q: %s", want, got)
+		}
 	}
 }

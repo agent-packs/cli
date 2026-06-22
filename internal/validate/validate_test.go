@@ -351,6 +351,53 @@ func TestValidatePathRejectsMissingTrust(t *testing.T) {
 	}
 }
 
+func TestPublishReportIncludesNonBlockingMetadataCoverage(t *testing.T) {
+	root := t.TempDir()
+	packDir := filepath.Join(root, "packs")
+	for _, dir := range []string{packDir, filepath.Join(root, "skills"), filepath.Join(root, "plugins"), filepath.Join(root, "schemas", "examples")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	packJSON := `{
+      "id": "metadata-warn",
+      "name": "Metadata Warn",
+      "version": "1.0.0",
+      "description": "d",
+      "lastVerified": "2026-06-01",
+      "capabilities": [{"type":"skill","name":"s","source":"/tmp/s","format":"agent-skill","entry":"SKILL.md"}]
+    }`
+	if err := os.WriteFile(filepath.Join(packDir, "metadata-warn.json"), []byte(packJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := PublishReport(packDir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.OK {
+		t.Fatalf("metadata warnings should not fail publish report: %#v", report.Checks)
+	}
+	if report.Metadata == nil {
+		t.Fatal("expected metadata coverage report")
+	}
+	if report.Metadata.Fields[0].Present != 0 || report.Metadata.Fields[0].Total != 1 {
+		t.Fatalf("unexpected metadata field coverage: %#v", report.Metadata.Fields[0])
+	}
+	if !hasCheck(report.Checks, "metadata", "requirements", "WARN") {
+		t.Fatalf("expected non-blocking requirements warning in checks: %#v", report.Checks)
+	}
+}
+
+func hasCheck(checks []model.CheckEntry, kind, target, status string) bool {
+	for _, check := range checks {
+		if check.Kind == kind && check.Target == target && check.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
 func containsSubstr(errs []string, sub string) bool {
 	for _, e := range errs {
 		if strings.Contains(e, sub) {

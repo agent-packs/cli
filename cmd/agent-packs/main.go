@@ -164,11 +164,22 @@ func runSearch(registry string, args []string) error {
 	tagFilter := flags.String("tag", "", "filter by tag")
 	categoryFilter := flags.String("category", "", "filter by category")
 	stabilityFilter := flags.String("stability", "", "filter by stability (experimental|stable|deprecated)")
+	toolFilter := flags.String("tool", "", "filter by supported tool/agent")
+	reviewStatusFilter := flags.String("review-status", "", "filter by review status (draft|reviewed|verified)")
+	scopeFilter := flags.String("scope", "", "filter by scope (global|project)")
+	details := flags.Bool("details", false, "show stability, review status, freshness, tools, scope, and install command")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	query := strings.Join(flags.Args(), " ")
-	f := agentpacks.SearchFilter{Tag: *tagFilter, Category: *categoryFilter, Stability: *stabilityFilter}
+	f := agentpacks.SearchFilter{
+		Tag:          *tagFilter,
+		Category:     *categoryFilter,
+		Stability:    *stabilityFilter,
+		Tool:         *toolFilter,
+		ReviewStatus: *reviewStatusFilter,
+		Scope:        *scopeFilter,
+	}
 	matches, err := agentpacks.FilteredMatchPacks(registry, query, f)
 	if err != nil {
 		return err
@@ -183,10 +194,27 @@ func runSearch(registry string, args []string) error {
 		fmt.Fprintln(os.Stdout, "No packs found.")
 		return agentpacks.ErrNotFound
 	}
-	for _, pack := range matches {
-		fmt.Fprintf(os.Stdout, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
-	}
+	printSearchResults(os.Stdout, matches, *details)
 	return nil
+}
+
+func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool) {
+	for _, pack := range matches {
+		if details {
+			fmt.Fprintf(out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
+				pack.ID,
+				pack.Name,
+				pack.Stability,
+				pack.ReviewStatus,
+				pack.LastVerified,
+				strings.Join(pack.Tools, ","),
+				strings.Join(pack.Scope, ","),
+				pack.ID,
+			)
+			continue
+		}
+		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
+	}
 }
 
 func runShow(registry string, args []string) error {
@@ -1575,7 +1603,7 @@ func registryCacheDir() string {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")

@@ -32,6 +32,13 @@ func writeMinimalPack(t *testing.T, dir, id string) {
 	}
 }
 
+func writePack(t *testing.T, dir, id, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, id+".json"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLoadPacksMissingRegistryGivesActionableError(t *testing.T) {
 	_, err := LoadPacks(filepath.Join(t.TempDir(), "does-not-exist", "packs"))
 	if err == nil {
@@ -41,6 +48,52 @@ func TestLoadPacksMissingRegistryGivesActionableError(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("error should mention %q, got: %v", want, err)
 		}
+	}
+}
+
+func TestFilteredMatchPacksSupportsDiscoveryFacets(t *testing.T) {
+	dir := t.TempDir()
+	writePack(t, dir, "frontend", `{
+  "id": "frontend",
+  "name": "Frontend",
+  "version": "0.1.0",
+  "description": "Frontend pack.",
+  "stability": "experimental",
+  "reviewStatus": "reviewed",
+  "tools": ["codex", "claude-code"],
+  "scope": ["global", "project"],
+  "tags": ["ui"],
+  "categories": ["frontend"],
+  "capabilities": [{"type":"skill","name":"Frontend","source":"/tmp/frontend","format":"agent-skill","entry":"SKILL.md"}]
+}`)
+	writePack(t, dir, "backend", `{
+  "id": "backend",
+  "name": "Backend",
+  "version": "0.1.0",
+  "description": "Backend pack.",
+  "stability": "stable",
+  "reviewStatus": "draft",
+  "tools": ["gemini"],
+  "scope": ["global"],
+  "tags": ["api"],
+  "categories": ["backend"],
+  "capabilities": [{"type":"skill","name":"Backend","source":"/tmp/backend","format":"agent-skill","entry":"SKILL.md"}]
+}`)
+
+	matches, err := FilteredMatchPacks(dir, "", SearchFilter{Tool: "claude", ReviewStatus: "REVIEWED", Scope: "PROJECT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0].ID != "frontend" {
+		t.Fatalf("expected frontend match for tool/review/scope facets, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "", SearchFilter{Tool: "codex", Scope: "global"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0].ID != "frontend" {
+		t.Fatalf("expected codex/global to match frontend, got %#v", matches)
 	}
 }
 
