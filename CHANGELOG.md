@@ -11,6 +11,8 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-23
+
 ### Added
 - **`memory` and `settings` capability types** (v1). Packs can now install agent
   memory (a managed markdown block appended to files like `CLAUDE.md`/`AGENTS.md`)
@@ -126,7 +128,8 @@ Goose, OpenCode).
   searchable catalog.
 - `CLAUDE.md` with build, test, and architecture guidance.
 
-[Unreleased]: https://github.com/agent-packs/cli/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/agent-packs/cli/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/agent-packs/cli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/agent-packs/cli/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/agent-packs/cli/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/agent-packs/cli/compare/v0.1.3...v0.2.0
