@@ -105,15 +105,18 @@ func TestBuildInstallPlanOnlyFilter(t *testing.T) {
 			skillCapability("skill-a", "/tmp/a"),
 			pluginCapability("plugin-b"),
 			{Type: "command", Name: "cmd-c", Source: "/tmp/c"},
+			{Type: "hook", Name: "hook-d", Source: "/tmp/h"},
 		},
 	}
 	cases := []struct {
 		only      string
 		wantTypes []string
 	}{
-		{"all", []string{"skill", "plugin", "command"}},
+		{"all", []string{"skill", "plugin", "command", "hook"}},
 		{"skills", []string{"skill"}},
 		{"plugins", []string{"plugin"}},
+		{"commands", []string{"command"}},
+		{"hooks", []string{"hook"}},
 	}
 	for _, c := range cases {
 		t.Run(c.only, func(t *testing.T) {
@@ -265,5 +268,47 @@ func TestBuildInstallPlanCommandCapabilityRecords(t *testing.T) {
 	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "target"})
 	if p.Capabilities[0].Action != "record" {
 		t.Fatalf("non-skill/non-plugin capability should record, got %q", p.Capabilities[0].Action)
+	}
+}
+
+func TestBuildInstallPlanCommandMapsToClaudeCommands(t *testing.T) {
+	cap := model.Capability{Type: "command", Name: "Review PR", Content: "Review this pull request."}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "copy" {
+		t.Fatalf("want copy action, got %q", item.Action)
+	}
+	if want := filepath.Join("/target", ".claude/commands/review-pr.md"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+	if item.FileKind != "markdown" {
+		t.Fatalf("want markdown file kind, got %q", item.FileKind)
+	}
+}
+
+func TestBuildInstallPlanHookUsesPortableFallback(t *testing.T) {
+	cap := model.Capability{Type: "hook", Name: "Before Commit", Content: `{"event":"beforeCommit"}`}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if want := filepath.Join("/target", ".agent-packs/hooks/before-commit.json"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+	if item.FileKind != "json" {
+		t.Fatalf("want json file kind, got %q", item.FileKind)
+	}
+}
+
+func TestBuildInstallPlanManagedFileReferenceModeRecordsOnly(t *testing.T) {
+	cap := model.Capability{Type: "command", Name: "Review PR", Content: "Review this pull request."}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "reference", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "record" {
+		t.Fatalf("want record action, got %q", item.Action)
+	}
+	if item.Destination != "" {
+		t.Fatalf("reference mode should not set destination, got %q", item.Destination)
 	}
 }

@@ -27,6 +27,10 @@ var TargetMatrix = map[string]model.TargetSpec{
 			{Scope: "global", Path: ".claude/settings.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings", Default: true},
 			{Scope: "project", Path: ".claude/settings.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings", Default: true},
 			{Scope: "project", Path: ".claude/settings.local.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings"},
+		},
+		CommandDestinations: []model.FileDest{
+			{Scope: "global", Path: ".claude/commands/*.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.anthropic.com/en/docs/claude-code/slash-commands", Default: true},
+			{Scope: "project", Path: ".claude/commands/*.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.anthropic.com/en/docs/claude-code/slash-commands", Default: true},
 		}},
 	"codex": {ID: "codex", Name: "Codex", GlobalSkills: ".codex/skills", ProjectSkills: ".agents/skills",
 		Memory:   model.FileDest{Global: ".codex/AGENTS.md", Project: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md"},
@@ -74,7 +78,17 @@ var TargetMatrix = map[string]model.TargetSpec{
 			{Scope: "project", Path: "opencode.json", Kind: "json", Verified: true, SourceURL: "https://opencode.ai/docs/config", Default: true},
 		}},
 	"generic": {ID: "generic", Name: "Generic", GlobalSkills: "skills", ProjectSkills: "skills",
-		Memory: model.FileDest{Global: "AGENTS.md", Project: "AGENTS.md", Kind: "markdown"}},
+		Memory: model.FileDest{Global: "AGENTS.md", Project: "AGENTS.md", Kind: "markdown"},
+		CommandDestinations: []model.FileDest{
+			{Scope: "target", Path: ".agent-packs/commands/*.md", Kind: "markdown", Default: true},
+			{Scope: "global", Path: ".agent-packs/commands/*.md", Kind: "markdown", Default: true},
+			{Scope: "project", Path: ".agent-packs/commands/*.md", Kind: "markdown", Default: true},
+		},
+		HookDestinations: []model.FileDest{
+			{Scope: "target", Path: ".agent-packs/hooks/*.json", Kind: "json", Default: true},
+			{Scope: "global", Path: ".agent-packs/hooks/*.json", Kind: "json", Default: true},
+			{Scope: "project", Path: ".agent-packs/hooks/*.json", Kind: "json", Default: true},
+		}},
 }
 
 // MergeFileDest returns the FileDest for a merge capability type ("memory" or
@@ -96,8 +110,8 @@ func MergeFileDest(spec model.TargetSpec, capType string) (model.FileDest, bool)
 	}
 }
 
-// FileTargetRoot resolves the absolute destination file and merge kind for a
-// merge capability (memory/settings) on an agent at a scope. ok is false when
+// FileTargetRoot resolves the absolute destination file and file kind for a
+// file-backed capability on an agent at a scope. ok is false when
 // the agent does not support that capability type at that scope, in which case
 // the caller should skip+warn.
 func FileTargetRoot(capType, target, agent, scope string) (path, kind string, ok bool) {
@@ -124,6 +138,16 @@ func FileTargetDest(capType, agent, scope string) (model.FileDest, bool) {
 		candidates = spec.SettingsDestinations
 		if len(candidates) == 0 {
 			candidates = []model.FileDest{spec.Settings}
+		}
+	case "command":
+		candidates = spec.CommandDestinations
+		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
+			candidates = TargetMatrix["generic"].CommandDestinations
+		}
+	case "hook":
+		candidates = spec.HookDestinations
+		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
+			candidates = TargetMatrix["generic"].HookDestinations
 		}
 	default:
 		return model.FileDest{}, false

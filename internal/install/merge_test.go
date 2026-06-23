@@ -157,3 +157,66 @@ func TestTOMLMergeLifecycleInstallDriftUninstall(t *testing.T) {
 		t.Fatalf("user TOML key should be preserved, got %s", data)
 	}
 }
+
+func TestManagedCommandLifecycleInstallDriftUninstall(t *testing.T) {
+	target := t.TempDir()
+	dest := filepath.Join(target, ".claude", "commands", "review-pr.md")
+	item := model.PlanItem{
+		Type: "command", Name: "Review PR", Action: "copy", FileKind: "markdown",
+		Content: "Review this pull request.", Destination: dest, Status: "planned",
+	}
+	result := ExecutePlan(mergePlan(target, item), false)
+	got := result.Capabilities[0]
+	if got.Status != "installed" {
+		t.Fatalf("want installed, got %q: %s", got.Status, got.Reason)
+	}
+	if got.ContentHash == "" {
+		t.Fatal("expected command content hash to be recorded")
+	}
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(dest)
+	if string(data) != "Review this pull request." {
+		t.Fatalf("command file not written: %q", data)
+	}
+	var clean strings.Builder
+	if err := DriftCheck(target, &clean); err != nil {
+		t.Fatalf("unexpected drift after install: %v\n%s", err, clean.String())
+	}
+	if err := os.WriteFile(dest, []byte("changed"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var drifted strings.Builder
+	if err := DriftCheck(target, &drifted); err == nil {
+		t.Fatalf("expected drift after command edit, output:\n%s", drifted.String())
+	}
+	if err := Uninstall(target, "mpack", &strings.Builder{}); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatalf("command file should be removed on uninstall, stat err=%v", err)
+	}
+}
+
+func TestManagedHookInstallsFromSourceFile(t *testing.T) {
+	target := t.TempDir()
+	source := filepath.Join(target, "hook.json")
+	if err := os.WriteFile(source, []byte(`{"event":"beforeCommit"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(target, ".agent-packs", "hooks", "before-commit.json")
+	item := model.PlanItem{
+		Type: "hook", Name: "Before Commit", Action: "copy", FileKind: "json",
+		Source: source, Destination: dest, Status: "planned",
+	}
+	result := ExecutePlan(mergePlan(target, item), false)
+	got := result.Capabilities[0]
+	if got.Status != "installed" {
+		t.Fatalf("want installed, got %q: %s", got.Status, got.Reason)
+	}
+	data, _ := os.ReadFile(dest)
+	if string(data) != `{"event":"beforeCommit"}` {
+		t.Fatalf("hook file not written from source: %q", data)
+	}
+}

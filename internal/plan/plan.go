@@ -106,6 +106,10 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		wanted = "memory"
 	case "settings":
 		wanted = "settings"
+	case "commands":
+		wanted = "command"
+	case "hooks":
+		wanted = "hook"
 	}
 	selected := []model.Capability{}
 	for _, capability := range capabilities {
@@ -121,6 +125,8 @@ func planCapability(packID string, capability model.Capability, target, agent st
 	switch capability.Type {
 	case "memory", "settings":
 		return planMergeCapability(packID, capability, target, agent, options)
+	case "command", "hook":
+		return planManagedFileCapability(packID, capability, target, agent, options)
 	case "skill":
 		entry := capability.Entry
 		if entry == "" {
@@ -155,6 +161,65 @@ func planCapability(packID string, capability model.Capability, target, agent st
 			Type: capability.Type, Name: capability.Name, Action: "record",
 			Source: capability.Source, ExpectedChecksum: expectedChecksum, Status: "planned",
 		}
+	}
+}
+
+func planManagedFileCapability(packID string, capability model.Capability, target, agent string, options model.InstallOptions) model.PlanItem {
+	path, kind, ok := targets.FileTargetRoot(capability.Type, target, agent, options.Scope)
+	if !ok {
+		return model.PlanItem{
+			Type: capability.Type, Name: capability.Name, Action: "skip", Status: "unsupported",
+			Reason: fmt.Sprintf("%s capabilities are not supported for agent %q at %s scope", capability.Type, agent, options.Scope),
+		}
+	}
+	if override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]; found && override.Destination != "" {
+		path = filepath.Join(target, override.Destination)
+		if override.Format != "" {
+			kind = override.Format
+		}
+	}
+	path = expandManagedFileDestination(path, capability.Name, kind)
+	item := model.PlanItem{
+		Type: capability.Type, Name: capability.Name,
+		Mode: options.Mode, OnConflict: options.OnConflict,
+		Source: capability.Source, UpstreamSource: capability.UpstreamSource,
+		Entry: capability.Entry, Destination: path,
+		FileKind: kind, Content: capability.Content,
+		BlockID:           packID + "/" + util.Slugify(capability.Name),
+		ExpectedChecksum:  capability.Integrity.Checksum,
+		ExpectedSignature: capability.Integrity.Signature,
+		Status:            "planned",
+	}
+	if options.Mode == "reference" {
+		item.Action = "record"
+		item.Destination = ""
+		return item
+	}
+	item.Action = "copy"
+	return item
+}
+
+func expandManagedFileDestination(path, name, kind string) string {
+	if !strings.Contains(path, "*") {
+		return path
+	}
+	ext := filepath.Ext(path)
+	if ext == "" {
+		ext = extensionForKind(kind)
+	}
+	return strings.Replace(path, "*"+ext, util.Slugify(name)+ext, 1)
+}
+
+func extensionForKind(kind string) string {
+	switch kind {
+	case "json":
+		return ".json"
+	case "yaml":
+		return ".yaml"
+	case "toml":
+		return ".toml"
+	default:
+		return ".md"
 	}
 }
 
