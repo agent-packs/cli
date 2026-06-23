@@ -256,13 +256,13 @@
   <p>One tool to install, update, and manage skills, plugins, commands, hooks, and settings across all your AI coding agents — Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
 
   <div class="install-tabs">
-    <button class="tab-btn active" onclick="setTab('curl', this)">curl</button>
-    <button class="tab-btn" onclick="setTab('brew', this)">Homebrew</button>
+    <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
+    <button class="tab-btn" onclick="setTab('curl', this)">curl</button>
     <button class="tab-btn" onclick="setTab('docker', this)">Docker</button>
     <button class="tab-btn" onclick="setTab('go', this)">Go install</button>
   </div>
   <div class="install-box">
-    <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh</code>
+    <code id="install-cmd">brew install agent-packs/tap/agent-packs</code>
     <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
   </div>
   <div class="hero-cta">
@@ -443,8 +443,8 @@
         <div class="step-num">1</div>
         <div>
           <h3>Install the CLI</h3>
-          <p>Install via curl, Homebrew, Docker, or Go.</p>
-          <div class="code-block"><span class="cm"># curl (macOS / Linux)</span><br>curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh<br><br><span class="cm"># Homebrew</span><br>brew install agent-packs/tap/agent-packs<br><br><span class="cm"># Docker</span><br>docker run --rm -it ghcr.io/agent-packs/cli:latest</div>
+          <p>Install via Homebrew, curl, Docker, or Go.</p>
+          <div class="code-block"><span class="cm"># Homebrew (recommended)</span><br>brew install agent-packs/tap/agent-packs<br><br><span class="cm"># curl (macOS / Linux)</span><br>curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh<br><br><span class="cm"># Docker</span><br>docker run --rm -it ghcr.io/agent-packs/cli:latest</div>
         </div>
       </div>
       <div class="step">
