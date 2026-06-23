@@ -69,3 +69,39 @@ func TestPrintSearchResultsDetails(t *testing.T) {
 		}
 	}
 }
+
+func TestRunTestRunValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{
+			name:    "missing pack-id",
+			args:    []string{},
+			wantErr: "usage: agent-packs test-run <pack-id>",
+		},
+		{
+			name:    "invalid mode",
+			args:    []string{"my-pack", "--mode", "bogus"},
+			wantErr: "invalid --mode \"bogus\"",
+		},
+		{
+			name:    "invalid agent",
+			args:    []string{"my-pack", "--agent", "non-existent-tool"},
+			wantErr: "invalid agent \"non-existent-tool\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := runTestRun("mock-registry", "mock-target", tt.args)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
