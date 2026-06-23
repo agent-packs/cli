@@ -11,6 +11,8 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-23
+
 ### Added
 - `agent-packs new` scaffolds the file-backed capability types added in v0.6.0:
   `command`, `hook`, `memory`, and `settings` (standalone capability JSON).
