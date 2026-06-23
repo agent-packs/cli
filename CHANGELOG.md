@@ -12,6 +12,19 @@ repository and is versioned independently.
 ## [Unreleased]
 
 ### Added
+- **`memory` and `settings` capability types** (v1). Packs can now install agent
+  memory (a managed markdown block appended to files like `CLAUDE.md`/`AGENTS.md`)
+  and settings (a deep-merge into JSON config such as `.claude/settings.json`)
+  across supported agents. Merges are idempotent, never clobber a user's existing
+  keys/content (user-wins, add-only), and uninstall retracts only the
+  pack-injected fragment so the file returns to its original state. Writes are
+  atomic (temp-file + rename) and serialized with a per-file lock. `status`/drift
+  reports edits to a pack-managed block or settings key. Unsupported
+  (agent, type, scope) combinations skip with a recorded `unsupported` status.
+  In the default `reference` mode merge capabilities are only recorded; applying
+  them to a user's file requires an explicit `--mode copy`. Hooks and
+  comment-preserving TOML/YAML settings are intentionally deferred to a later
+  milestone.
 - `agent-packs index --check` verifies that `index.json` is up to date without
   rewriting it, exiting non-zero on drift (useful in CI).
 - Pack `categories` are now enforced against a canonical allowlist during

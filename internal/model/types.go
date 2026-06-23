@@ -111,7 +111,16 @@ type Capability struct {
 	Integrity         Integrity         `json:"integrity,omitempty"`
 	RequiresExecution bool              `json:"requiresExecution,omitempty"`
 	Trust             string            `json:"trust,omitempty"`
-	Reference         bool              `json:"-"`
+
+	// Content is an inline fragment for merge-into-file capabilities (memory,
+	// settings): a markdown block body, or a JSON object to deep-merge. When
+	// empty, the fragment is read from Source instead.
+	Content string `json:"content,omitempty"`
+	// MergeKey is a dotted key path within a structured settings file under
+	// which the fragment is merged (e.g. "mcpServers"). Empty merges at root.
+	MergeKey string `json:"mergeKey,omitempty"`
+
+	Reference bool `json:"-"`
 }
 
 type Integrity struct {
@@ -194,6 +203,20 @@ type PlanItem struct {
 	ExitCode          *int   `json:"exit_code,omitempty"`
 	Stdout            string `json:"stdout,omitempty"`
 	Stderr            string `json:"stderr,omitempty"`
+
+	// Merge-into-file fields, set for memory/settings capabilities. FileKind
+	// (markdown|json) flags that this item merges a fragment into a shared file
+	// the pack does not own — uninstall retracts the fragment rather than
+	// removing the whole file. Content carries the inline fragment; BlockID is
+	// the stable marker id for markdown blocks; MergeKey scopes structured
+	// merges; ContentHash and OwnedKeys are filled at install time and record
+	// exactly what was injected so it can be cleanly retracted and drift-checked.
+	FileKind    string   `json:"fileKind,omitempty"`
+	Content     string   `json:"content,omitempty"`
+	BlockID     string   `json:"blockId,omitempty"`
+	MergeKey    string   `json:"mergeKey,omitempty"`
+	ContentHash string   `json:"contentHash,omitempty"`
+	OwnedKeys   []string `json:"ownedKeys,omitempty"`
 }
 
 type Receipt struct {
@@ -270,6 +293,35 @@ type TargetSpec struct {
 	Name          string
 	GlobalSkills  string
 	ProjectSkills string
+
+	// Memory and Settings describe where merge-into-file capabilities land for
+	// this agent. An empty FileDest (or empty scope field) means the agent does
+	// not support that capability type at that scope, and installs skip+warn.
+	Memory   FileDest
+	Settings FileDest
+}
+
+// FileDest locates a merge-into-file capability for an agent. Global and
+// Project are paths relative to the target root for each scope; an empty string
+// marks that scope unsupported. Kind selects the merge strategy
+// ("markdown" or "json").
+type FileDest struct {
+	Global  string
+	Project string
+	Kind    string
+}
+
+// PathFor returns the relative path for the given scope ("project" uses the
+// project file, anything else uses the global file) and whether it is supported.
+func (d FileDest) PathFor(scope string) (string, bool) {
+	rel := d.Global
+	if scope == "project" {
+		rel = d.Project
+	}
+	if rel == "" {
+		return "", false
+	}
+	return rel, true
 }
 
 var (

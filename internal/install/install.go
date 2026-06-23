@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/agent-packs/cli/internal/merge"
 	"github.com/agent-packs/cli/internal/model"
 	"github.com/agent-packs/cli/internal/plan"
 	"github.com/agent-packs/cli/internal/registry"
@@ -71,6 +72,11 @@ func InstallWithOptionsAndMinTrust(registryPath, home, packRef, target, agent, o
 	}
 	if pack.Path != "" {
 		_ = util.CopyFile(pack.Path, filepath.Join(packDir, "source-registry-entry.json"))
+	}
+	// Retract any merge fragments from a prior install of this pack so a
+	// re-install/upgrade starts from a clean file and recomputes ownership.
+	if err := retractExistingMergeItems(absTarget, expanded.ID); err != nil {
+		return err
 	}
 	result := ExecutePlan(installPlan, executePlugins)
 	receiptPath, err := WriteReceipt(absTarget, expanded, result)
@@ -157,6 +163,8 @@ func Rollback(target, packID string, out io.Writer) error {
 		for _, item := range current.Plan.Capabilities {
 			if item.Type == "skill" && item.Destination != "" && item.Status == "installed" {
 				_ = os.RemoveAll(item.Destination)
+			} else if item.Type == "memory" || item.Type == "settings" {
+				_ = retractMergeItem(item)
 			}
 		}
 	}
@@ -186,6 +194,8 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 			results = append(results, installSkill(item, installPlan.Target))
 		case "plugin":
 			results = append(results, installPlugin(item, executePlugins))
+		case "memory", "settings":
+			results = append(results, installMerge(item))
 		default:
 			item.Status = "recorded"
 			results = append(results, item)
@@ -369,6 +379,13 @@ func UninstallWithOptions(target, packID string, executePlugins bool, out io.Wri
 				return err
 			}
 			fmt.Fprintf(out, "Removed skill: %s\n", item.Destination)
+		} else if item.Type == "memory" || item.Type == "settings" {
+			if err := retractMergeItem(item); err != nil {
+				return err
+			}
+			if item.Status == "installed" {
+				fmt.Fprintf(out, "Removed %s from: %s\n", item.Type, item.Destination)
+			}
 		} else if item.Type == "plugin" {
 			result := uninstallPlugin(item, executePlugins)
 			if result.Status == "uninstalled" {
@@ -703,6 +720,115 @@ func Update(home string, all bool, out io.Writer) error {
 			fmt.Fprintf(out, "FAIL  %s: %s\n", name, err)
 		} else {
 			fmt.Fprintf(out, "OK    %s updated\n", name)
+		}
+	}
+	return nil
+}
+
+// installMerge materializes a memory/settings capability by injecting its
+// fragment into the agent's shared file. In record mode (reference) nothing is
+// written; unsupported items pass through untouched.
+func installMerge(item model.PlanItem) model.PlanItem {
+	if item.Status == "unsupported" {
+		return item
+	}
+	if item.Action == "record" {
+		item.Status = "recorded"
+		item.Reason = "reference mode; not merged into target (use --mode copy to apply)"
+		return item
+	}
+	content, err := mergeContent(item)
+	if err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	dest, err := filepath.Abs(util.ExpandHome(item.Destination))
+	if err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	err = util.WithFileLock(dest, func() error {
+		switch item.FileKind {
+		case "markdown":
+			res, err := merge.ApplyMarkdownBlock(dest, item.BlockID, content)
+			if err != nil {
+				return err
+			}
+			item.ContentHash = res.ContentHash
+		case "json":
+			res, err := merge.ApplyJSONMerge(dest, item.MergeKey, []byte(content))
+			if err != nil {
+				return err
+			}
+			item.ContentHash = res.ContentHash
+			item.OwnedKeys = res.OwnedKeys
+		default:
+			return fmt.Errorf("unknown merge file kind %q", item.FileKind)
+		}
+		return nil
+	})
+	if err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	item.Status = "installed"
+	return item
+}
+
+// retractMergeItem removes a previously merged fragment from the shared file,
+// using the receipt's ownership record so only pack-added content is touched.
+func retractMergeItem(item model.PlanItem) error {
+	if item.Destination == "" || item.Status != "installed" {
+		return nil
+	}
+	dest, err := filepath.Abs(util.ExpandHome(item.Destination))
+	if err != nil {
+		return err
+	}
+	return util.WithFileLock(dest, func() error {
+		switch item.FileKind {
+		case "markdown":
+			return merge.RetractMarkdownBlock(dest, item.BlockID)
+		case "json":
+			return merge.RetractJSONMerge(dest, item.MergeKey, item.OwnedKeys)
+		default:
+			return nil
+		}
+	})
+}
+
+// mergeContent returns the fragment to inject: the inline Content if set,
+// otherwise the contents of the capability's local Source file.
+func mergeContent(item model.PlanItem) (string, error) {
+	if item.Content != "" {
+		return item.Content, nil
+	}
+	if item.Source == "" {
+		return "", fmt.Errorf("%s capability %q has neither inline content nor a source", item.Type, item.Name)
+	}
+	data, err := os.ReadFile(util.ExpandHome(item.Source))
+	if err != nil {
+		return "", fmt.Errorf("reading %s source: %w", item.Type, err)
+	}
+	return string(data), nil
+}
+
+// retractExistingMergeItems retracts the merge fragments recorded in an existing
+// receipt for packID, so that a re-install or upgrade starts from a clean file
+// and recomputes ownership correctly. Missing receipt is a no-op.
+func retractExistingMergeItems(absTarget, packID string) error {
+	receipt, err := LoadReceipt(filepath.Join(absTarget, "receipts", packID+".json"))
+	if err != nil {
+		return nil
+	}
+	for _, item := range receipt.Plan.Capabilities {
+		if item.Type == "memory" || item.Type == "settings" {
+			if err := retractMergeItem(item); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

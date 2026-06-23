@@ -142,6 +142,90 @@ func TestBuildInstallPlanDefaultsMode(t *testing.T) {
 	}
 }
 
+func memoryCapability(name, content string) model.Capability {
+	return model.Capability{Type: "memory", Name: name, Content: content}
+}
+
+func TestBuildInstallPlanMemoryMapsToMemoryFile(t *testing.T) {
+	pack := model.Pack{ID: "mypack", Version: "1.0.0", Capabilities: []model.Capability{memoryCapability("House Rules", "Use tabs.")}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "overwrite", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "merge" {
+		t.Fatalf("want action merge, got %q", item.Action)
+	}
+	if want := filepath.Join("/target", "CLAUDE.md"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+	if item.FileKind != "markdown" {
+		t.Fatalf("want fileKind markdown, got %q", item.FileKind)
+	}
+	if item.BlockID != "mypack/house-rules" {
+		t.Fatalf("want blockID mypack/house-rules, got %q", item.BlockID)
+	}
+}
+
+func TestBuildInstallPlanSettingsMapsToJSON(t *testing.T) {
+	cap := model.Capability{Type: "settings", Name: "model", Content: `{"model":"opus"}`}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "overwrite", Scope: "target"})
+	item := p.Capabilities[0]
+	if item.FileKind != "json" {
+		t.Fatalf("want fileKind json, got %q", item.FileKind)
+	}
+	if want := filepath.Join("/target", ".claude/settings.json"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+}
+
+func TestBuildInstallPlanMergeReferenceModeRecordsOnly(t *testing.T) {
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{memoryCapability("m", "body")}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "reference", OnConflict: "skip", Scope: "target"})
+	item := p.Capabilities[0]
+	if item.Action != "record" {
+		t.Fatalf("reference mode should record, got %q", item.Action)
+	}
+	if item.Destination != "" {
+		t.Fatalf("record mode should not set a destination, got %q", item.Destination)
+	}
+}
+
+func TestBuildInstallPlanUnsupportedPairSkips(t *testing.T) {
+	// cursor has no settings destination wired -> skip+unsupported.
+	cap := model.Capability{Type: "settings", Name: "s", Content: `{"x":1}`}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "cursor", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "target"})
+	item := p.Capabilities[0]
+	if item.Action != "skip" || item.Status != "unsupported" {
+		t.Fatalf("want skip/unsupported, got action=%q status=%q", item.Action, item.Status)
+	}
+	if item.Destination != "" {
+		t.Fatalf("unsupported item must not have a destination, got %q", item.Destination)
+	}
+}
+
+func TestBuildInstallPlanOnlyFilterNewTypes(t *testing.T) {
+	pack := model.Pack{
+		ID: "p", Version: "1.0.0",
+		Capabilities: []model.Capability{
+			skillCapability("skill-a", "/tmp/a"),
+			memoryCapability("mem-b", "body"),
+			{Type: "settings", Name: "set-c", Content: `{"x":1}`},
+		},
+	}
+	for _, c := range []struct {
+		only string
+		want string
+	}{
+		{"memory", "memory"},
+		{"settings", "settings"},
+	} {
+		p := BuildInstallPlanWithOptions(pack, "/target", "claude", c.only, model.InstallOptions{Mode: "reference", OnConflict: "skip", Scope: "target"})
+		if len(p.Capabilities) != 1 || p.Capabilities[0].Type != c.want {
+			t.Fatalf("only=%q: want single %q capability, got %+v", c.only, c.want, p.Capabilities)
+		}
+	}
+}
+
 func TestBuildInstallPlanCommandCapabilityRecords(t *testing.T) {
 	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{{Type: "prompt", Name: "pr", Source: "/tmp/pr"}}}
 	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "target"})

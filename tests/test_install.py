@@ -318,6 +318,138 @@ def example_pack(skill_source):
     }
 
 
+def memory_pack(content, name="House Rules"):
+    return {
+        "id": "mem-pack",
+        "name": "Memory Pack",
+        "version": "0.1.0",
+        "description": "A memory test pack.",
+        "capabilities": [
+            {"type": "memory", "name": name, "content": content},
+        ],
+    }
+
+
+def settings_pack(content):
+    return {
+        "id": "set-pack",
+        "name": "Settings Pack",
+        "version": "0.1.0",
+        "description": "A settings test pack.",
+        "capabilities": [
+            {"type": "settings", "name": "model", "content": content},
+        ],
+    }
+
+
+class MergeCapabilityTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(
+            ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
+    def run_cli(self, *args, registry, target):
+        env = os.environ.copy()
+        env["AGENT_PACKS_REGISTRY"] = str(registry)
+        return subprocess.run(
+            [str(CLI), *args, "--target", str(target)],
+            cwd=ROOT,
+            env=env,
+            text=True,
+            capture_output=True,
+        )
+
+    def write_pack(self, registry, pack):
+        (registry / f"{pack['id']}.json").write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
+
+    def test_memory_install_upgrade_uninstall_lifecycle(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry"
+            target = temp / "install"
+            registry.mkdir()
+            # Default scope is global, which for Claude is .claude/CLAUDE.md.
+            claude_md = target / ".claude" / "CLAUDE.md"
+            claude_md.parent.mkdir(parents=True)
+            claude_md.write_text("# My project notes\n\nKeep me.\n", encoding="utf-8")
+
+            self.write_pack(registry, memory_pack("Use tabs, not spaces."))
+            result = self.run_cli("install", "mem-pack", "--agent", "claude", "--mode", "copy", registry=registry, target=target)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            body = claude_md.read_text(encoding="utf-8")
+            self.assertIn("Keep me.", body)
+            self.assertIn("Use tabs, not spaces.", body)
+            self.assertEqual(body.count("BEGIN agent-packs:mem-pack/house-rules"), 1)
+
+            # Upgrade with changed content -> single block, new body.
+            self.write_pack(registry, memory_pack("Use spaces, not tabs."))
+            up = self.run_cli("upgrade", "mem-pack", registry=registry, target=target)
+            self.assertEqual(up.returncode, 0, up.stderr)
+            body = claude_md.read_text(encoding="utf-8")
+            self.assertEqual(body.count("BEGIN agent-packs:mem-pack/house-rules"), 1)
+            self.assertIn("Use spaces, not tabs.", body)
+            self.assertNotIn("Use tabs, not spaces.", body)
+
+            # Uninstall removes only our block, restores the file.
+            un = self.run_cli("uninstall", "mem-pack", registry=registry, target=target)
+            self.assertEqual(un.returncode, 0, un.stderr)
+            self.assertEqual(claude_md.read_text(encoding="utf-8"), "# My project notes\n\nKeep me.\n")
+
+    def test_settings_merge_preserves_user_keys(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry"
+            target = temp / "install"
+            registry.mkdir()
+            settings = target / ".claude" / "settings.json"
+            settings.parent.mkdir(parents=True)
+            settings.write_text(json.dumps({"theme": "dark"}) + "\n", encoding="utf-8")
+
+            self.write_pack(registry, settings_pack('{"model":"opus"}'))
+            result = self.run_cli("install", "set-pack", "--agent", "claude", "--mode", "copy", registry=registry, target=target)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            merged = json.loads(settings.read_text(encoding="utf-8"))
+            self.assertEqual(merged["theme"], "dark")
+            self.assertEqual(merged["model"], "opus")
+
+            un = self.run_cli("uninstall", "set-pack", registry=registry, target=target)
+            self.assertEqual(un.returncode, 0, un.stderr)
+            after = json.loads(settings.read_text(encoding="utf-8"))
+            self.assertEqual(after, {"theme": "dark"})
+
+    def test_unsupported_agent_type_pair_skips(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry"
+            target = temp / "install"
+            registry.mkdir()
+            self.write_pack(registry, settings_pack('{"model":"opus"}'))
+            # cursor has no settings destination -> skip+unsupported, no file written.
+            result = self.run_cli("install", "set-pack", "--agent", "cursor", "--mode", "copy", registry=registry, target=target)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            receipt = json.loads((target / "receipts" / "set-pack.json").read_text(encoding="utf-8"))
+            self.assertEqual(receipt["plan"]["capabilities"][0]["status"], "unsupported")
+
+    def test_reference_mode_does_not_write_user_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry"
+            target = temp / "install"
+            registry.mkdir()
+            self.write_pack(registry, memory_pack("Use tabs."))
+            # Default mode is reference -> record only, never touch CLAUDE.md.
+            result = self.run_cli("install", "mem-pack", "--agent", "claude", registry=registry, target=target)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((target / "CLAUDE.md").exists())
+            receipt = json.loads((target / "receipts" / "mem-pack.json").read_text(encoding="utf-8"))
+            self.assertEqual(receipt["plan"]["capabilities"][0]["status"], "recorded")
+
+
 def skill_only_pack(pack_id, skill_name, skill_source):
     return {
         "id": pack_id,
