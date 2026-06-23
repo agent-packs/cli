@@ -22,15 +22,27 @@
       --slate-50: #f8fafc;
       --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       --mono: ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --nav-bg: rgba(255,255,255,.92);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --slate-900: #f1f5f9; --slate-800: #e2e8f0; --slate-700: #cbd5e1;
+        --slate-600: #94a3b8; --slate-500: #94a3b8; --slate-400: #94a3b8;
+        --slate-200: #334155; --slate-100: #1e293b; --slate-50: #16203a;
+        --indigo-light: #312e6b;
+        --bg: #0b1220; --surface: #18213a; --nav-bg: rgba(11,18,32,.9);
+      }
     }
     html { scroll-behavior: smooth; }
-    body { font-family: var(--font); color: var(--slate-800); background: white; line-height: 1.5; }
+    body { font-family: var(--font); color: var(--slate-800); background: var(--bg); line-height: 1.5; }
     a { color: inherit; }
 
     /* ── Nav ── */
     nav {
       position: sticky; top: 0; z-index: 100;
-      background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+      background: var(--nav-bg); backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--slate-200);
       display: flex; align-items: center; justify-content: space-between;
       padding: .9rem 2rem;
@@ -40,7 +52,7 @@
     .nav-links { display: flex; gap: 1.5rem; align-items: center; }
     .nav-links a { text-decoration: none; color: var(--slate-600); font-size: .9rem; transition: color .15s; }
     .nav-links a:hover { color: var(--indigo); }
-    .nav-gh { display: flex; align-items: center; gap: .4rem; background: var(--slate-900); color: white !important; padding: .4rem .9rem; border-radius: 7px; font-size: .83rem; font-weight: 600; }
+    .nav-gh { display: flex; align-items: center; gap: .4rem; background: #0f172a; color: white !important; padding: .4rem .9rem; border-radius: 7px; font-size: .83rem; font-weight: 600; }
     .nav-gh:hover { background: var(--slate-700) !important; color: white !important; }
 
     /* ── Hero ── */
@@ -90,6 +102,8 @@
     }
     .copy-btn:hover { background: rgba(255,255,255,.18); }
     .copy-btn.copied { background: rgba(99,102,241,.4); border-color: rgba(165,180,252,.5); color: white; }
+    .install-docs { display: inline-block; margin-top: .85rem; color: #a5b4fc; font-size: .82rem; text-decoration: none; opacity: .85; transition: opacity .15s; }
+    .install-docs:hover { opacity: 1; text-decoration: underline; }
 
     .hero-cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
     .btn-primary {
@@ -124,7 +138,7 @@
     .tool-badge {
       display: flex; align-items: center; gap: .55rem;
       padding: .55rem 1.1rem; border: 1px solid var(--slate-200); border-radius: 999px;
-      font-size: .875rem; font-weight: 600; color: var(--slate-700); background: white;
+      font-size: .875rem; font-weight: 600; color: var(--slate-700); background: var(--surface);
       box-shadow: 0 1px 3px rgba(0,0,0,.06);
     }
     .tool-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -147,7 +161,7 @@
     /* ── Features ── */
     .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.25rem; margin-top: 3rem; }
     .feature-card {
-      background: white; border: 1px solid var(--slate-200); border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 14px;
       padding: 1.6rem; transition: border-color .2s, box-shadow .2s;
     }
     .feature-card:hover { border-color: var(--indigo); box-shadow: 0 4px 24px rgba(99,102,241,.12); }
@@ -159,7 +173,7 @@
     /* ── Pack cards ── */
     .packs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 1.25rem; margin-top: 2.5rem; }
     .pack-card {
-      background: white; border: 1px solid var(--slate-200); border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 14px;
       padding: 1.5rem; transition: border-color .2s, box-shadow .2s;
       display: flex; flex-direction: column; text-decoration: none; color: inherit;
     }
@@ -192,14 +206,14 @@
     .step h3 { font-weight: 700; color: var(--slate-900); margin-bottom: .3rem; font-size: 1rem; }
     .step p { color: var(--slate-600); font-size: .875rem; line-height: 1.55; }
     .code-block {
-      background: var(--slate-900); color: #c7d2fe; font-family: var(--mono);
+      background: #0f172a; color: #c7d2fe; font-family: var(--mono);
       font-size: .82rem; padding: .85rem 1.1rem; border-radius: 9px; margin-top: .6rem;
       line-height: 1.75; overflow-x: auto;
     }
     .code-block .cm { color: #64748b; }
 
     /* ── Footer ── */
-    footer { background: var(--slate-900); color: var(--slate-400); padding: 3rem 2rem; }
+    footer { background: #0f172a; color: #94a3b8; padding: 3rem 2rem; }
     .footer-inner { max-width: 1100px; margin: 0 auto; }
     .footer-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 2rem; padding-bottom: 2.5rem; border-bottom: 1px solid rgba(255,255,255,.07); }
     .footer-brand { }
@@ -253,7 +267,7 @@
 <section class="hero">
   <div class="hero-badge">Open Source · Free · No Lock-in</div>
   <h1>Homebrew for<br><span>AI Agent Capabilities</span></h1>
-  <p>One tool to install, update, and manage skills, plugins, commands, hooks, and settings across all your AI coding agents — Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
+  <p>One tool to install, update, and manage skills, plugins, commands, hooks, memory, and settings across all your AI coding agents — Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
 
   <div class="install-tabs">
     <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
@@ -265,6 +279,7 @@
     <code id="install-cmd">brew install agent-packs/tap/agent-packs</code>
     <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
   </div>
+  <a class="install-docs" href="https://github.com/agent-packs/cli#install">New here? Read the install guide →</a>
   <div class="hero-cta">
     <a href="catalog.html" class="btn-primary">Browse Catalog</a>
     <a href="https://github.com/agent-packs/cli" class="btn-ghost">View on GitHub</a>
@@ -274,8 +289,8 @@
 <!-- ── Stats ── -->
 <div class="stats" id="stats-bar">
   <div class="stat"><span class="stat-num" id="s-packs">34</span><span class="stat-label">Packs</span></div>
-  <div class="stat"><span class="stat-num">56</span><span class="stat-label">Capabilities</span></div>
-  <div class="stat"><span class="stat-num">4</span><span class="stat-label">Install Methods</span></div>
+  <div class="stat"><span class="stat-num" id="s-caps">—</span><span class="stat-label">Capabilities</span></div>
+  <div class="stat"><span class="stat-num">6</span><span class="stat-label">Capability Types</span></div>
   <div class="stat"><span class="stat-num">7</span><span class="stat-label">Editors Supported</span></div>
 </div>
 
@@ -348,7 +363,7 @@
     <p class="section-sub">A Pack is a named collection of capabilities — skills, plugins, commands, hooks, and settings — tuned for a role like <em>backend engineer</em>, <em>ML engineer</em>, or <em>SRE</em>. One install command resolves every capability to the right directory for every agent you use. Packs can even compose other packs, so a full-stack pack just references the backend and frontend packs — no duplication.</p>
 
     <div class="diagram-wrap">
-      <svg class="pack-svg" viewBox="0 0 760 388" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing how a Pack bundles capabilities — skills, plugins, commands, hooks, and settings — and installs them into AI agents">
+      <svg class="pack-svg" viewBox="0 0 760 478" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing how a Pack bundles capabilities — skills, plugins, hooks, and memory — and installs them into AI agents">
 
         <!-- ── Pack box ── -->
         <rect x="240" y="8" width="280" height="74" rx="13" fill="#6366f1"/>
@@ -356,65 +371,68 @@
         <text x="380" y="52" text-anchor="middle" fill="white" font-size="17" font-weight="800">eng-leader</text>
         <text x="380" y="71" text-anchor="middle" fill="#a5b4fc" font-size="11" font-family="monospace">agent-packs install eng-leader</text>
 
-        <!-- Fork lines from pack -->
-        <path d="M380 82 V105 H175 V130" stroke="#cbd5e1" stroke-width="1.5"/>
-        <path d="M380 105 H585 V130" stroke="#cbd5e1" stroke-width="1.5"/>
+        <!-- Fork lines from pack to the two columns -->
+        <path d="M380 82 V100" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M175 100 H585" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M175 100 V118" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M585 100 V118" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M175 238 V262" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M585 238 V262" stroke="#cbd5e1" stroke-width="1.5"/>
 
         <!-- ── Skills box ── -->
-        <rect x="42" y="130" width="266" height="185" rx="12" fill="#ede9fe" stroke="#ddd6fe" stroke-width="1.5"/>
-        <text x="175" y="154" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">Skills</text>
-
-        <rect x="56" y="162" width="238" height="22" rx="5" fill="white"/>
-        <text x="175" y="177" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-strategy</text>
-        <rect x="56" y="189" width="238" height="22" rx="5" fill="white"/>
-        <text x="175" y="204" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-planning</text>
-        <rect x="56" y="216" width="238" height="22" rx="5" fill="white"/>
-        <text x="175" y="231" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-quality-review</text>
-        <rect x="56" y="243" width="238" height="22" rx="5" fill="white"/>
-        <text x="175" y="258" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-architecture-adrs</text>
-        <rect x="56" y="270" width="238" height="22" rx="5" fill="white"/>
-        <text x="175" y="285" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-delivery-ops</text>
-        <text x="175" y="308" text-anchor="middle" fill="#a78bfa" font-size="11">+ 3 more skills</text>
+        <rect x="42" y="118" width="266" height="120" rx="12" fill="#ede9fe" stroke="#ddd6fe" stroke-width="1.5"/>
+        <text x="175" y="142" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">Skills</text>
+        <rect x="56" y="150" width="238" height="22" rx="5" fill="white"/>
+        <text x="175" y="165" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-strategy</text>
+        <rect x="56" y="177" width="238" height="22" rx="5" fill="white"/>
+        <text x="175" y="192" text-anchor="middle" fill="#6d28d9" font-size="11" font-family="monospace">eng-leader-planning</text>
+        <text x="175" y="222" text-anchor="middle" fill="#a78bfa" font-size="11">+ 3 more skills</text>
 
         <!-- ── Plugins box ── -->
-        <rect x="452" y="130" width="266" height="132" rx="12" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
-        <text x="585" y="154" text-anchor="middle" fill="#15803d" font-size="12" font-weight="700">Plugins</text>
+        <rect x="452" y="118" width="266" height="120" rx="12" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+        <text x="585" y="142" text-anchor="middle" fill="#15803d" font-size="12" font-weight="700">Plugins</text>
+        <rect x="466" y="150" width="238" height="22" rx="5" fill="white"/>
+        <text x="585" y="165" text-anchor="middle" fill="#166534" font-size="11" font-family="monospace">eng-leader-workflows</text>
+        <rect x="466" y="177" width="238" height="22" rx="5" fill="white"/>
+        <text x="585" y="192" text-anchor="middle" fill="#166534" font-size="11" font-family="monospace">github-pr-inspection</text>
+        <text x="585" y="222" text-anchor="middle" fill="#15803d" font-size="10">optional · requires --execute-plugins</text>
 
-        <rect x="466" y="162" width="238" height="22" rx="5" fill="white"/>
-        <text x="585" y="177" text-anchor="middle" fill="#166534" font-size="11" font-family="monospace">eng-leader-workflows</text>
-        <rect x="466" y="189" width="238" height="22" rx="5" fill="white"/>
-        <text x="585" y="204" text-anchor="middle" fill="#166534" font-size="11" font-family="monospace">github-pr-inspection</text>
-        <text x="585" y="238" text-anchor="middle" fill="#86efac" font-size="10">optional · requires --execute-plugins</text>
+        <!-- ── Hooks box ── -->
+        <rect x="42" y="262" width="266" height="120" rx="12" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+        <text x="175" y="286" text-anchor="middle" fill="#c2410c" font-size="12" font-weight="700">Hooks</text>
+        <rect x="56" y="294" width="238" height="22" rx="5" fill="white"/>
+        <text x="175" y="309" text-anchor="middle" fill="#9a3412" font-size="11" font-family="monospace">eng-leader-pre-review</text>
+        <text x="175" y="339" text-anchor="middle" fill="#c2410c" font-size="10">opt-in · requires --allow-hooks</text>
+
+        <!-- ── Memory box ── -->
+        <rect x="452" y="262" width="266" height="120" rx="12" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+        <text x="585" y="286" text-anchor="middle" fill="#1d4ed8" font-size="12" font-weight="700">Memory</text>
+        <rect x="466" y="294" width="238" height="22" rx="5" fill="white"/>
+        <text x="585" y="309" text-anchor="middle" fill="#1e40af" font-size="11" font-family="monospace">eng-leader-conventions</text>
+        <text x="585" y="339" text-anchor="middle" fill="#2563eb" font-size="10">merges into CLAUDE.md / AGENTS.md</text>
 
         <!-- Join lines → agents -->
-        <path d="M175 315 V344 H585 V262" stroke="#cbd5e1" stroke-width="1.5"/>
-        <path d="M380 344 V360" stroke="#cbd5e1" stroke-width="1.5"/>
-
-        <text x="380" y="356" text-anchor="middle" fill="#94a3b8" font-size="11" letter-spacing="0.04em">installs into</text>
+        <path d="M175 382 V406 H585 V382" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M380 406 V424" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="380" y="420" text-anchor="middle" fill="#94a3b8" font-size="11" letter-spacing="0.04em">installs into</text>
 
         <!-- ── Agent pills ── -->
-        <!-- Claude Code -->
-        <rect x="18"  y="365" width="118" height="20" rx="10" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
-        <circle cx="33" cy="375" r="4" fill="#7c3aed"/>
-        <text x="74"  y="379" text-anchor="middle" fill="#6d28d9" font-size="10" font-weight="600">Claude Code</text>
-        <!-- Codex -->
-        <rect x="152" y="365" width="98"  height="20" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
-        <circle cx="167" cy="375" r="4" fill="#059669"/>
-        <text x="211" y="379" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">Codex</text>
-        <!-- Cursor -->
-        <rect x="266" y="365" width="100" height="20" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1"/>
-        <circle cx="281" cy="375" r="4" fill="#ea580c"/>
-        <text x="326" y="379" text-anchor="middle" fill="#c2410c" font-size="10" font-weight="600">Cursor</text>
-        <!-- Gemini -->
-        <rect x="382" y="365" width="108" height="20" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
-        <circle cx="397" cy="375" r="4" fill="#2563eb"/>
-        <text x="441" y="379" text-anchor="middle" fill="#1d4ed8" font-size="10" font-weight="600">Gemini CLI</text>
-        <!-- OpenCode -->
-        <rect x="506" y="365" width="108" height="20" rx="10" fill="#ecfeff" stroke="#a5f3fc" stroke-width="1"/>
-        <circle cx="521" cy="375" r="4" fill="#0891b2"/>
-        <text x="565" y="379" text-anchor="middle" fill="#0e7490" font-size="10" font-weight="600">OpenCode</text>
-        <!-- + more -->
-        <text x="638" y="379" fill="#94a3b8" font-size="10">+ more</text>
+        <rect x="18"  y="436" width="118" height="20" rx="10" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+        <circle cx="33" cy="446" r="4" fill="#7c3aed"/>
+        <text x="74"  y="450" text-anchor="middle" fill="#6d28d9" font-size="10" font-weight="600">Claude Code</text>
+        <rect x="152" y="436" width="98"  height="20" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+        <circle cx="167" cy="446" r="4" fill="#059669"/>
+        <text x="211" y="450" text-anchor="middle" fill="#166534" font-size="10" font-weight="600">Codex</text>
+        <rect x="266" y="436" width="100" height="20" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1"/>
+        <circle cx="281" cy="446" r="4" fill="#ea580c"/>
+        <text x="326" y="450" text-anchor="middle" fill="#c2410c" font-size="10" font-weight="600">Cursor</text>
+        <rect x="382" y="436" width="108" height="20" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+        <circle cx="397" cy="446" r="4" fill="#2563eb"/>
+        <text x="441" y="450" text-anchor="middle" fill="#1d4ed8" font-size="10" font-weight="600">Gemini CLI</text>
+        <rect x="506" y="436" width="108" height="20" rx="10" fill="#ecfeff" stroke="#a5f3fc" stroke-width="1"/>
+        <circle cx="521" cy="446" r="4" fill="#0891b2"/>
+        <text x="565" y="450" text-anchor="middle" fill="#0e7490" font-size="10" font-weight="600">OpenCode</text>
+        <text x="630" y="450" fill="#94a3b8" font-size="10">+2 more<title>GitHub Copilot, Goose</title></text>
       </svg>
     </div>
   </div>
@@ -548,6 +566,8 @@
     .then(data => {
       const packs = data.packs || [];
       document.getElementById('s-packs').textContent = packs.length;
+      const caps = packs.reduce((sum, p) => sum + (Number(p.capabilities) || 0), 0);
+      document.getElementById('s-caps').textContent = caps || '—';
 
       const featured = FEATURED_IDS
         .map(id => packs.find(p => p.id === id))
@@ -562,7 +582,7 @@
           </div>
           <div class="pack-desc">${p.description}</div>
           <div class="pack-chips">
-            ${p.capabilities ? `<span class="chip chip-skills">${p.capabilities} skills</span>` : ''}
+            ${p.capabilities ? `<span class="chip chip-skills">${p.capabilities} capabilities</span>` : ''}
             ${(p.tools || []).slice(0,3).map(t => `<span class="chip chip-tools">${t}</span>`).join('')}
             ${(p.tags || []).slice(0,2).map(t => `<span class="chip chip-tag">${t}</span>`).join('')}
           </div>
