@@ -146,7 +146,15 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 		errs = append(errs, prefix+".name is required")
 	}
 	if capability.Source == "" {
-		errs = append(errs, prefix+".source is required")
+		// Memory/settings capabilities may carry an inline fragment instead of
+		// a source file; one of the two is required.
+		if capability.Type == "memory" || capability.Type == "settings" {
+			if capability.Content == "" {
+				errs = append(errs, prefix+".source or .content is required")
+			}
+		} else {
+			errs = append(errs, prefix+".source is required")
+		}
 	}
 	if capability.Type == "skill" {
 		if capability.Format != "agent-skill" {

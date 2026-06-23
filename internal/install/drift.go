@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/agent-packs/cli/internal/merge"
 	"github.com/agent-packs/cli/internal/model"
 	"github.com/agent-packs/cli/internal/util"
 )
@@ -137,6 +138,10 @@ func checkDrift(packID string, item model.PlanItem) DriftItem {
 		return it
 	}
 
+	if item.FileKind != "" {
+		return checkMergeDrift(it, item, dest)
+	}
+
 	switch item.Action {
 	case "symlink":
 		link, err := os.Readlink(dest)
@@ -171,6 +176,41 @@ func checkDrift(packID string, item model.PlanItem) DriftItem {
 		}
 	}
 
+	it.State = "ok"
+	return it
+}
+
+// checkMergeDrift verifies that a merged fragment is still present in its shared
+// file and unchanged since install. It reports "missing" when the managed block
+// or owned keys are gone, and "drifted" when the user has hand-edited inside the
+// pack's managed region (content hash no longer matches the receipt).
+func checkMergeDrift(it DriftItem, item model.PlanItem, dest string) DriftItem {
+	switch item.FileKind {
+	case "markdown":
+		body, found, err := merge.ExtractMarkdownBlock(dest, item.BlockID)
+		if err != nil || !found {
+			it.State = "missing"
+			it.Detail = "managed memory block not found"
+			return it
+		}
+		if item.ContentHash != "" && merge.HashString(body) != item.ContentHash {
+			it.State = "drifted"
+			it.Detail = "managed memory block was edited"
+			return it
+		}
+	case "json":
+		present, hash, err := merge.OwnedKeysState(dest, item.OwnedKeys)
+		if err != nil || !present {
+			it.State = "missing"
+			it.Detail = "pack-owned settings keys not found"
+			return it
+		}
+		if item.ContentHash != "" && hash != item.ContentHash {
+			it.State = "drifted"
+			it.Detail = "pack-owned settings values were changed"
+			return it
+		}
+	}
 	it.State = "ok"
 	return it
 }

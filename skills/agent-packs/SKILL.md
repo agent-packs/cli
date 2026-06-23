@@ -34,6 +34,7 @@ AGENT_PACKS_REGISTRY=/path/to/registry/packs agent-packs validate packs
 - Explain a pack: `agent-packs show <pack> [--json]`
 - Install a pack: `agent-packs install <pack> --agent <tool> --mode reference`
 - Preview an install: `agent-packs install <pack> --dry-run`
+- Apply memory/settings merges (default reference mode only records them): `agent-packs install <pack> --agent <tool> --mode copy`
 - Initialize project defaults: `agent-packs init --agent <tool> --mode reference --scope project .`
 - Validate manifests (in a registry checkout): `agent-packs validate packs skills plugins`
 - Inspect provenance: `agent-packs attribution <pack>` and `agent-packs licenses <pack>`
@@ -62,6 +63,8 @@ Packs can include:
 - `capabilities`: inline skills, plugins, prompts, commands, hooks, templates, or tools.
 
 Use `source` as the installable or resolvable location. Use `upstreamSource` only when separate attribution is helpful.
+
+`memory` and `settings` are merge capabilities: instead of installing a file, they merge a fragment into a file the agent already owns. A `memory` capability writes an idempotent managed markdown block into the agent's memory file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, …); a `settings` capability deep-merges a JSON fragment into the agent's settings (e.g. `.claude/settings.json`), optionally scoped by `mergeKey`. Provide the fragment inline via `content`, or via a `source` file. Merges are user-wins/add-only and only happen with `--mode copy` (the default `reference` mode records intent without touching the file); uninstall retracts only what the pack injected. Run `agent-packs targets` to see which agents support each type. Hooks and TOML/YAML settings are not yet supported.
 
 ## Install Model
 

@@ -99,6 +99,14 @@ Integrity metadata uses `integrity.checksum` (`sha256:`) and optional `integrity
 
 The target matrix maps supported tools to global and project skill directories, with aliases such as `claude-code` → `claude`. Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target by default (`--mode reference`).
 
+## Merge Capabilities (Memory And Settings)
+
+`memory` and `settings` capabilities differ from skills/plugins: instead of owning a whole filesystem object, they merge a fragment into a file the agent already owns (memory markdown such as `CLAUDE.md`/`AGENTS.md`, or JSON settings such as `.claude/settings.json`). The target matrix carries a `FileDest` (`global`/`project` path + `kind`) for each; an empty `FileDest` marks an unsupported `(agent, type, scope)` combination, which installs skip with an `unsupported` status.
+
+The `internal/merge` engine implements two strategies. Memory uses an idempotent managed markdown block delimited by `<!-- BEGIN/END agent-packs:<pack>/<capability> -->` markers. Settings uses a JSON deep-merge with leaf-level ownership tracking. Both are **user-wins, add-only** (an existing key or user prose is never overwritten), record exactly what they injected (`ownedKeys`, `contentHash`, `blockId`) in the receipt, and write atomically (temp-file + rename) under a per-file lock. Uninstall and rollback retract only the recorded fragment so the file returns to its original state, and `status` reports drift when a managed block or owned key is hand-edited.
+
+In the default `reference` mode merge capabilities are only recorded; the file is modified only with an explicit `--mode copy`, so a plain `install` never edits a user's config. Hooks and comment-preserving TOML/YAML settings are deferred to a later milestone.
+
 Remote sources support GitHub tree/commit URLs, GitLab tree URLs, generic git URLs, and archive downloads (`.tar.gz`, `.zip`). Moving refs can be resolved live with `git ls-remote` for outdated reporting.
 
 ## Why Go

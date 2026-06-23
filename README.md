@@ -275,6 +275,98 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
 }
 ```
 
+## Specifying Memory And Settings
+
+Beyond skills and plugins, packs can declare **`memory`** and **`settings`**
+capabilities. Unlike skills (which install a whole directory), these **merge a
+fragment into a file the agent already owns** — the agent's memory markdown or
+its JSON settings — and are cleanly retracted on uninstall.
+
+A **`memory`** capability carries its body inline as `content`, or points at a
+markdown file with `source`. The same body is written as a managed block into
+each agent's native memory file:
+
+```json
+{
+  "type": "memory",
+  "name": "House Rules",
+  "content": "Always run the test suite before committing.\nPrefer small, focused PRs."
+}
+```
+
+```json
+{
+  "type": "memory",
+  "name": "House Rules",
+  "source": "./memory/house-rules.md"
+}
+```
+
+The block is delimited by stable markers keyed to the pack and capability, so
+re-installing replaces it in place and uninstall removes exactly it:
+
+```markdown
+<!-- BEGIN agent-packs:my-pack/house-rules -->
+Always run the test suite before committing.
+Prefer small, focused PRs.
+<!-- END agent-packs:my-pack/house-rules -->
+```
+
+A **`settings`** capability carries a JSON fragment that is deep-merged into the
+agent's settings file. Use the optional `mergeKey` to scope the merge to a dotted
+key path (e.g. `mcpServers`):
+
+```json
+{
+  "type": "settings",
+  "name": "Default model and guardrails",
+  "content": "{\"model\":\"opus\",\"permissions\":{\"deny\":[\"rm -rf\"]}}"
+}
+```
+
+```json
+{
+  "type": "settings",
+  "name": "Filesystem MCP server",
+  "mergeKey": "mcpServers",
+  "content": "{\"filesystem\":{\"command\":\"npx\",\"args\":[\"-y\",\"@modelcontextprotocol/server-filesystem\"]}}"
+}
+```
+
+Where each capability lands per agent (empty cells skip with an `unsupported`
+status — the rest of the pack still installs):
+
+| Agent | Memory | Settings |
+| --- | --- | --- |
+| `claude` | `CLAUDE.md` / `.claude/CLAUDE.md` | `.claude/settings.json` |
+| `codex` | `AGENTS.md` / `.codex/AGENTS.md` | — |
+| `gemini` | `GEMINI.md` / `.gemini/GEMINI.md` | `.gemini/settings.json` |
+| `copilot` | `.github/copilot-instructions.md` | — |
+| `goose` | `.goosehints` | — |
+| `opencode` | `AGENTS.md` | `opencode.json` |
+| `generic` | `AGENTS.md` | — |
+
+`agent-packs targets` prints the live matrix. Merge semantics are **user-wins,
+add-only**: an existing key or hand-written prose is never overwritten, and
+uninstall restores the file to its original state. Merges only happen with an
+explicit `--mode copy` — in the default `reference` mode the capability is
+recorded but the file is left untouched, so a plain `install` never edits a
+user's config:
+
+```sh
+# Records intent only (default reference mode) — no file is modified.
+agent-packs install my-pack --agent claude
+
+# Actually merges the fragments into CLAUDE.md / settings.json.
+agent-packs install my-pack --agent claude --mode copy
+```
+
+`agent-packs status` reports drift if a managed memory block or a pack-owned
+settings key is later hand-edited.
+
+> Hooks and comment-preserving TOML/YAML settings are not yet supported and are
+> planned for a later release.
+
 ## Pack Composition
 
 Packs can include other packs with the `packs` field. They can also include reusable source references with `skills` and `plugins`. `skills` and `plugins` entries can be registry ID strings or objects with their own remote `source`. Included packs and referenced capabilities are expanded before install.

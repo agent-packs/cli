@@ -20,7 +20,7 @@ func BuildInstallPlanWithOptions(pack model.Pack, target, agent, only string, op
 	options = normalizeInstallOptions(options)
 	items := []model.PlanItem{}
 	for _, capability := range selectCapabilities(pack.Capabilities, only) {
-		items = append(items, planCapability(capability, target, agent, options))
+		items = append(items, planCapability(pack.ID, capability, target, agent, options))
 	}
 	return model.Plan{
 		Pack: pack.ID, Version: pack.Version, Agent: agent, Target: target,
@@ -97,10 +97,15 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		return capabilities
 	}
 	wanted := ""
-	if only == "skills" {
+	switch only {
+	case "skills":
 		wanted = "skill"
-	} else if only == "plugins" {
+	case "plugins":
 		wanted = "plugin"
+	case "memory":
+		wanted = "memory"
+	case "settings":
+		wanted = "settings"
 	}
 	selected := []model.Capability{}
 	for _, capability := range capabilities {
@@ -111,9 +116,11 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 	return selected
 }
 
-func planCapability(capability model.Capability, target, agent string, options model.InstallOptions) model.PlanItem {
+func planCapability(packID string, capability model.Capability, target, agent string, options model.InstallOptions) model.PlanItem {
 	expectedChecksum := capability.Integrity.Checksum
 	switch capability.Type {
+	case "memory", "settings":
+		return planMergeCapability(packID, capability, target, agent, options)
 	case "skill":
 		entry := capability.Entry
 		if entry == "" {
@@ -149,6 +156,36 @@ func planCapability(capability model.Capability, target, agent string, options m
 			Source: capability.Source, ExpectedChecksum: expectedChecksum, Status: "planned",
 		}
 	}
+}
+
+// planMergeCapability plans a memory/settings capability that merges a fragment
+// into a shared agent file. Unsupported (agent, type, scope) combinations are
+// recorded as a skip so plan/dry-run output is honest. In reference mode (the
+// default) the item is only recorded, never written — actually merging into a
+// user's file requires an explicit non-reference mode (e.g. --mode copy).
+func planMergeCapability(packID string, capability model.Capability, target, agent string, options model.InstallOptions) model.PlanItem {
+	path, kind, ok := targets.FileTargetRoot(capability.Type, target, agent, options.Scope)
+	if !ok {
+		return model.PlanItem{
+			Type: capability.Type, Name: capability.Name, Action: "skip", Status: "unsupported",
+			Reason: fmt.Sprintf("%s capabilities are not supported for agent %q at %s scope", capability.Type, agent, options.Scope),
+		}
+	}
+	item := model.PlanItem{
+		Type: capability.Type, Name: capability.Name,
+		Mode: options.Mode, OnConflict: options.OnConflict,
+		Source: capability.Source, UpstreamSource: capability.UpstreamSource,
+		FileKind: kind, Content: capability.Content, MergeKey: capability.MergeKey,
+		BlockID: packID + "/" + util.Slugify(capability.Name),
+		Status:  "planned",
+	}
+	if options.Mode == "reference" {
+		item.Action = "record"
+		return item
+	}
+	item.Action = "merge"
+	item.Destination = path
+	return item
 }
 
 func skillAction(capability model.Capability, options model.InstallOptions) string {

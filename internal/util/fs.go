@@ -2,12 +2,73 @@ package util
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode"
 )
+
+// AtomicWriteFile writes data to path via a temporary file in the same
+// directory followed by an atomic rename, so a crash mid-write can never leave
+// a user's file (e.g. settings.json) truncated or corrupt. Parent directories
+// are created as needed.
+func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, ".agent-packs-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpName, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
+// WithFileLock serializes read-modify-write access to path across concurrent
+// agent-packs invocations using an adjacent ".lock" file (O_CREATE|O_EXCL with
+// bounded retries). It is advisory: it only guards other WithFileLock callers,
+// which is sufficient because every merge writer goes through it.
+func WithFileLock(path string, fn func() error) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	lockPath := path + ".lock"
+	var lock *os.File
+	for attempt := 0; attempt < 200; attempt++ {
+		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err == nil {
+			lock = f
+			break
+		}
+		if !os.IsExist(err) {
+			return err
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if lock == nil {
+		return fmt.Errorf("could not acquire lock for %s (held by another process?)", path)
+	}
+	defer func() {
+		lock.Close()
+		os.Remove(lockPath)
+	}()
+	return fn()
+}
 
 func ExpandHome(path string) string {
 	if path == "~" {
