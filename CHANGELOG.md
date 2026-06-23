@@ -11,6 +11,8 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-23
+
 ### Added
 - `subagent` capability type for distributing Claude Code subagents (delegated
   assistants defined by a markdown file with frontmatter). Installs to
