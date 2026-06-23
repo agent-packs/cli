@@ -31,6 +31,10 @@ var TargetMatrix = map[string]model.TargetSpec{
 		CommandDestinations: []model.FileDest{
 			{Scope: "global", Path: ".claude/commands/*.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.anthropic.com/en/docs/claude-code/slash-commands", Default: true},
 			{Scope: "project", Path: ".claude/commands/*.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.anthropic.com/en/docs/claude-code/slash-commands", Default: true},
+		},
+		SubagentDestinations: []model.FileDest{
+			{Scope: "global", Path: ".claude/agents/*.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.anthropic.com/en/docs/claude-code/sub-agents", Default: true},
+			{Scope: "project", Path: ".claude/agents/*.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.anthropic.com/en/docs/claude-code/sub-agents", Default: true},
 		}},
 	"codex": {ID: "codex", Name: "Codex", GlobalSkills: ".codex/skills", ProjectSkills: ".agents/skills",
 		Memory:   model.FileDest{Global: ".codex/AGENTS.md", Project: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md"},
@@ -88,6 +92,11 @@ var TargetMatrix = map[string]model.TargetSpec{
 			{Scope: "target", Path: ".agent-packs/hooks/*.json", Kind: "json", Default: true},
 			{Scope: "global", Path: ".agent-packs/hooks/*.json", Kind: "json", Default: true},
 			{Scope: "project", Path: ".agent-packs/hooks/*.json", Kind: "json", Default: true},
+		},
+		SubagentDestinations: []model.FileDest{
+			{Scope: "target", Path: ".agent-packs/agents/*.md", Kind: "markdown", Default: true},
+			{Scope: "global", Path: ".agent-packs/agents/*.md", Kind: "markdown", Default: true},
+			{Scope: "project", Path: ".agent-packs/agents/*.md", Kind: "markdown", Default: true},
 		}},
 }
 
@@ -148,6 +157,11 @@ func FileTargetDest(capType, agent, scope string) (model.FileDest, bool) {
 		candidates = spec.HookDestinations
 		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
 			candidates = TargetMatrix["generic"].HookDestinations
+		}
+	case "subagent":
+		candidates = spec.SubagentDestinations
+		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
+			candidates = TargetMatrix["generic"].SubagentDestinations
 		}
 	default:
 		return model.FileDest{}, false
