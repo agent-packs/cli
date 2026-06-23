@@ -36,6 +36,14 @@ func New(opts NewOptions) (string, error) {
 		return newSkill(opts)
 	case "plugin":
 		return newPlugin(opts)
+	case "command":
+		return newCommand(opts)
+	case "hook":
+		return newHook(opts)
+	case "memory":
+		return newMemory(opts)
+	case "settings":
+		return newSettings(opts)
 	default:
 		return "", fmt.Errorf("unknown authoring kind: %s", opts.Kind)
 	}
@@ -71,6 +79,50 @@ func newPlugin(opts NewOptions) (string, error) {
 		"license":     "Apache-2.0",
 	}
 	return path, writeJSON(path, manifest, opts.Force)
+}
+
+// scaffoldCapability is a trimmed view of model.Capability for emitting a clean
+// starter manifest: omitempty on the optional fields keeps empty source and
+// integrity out of the generated file. Authors paste it into a pack's
+// capabilities[]. It unmarshals back into model.Capability unchanged.
+type scaffoldCapability struct {
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Format  string `json:"format,omitempty"`
+	Content string `json:"content,omitempty"`
+	License string `json:"license,omitempty"`
+}
+
+func newCapabilityFile(opts NewOptions, capType, format, content string) (string, error) {
+	cap := scaffoldCapability{
+		Type:    capType,
+		Name:    opts.Name,
+		Format:  format,
+		Content: content,
+		License: "Apache-2.0",
+	}
+	path := filepath.Join(opts.Dir, opts.ID+".json")
+	return path, writeJSON(path, cap, opts.Force)
+}
+
+func newCommand(opts NewOptions) (string, error) {
+	return newCapabilityFile(opts, "command", "markdown",
+		"Describe the prompt or instructions this command runs.")
+}
+
+func newHook(opts NewOptions) (string, error) {
+	return newCapabilityFile(opts, "hook", "json",
+		`{"event":"preCommit","steps":["describe the automation this hook runs"]}`)
+}
+
+func newMemory(opts NewOptions) (string, error) {
+	return newCapabilityFile(opts, "memory", "markdown",
+		"Durable guidance to merge into the agent's instruction file.")
+}
+
+func newSettings(opts NewOptions) (string, error) {
+	return newCapabilityFile(opts, "settings", "json",
+		`{"describe":"settings fragment to deep-merge into the agent settings file"}`)
 }
 
 func writeJSON(path string, value any, force bool) error {

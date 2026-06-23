@@ -212,7 +212,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `audit <pack>`: supply-chain SBOM report (`--json` supported).
 - `version`: prints CLI version (`--json` supported).
 - `init [dir]`: writes `.agent-packs.yaml` project defaults.
-- `new pack|skill|plugin <id>`: scaffolds valid starter manifests.
+- `new pack|skill|plugin|command|hook|memory|settings <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
 - `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
 - `scan [path]`: discovers existing `SKILL.md` files.

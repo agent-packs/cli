@@ -653,8 +653,9 @@ func runInit(args []string) error {
 }
 
 func runNew(args []string) error {
+	const newUsage = "usage: agent-packs new <pack|skill|plugin|command|hook|memory|settings> <id> [--name name] [--dir dir] [--force]"
 	if len(args) < 1 {
-		return fmt.Errorf("usage: agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+		return fmt.Errorf(newUsage)
 	}
 	kind := args[0]
 	flags := flag.NewFlagSet("new "+kind, flag.ContinueOnError)
@@ -667,7 +668,7 @@ func runNew(args []string) error {
 	}
 	remaining := flags.Args()
 	if len(remaining) != 1 {
-		return fmt.Errorf("usage: agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+		return fmt.Errorf(newUsage)
 	}
 	path, err := agentpacks.New(agentpacks.NewOptions{Kind: kind, ID: remaining[0], Name: *name, Dir: *dir, Force: *force})
 	if err != nil {
@@ -1212,7 +1213,7 @@ _agent_packs() {
                 'registry:manage remote registries'
                 'target:manage custom agent tool targets'
                 'doctor:diagnose installation environment'
-                'new:scaffold a new pack, skill, or plugin'
+                'new:scaffold a new pack, skill, plugin, command, hook, memory, or settings capability'
                 'init:create a project .agent-packs.yaml config'
                 'publish:check registry packs for publish readiness'
                 'policy:check packs against a trust policy'
@@ -1620,7 +1621,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native]")
-	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin|command|hook|memory|settings> <id> [--name name] [--dir dir] [--force]")
 	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs tree|deps <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs publish --check [--policy file] [--json]")
