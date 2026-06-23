@@ -81,6 +81,13 @@ Homebrew formula installs the registry under `share/agent-packs/registry`; the
 CLI resolves the default registry from `<prefix>/share/agent-packs/registry`
 when `AGENT_PACKS_REGISTRY` is unset.
 
+The Homebrew tap is linked to CLI releases. On a `v*` tag, the CLI release
+workflow publishes archives and checksums, then dispatches
+`agent-packs/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured. The tap also
+runs an hourly self-sync workflow that reads the latest `agent-packs/cli`
+release and updates its formula with the published checksums, so the formula can
+catch up even when the cross-repo token is not present.
+
 ## Catalog And CI
 
 CI (`.github/workflows/ci.yml`) runs Go and Python tests, JSON Schema validation, registry validation, pack verification, audit, policy checks, index generation, index staleness checks, and GitHub Pages deployment for the static catalog.

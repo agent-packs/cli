@@ -74,8 +74,8 @@ changelog:
 brews:
   - name: agent-packs
     repository:
-      owner: sandeshh
-      name: homebrew-agent-packs
+      owner: agent-packs
+      name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/agent-packs/cli"
     description: "Homebrew for AI agent skills and plugins — install curated packs into Claude Code, Cursor, Codex, and more"

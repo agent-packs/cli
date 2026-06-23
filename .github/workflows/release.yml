@@ -99,26 +99,12 @@ jobs:
             echo "available=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Update Homebrew tap formula
+      - name: Dispatch Homebrew tap sync
         if: ${{ steps.homebrew-token.outputs.available == 'true' }}
         env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          VERSION: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          RELEASE_VERSION: ${{ github.ref_name }}
         run: |
-          SHA_DARWIN_ARM64=$(sha256sum dist/agent-packs_darwin_arm64.tar.gz | awk '{print $1}')
-          SHA_DARWIN_AMD64=$(sha256sum dist/agent-packs_darwin_amd64.tar.gz | awk '{print $1}')
-          SHA_LINUX_ARM64=$(sha256sum dist/agent-packs_linux_arm64.tar.gz | awk '{print $1}')
-          SHA_LINUX_AMD64=$(sha256sum dist/agent-packs_linux_amd64.tar.gz | awk '{print $1}')
-
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/agent-packs/homebrew-tap.git" /tmp/tap
-          bash scripts/gen-formula.sh \
-            "${VERSION}" "${SHA_DARWIN_ARM64}" "${SHA_DARWIN_AMD64}" \
-            "${SHA_LINUX_ARM64}" "${SHA_LINUX_AMD64}" \
-            /tmp/tap/Formula/agent-packs.rb
-
-          cd /tmp/tap
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git add Formula/agent-packs.rb
-          git commit -m "Update agent-packs to ${VERSION}"
-          git push
+          gh api repos/agent-packs/homebrew-tap/dispatches \
+            -f event_type=agent-packs-release \
+            -F client_payload[version]="${RELEASE_VERSION}"
