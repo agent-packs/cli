@@ -83,10 +83,11 @@ when `AGENT_PACKS_REGISTRY` is unset.
 
 The Homebrew tap is linked to CLI releases. On a `v*` tag, the CLI release
 workflow publishes archives and checksums, then dispatches
-`agent-packs/homebrew-tap` when `HOMEBREW_TAP_TOKEN` is configured. The tap also
-runs an hourly self-sync workflow that reads the latest `agent-packs/cli`
-release and updates its formula with the published checksums, so the formula can
-catch up even when the cross-repo token is not present.
+`agent-packs/homebrew-tap` using the required `HOMEBREW_TAP_TOKEN` secret. The
+tap workflow reads the latest `agent-packs/cli` release, downloads
+`checksums.txt`, regenerates the formula, validates syntax, and commits only
+when the formula version changes. The tap workflow can still be run manually for
+operator repair, but release tags are the normal automation path.
 
 ## Catalog And CI
 

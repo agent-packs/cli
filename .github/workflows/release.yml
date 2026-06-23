@@ -88,19 +88,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Check Homebrew tap token
-        id: homebrew-token
-        env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          if [ -n "${HOMEBREW_TAP_TOKEN}" ]; then
-            echo "available=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "available=false" >> "${GITHUB_OUTPUT}"
-          fi
-
       - name: Dispatch Homebrew tap sync
-        if: ${{ steps.homebrew-token.outputs.available == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           RELEASE_VERSION: ${{ github.ref_name }}
