@@ -97,7 +97,7 @@ func main() {
 	case "version":
 		err = runVersion(os.Args[2:])
 	case "init":
-		err = runInit(os.Args[2:])
+		err = runInit(registry, os.Args[2:])
 	case "new":
 		err = runNew(os.Args[2:])
 	case "status":
@@ -242,6 +242,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, or hooks")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
 	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native ($AGENT_PACKS_MODE)")
 	onConflict := flags.String("on-conflict", envOrDefault("AGENT_PACKS_ON_CONFLICT", "skip"), "conflict policy: skip, overwrite, or backup ($AGENT_PACKS_ON_CONFLICT)")
 	project := flags.String("project", "", "project directory target")
@@ -288,7 +289,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 		installTarget = *target
 		scope = "global"
 	}
-	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope}
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Installing", packRef, index, len(remaining))
 		if err := agentpacks.InstallWithMinTrust(registry, *target, packRef, installTarget, *agent, *only, *executePlugins, *dryRun, options, *minTrust, os.Stdout); err != nil {
@@ -624,7 +625,7 @@ func runVersion(args []string) error {
 	return nil
 }
 
-func runInit(args []string) error {
+func runInit(registry string, args []string) error {
 	flags := flag.NewFlagSet("init", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	agent := flags.String("agent", "codex", "default target agent")
@@ -634,27 +635,50 @@ func runInit(args []string) error {
 	registryPath := flags.String("registry", "", "default registry path")
 	target := flags.String("target", ".agent-packs", "default install target")
 	force := flags.Bool("force", false, "overwrite existing config")
-	if err := flags.Parse(args); err != nil {
+	noDetect := flags.Bool("no-detect", false, "skip project detection; write flag defaults only")
+	if err := flags.Parse(normalizeInitArgs(args)); err != nil {
 		return err
 	}
+	agentExplicit := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "agent" {
+			agentExplicit = true
+		}
+	})
 	projectDir := "."
 	if len(flags.Args()) > 0 {
 		projectDir = flags.Args()[0]
 	}
-	path, err := agentpacks.InitProject(projectDir, agentpacks.InitOptions{
+	detectRegistry := *registryPath
+	if detectRegistry == "" {
+		detectRegistry = registry
+	}
+	path, det, err := agentpacks.InitProjectWithDetection(projectDir, detectRegistry, !*noDetect, agentpacks.InitOptions{
 		Agent: *agent, Mode: *mode, OnConflict: *onConflict, Scope: *scope,
 		Registry: *registryPath, Target: *target, Force: *force,
-	})
+	}, agentExplicit)
 	if err != nil {
 		return err
+	}
+	if !*noDetect {
+		if det.Agent != "" {
+			fmt.Printf("Detected agent: %s\n", det.Agent)
+		}
+		if len(det.Stack) > 0 {
+			fmt.Printf("Detected stack: %s\n", strings.Join(det.Stack, ", "))
+		}
+		if len(det.Packs) > 0 {
+			fmt.Printf("Recommending packs: %s\n", strings.Join(det.Packs, ", "))
+		}
 	}
 	fmt.Printf("Wrote %s\n", path)
 	return nil
 }
 
 func runNew(args []string) error {
+	const newUsage = "usage: agent-packs new <pack|skill|plugin|command|hook|memory|settings> <id> [--name name] [--dir dir] [--force]"
 	if len(args) < 1 {
-		return fmt.Errorf("usage: agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+		return fmt.Errorf(newUsage)
 	}
 	kind := args[0]
 	flags := flag.NewFlagSet("new "+kind, flag.ContinueOnError)
@@ -667,7 +691,7 @@ func runNew(args []string) error {
 	}
 	remaining := flags.Args()
 	if len(remaining) != 1 {
-		return fmt.Errorf("usage: agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+		return fmt.Errorf(newUsage)
 	}
 	path, err := agentpacks.New(agentpacks.NewOptions{Kind: kind, ID: remaining[0], Name: *name, Dir: *dir, Force: *force})
 	if err != nil {
@@ -964,12 +988,41 @@ func runRegistry(defaultTarget string, args []string) error {
 	}
 }
 
+// normalizeInitArgs reorders `init` args so flags precede the optional
+// positional project directory, since Go's flag parser stops at the first
+// non-flag argument.
+func normalizeInitArgs(args []string) []string {
+	valueFlags := map[string]bool{
+		"--agent": true, "--mode": true, "--on-conflict": true,
+		"--scope": true, "--registry": true, "--target": true,
+	}
+	flags := []string{}
+	positionals := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if valueFlags[arg] {
+			flags = append(flags, arg)
+			if i+1 < len(args) {
+				flags = append(flags, args[i+1])
+				i++
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "--") {
+			flags = append(flags, arg)
+			continue
+		}
+		positionals = append(positionals, arg)
+	}
+	return append(flags, positionals...)
+}
+
 func normalizeInstallArgs(args []string) []string {
 	flags := []string{}
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--global" {
+		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--allow-hooks" || arg == "--global" {
 			flags = append(flags, arg)
 			continue
 		}
@@ -1212,7 +1265,7 @@ _agent_packs() {
                 'registry:manage remote registries'
                 'target:manage custom agent tool targets'
                 'doctor:diagnose installation environment'
-                'new:scaffold a new pack, skill, or plugin'
+                'new:scaffold a new pack, skill, plugin, command, hook, memory, or settings capability'
                 'init:create a project .agent-packs.yaml config'
                 'publish:check registry packs for publish readiness'
                 'policy:check packs against a trust policy'
@@ -1254,6 +1307,7 @@ _agent_packs() {
                 '--target=[install target directory]:directory:_directories' \
                 '--dry-run[print plan without writing files]' \
                 '--execute-plugins[run native plugin install commands]' \
+                '--allow-hooks[write hook capabilities in copy mode]' \
                 '--global[install into global target]' \
                 '--json[output as JSON]'
             ;;
@@ -1315,6 +1369,7 @@ complete -f -c agent-packs -l only         -a "all skills plugins memory setting
 complete -r -c agent-packs -l target       -d 'Installation target directory'
 complete -f -c agent-packs -l dry-run      -d 'Print plan without writing files'
 complete -f -c agent-packs -l execute-plugins -d 'Run native plugin install commands'
+complete -f -c agent-packs -l allow-hooks     -d 'Write hook capabilities in copy mode'
 complete -f -c agent-packs -l global       -d 'Install into global target'
 complete -f -c agent-packs -l json         -d 'Output as JSON'
 `
@@ -1608,7 +1663,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")
@@ -1619,8 +1674,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native]")
-	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin> <id> [--name name] [--dir dir] [--force]")
+	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native] [--no-detect]")
+	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin|command|hook|memory|settings> <id> [--name name] [--dir dir] [--force]")
 	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs tree|deps <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs publish --check [--policy file] [--json]")

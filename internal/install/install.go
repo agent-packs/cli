@@ -871,7 +871,9 @@ func installManagedFile(item model.PlanItem) model.PlanItem {
 	}
 	if item.Action == "record" {
 		item.Status = "recorded"
-		item.Reason = "reference mode; not copied into target (use --mode copy to apply)"
+		if item.Reason == "" {
+			item.Reason = "reference mode; not copied into target (use --mode copy to apply)"
+		}
 		return item
 	}
 	content, mode, err := managedFileContent(item)

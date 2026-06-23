@@ -11,6 +11,20 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+### Added
+- `agent-packs new` scaffolds the file-backed capability types added in v0.6.0:
+  `command`, `hook`, `memory`, and `settings` (standalone capability JSON).
+- `install --allow-hooks` gates writing hook capabilities in `--mode copy`.
+  Installing a hook writes a file the target agent may run automatically, so it
+  is opt-in (parallel to `--execute-plugins`); without the flag hooks are
+  recorded with a content preview and a note, but not written.
+- Install/dry-run plan output shows a content `preview` line for command and
+  hook capabilities, plus a `note` for recorded items.
+- `agent-packs init` now detects the agent in use (project-local signals) and
+  the project stack (`go.mod`, `package.json`, `Cargo.toml`, `pyproject.toml`,
+  …) and recommends matching packs by tag/category overlap. An explicit
+  `--agent` wins; `--no-detect` writes flag defaults only.
+
 ## [0.6.0] - 2026-06-23
 
 ### Added

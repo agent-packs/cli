@@ -32,6 +32,7 @@ type InitOptions struct {
 	Registry   string
 	Target     string
 	Force      bool
+	Packs      []string
 }
 
 func Init(projectDir string, opts InitOptions) (string, error) {
@@ -53,6 +54,7 @@ func Init(projectDir string, opts InitOptions) (string, error) {
 		Scope:      defaultString(opts.Scope, "project"),
 		Registry:   opts.Registry,
 		Target:     defaultString(opts.Target, ".agent-packs"),
+		Packs:      opts.Packs,
 	}
 	cfg.Agent = targets.NormalizeAgent(cfg.Agent)
 	if !targets.ValidAgent(cfg.Agent) {

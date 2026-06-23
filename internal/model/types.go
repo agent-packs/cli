@@ -180,6 +180,11 @@ type InstallOptions struct {
 	Mode       string
 	OnConflict string
 	Scope      string
+	// AllowHooks gates writing hook capabilities in copy mode. Installing a hook
+	// writes a file the target agent may execute automatically, so it is opt-in
+	// (parallel to --execute-plugins). When false, hooks are recorded for
+	// preview but not written.
+	AllowHooks bool
 }
 
 type Plan struct {
