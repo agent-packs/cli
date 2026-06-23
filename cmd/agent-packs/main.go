@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -40,6 +41,8 @@ func main() {
 		err = runSearch(registry, os.Args[2:])
 	case "show":
 		err = runShow(registry, os.Args[2:])
+	case "test-run":
+		err = runTestRun(registry, defaultTarget, os.Args[2:])
 	case "install":
 		err = runInstall(registry, defaultTarget, os.Args[2:])
 	case "skills":
@@ -297,6 +300,64 @@ func runInstall(registry, defaultTarget string, args []string) error {
 		}
 		agentpacks.AnalyticsTrack(defaultTarget, "install", packRef, *agent, "")
 	}
+	return nil
+}
+
+func runTestRun(registry, defaultTarget string, args []string) error {
+	args = normalizeInstallArgs(args)
+	flags := flag.NewFlagSet("test-run", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
+	command := flags.String("command", "", "command to launch the agent (overrides default agent executable)")
+	mode := flags.String("mode", "copy", "sync mode (defaults to copy for test-run)")
+	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	remaining := flags.Args()
+	if len(remaining) != 1 {
+		return fmt.Errorf("usage: agent-packs test-run <pack-id> [--agent name] [--command cmd]")
+	}
+	packID := remaining[0]
+
+	*agent = agentpacks.NormalizeAgent(*agent)
+	if !agentpacks.ValidAgent(*agent) {
+		return fmt.Errorf("invalid agent %q: run `agent-packs doctor targets` for supported tools", *agent)
+	}
+
+	tempDir, err := os.MkdirTemp("", "agent-packs-test-*")
+	if err != nil {
+		return fmt.Errorf("failed to create sandbox directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	fmt.Fprintf(os.Stdout, "Creating sandbox at %s\n", tempDir)
+
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: "overwrite", Scope: "project", AllowHooks: true}
+
+	printLifecycleHeader("Installing pack into sandbox", packID, 0, 1)
+	if err := agentpacks.InstallWithMinTrust(registry, defaultTarget, packID, tempDir, *agent, "all", *executePlugins, false, options, "", os.Stdout); err != nil {
+		return fmt.Errorf("failed to install pack in sandbox: %w", err)
+	}
+
+	cmdToRun := *command
+	if cmdToRun == "" {
+		cmdToRun = *agent
+	}
+
+	fmt.Fprintf(os.Stdout, "\nSandbox ready. Launching %q...\n(Exit the agent to destroy the sandbox)\n\n", cmdToRun)
+
+	cmd := exec.Command("sh", "-c", cmdToRun)
+	cmd.Dir = tempDir
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("agent process exited with error: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "\nAgent exited. Destroying sandbox %s\n", tempDir)
 	return nil
 }
 
@@ -1663,6 +1724,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
