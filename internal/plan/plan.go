@@ -89,7 +89,25 @@ func PrintPlan(plan model.Plan, out io.Writer) {
 		if item.UpstreamSource != "" && item.UpstreamSource != item.Source {
 			fmt.Fprintf(out, "  upstreamSource: %s\n", item.UpstreamSource)
 		}
+		if (item.Type == "hook" || item.Type == "command") && item.Content != "" {
+			fmt.Fprintf(out, "  preview: %s\n", previewContent(item.Content))
+		}
+		if item.Reason != "" {
+			fmt.Fprintf(out, "  note: %s\n", item.Reason)
+		}
 	}
+}
+
+// previewContent renders a single-line, length-capped preview of inline
+// capability content so install/dry-run output shows what a hook or command
+// will write without dumping a full file.
+func previewContent(content string) string {
+	flat := strings.Join(strings.Fields(content), " ")
+	const max = 120
+	if len(flat) > max {
+		return flat[:max] + "…"
+	}
+	return flat
 }
 
 func selectCapabilities(capabilities []model.Capability, only string) []model.Capability {
@@ -193,6 +211,12 @@ func planManagedFileCapability(packID string, capability model.Capability, targe
 	if options.Mode == "reference" {
 		item.Action = "record"
 		item.Destination = ""
+		return item
+	}
+	if capability.Type == "hook" && !options.AllowHooks {
+		item.Action = "record"
+		item.Destination = ""
+		item.Reason = "hook not written: installing a hook lets the agent run it automatically; pass --allow-hooks to apply"
 		return item
 	}
 	item.Action = "copy"

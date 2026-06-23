@@ -13,6 +13,27 @@ func mergePlan(target string, items ...model.PlanItem) model.Plan {
 	return model.Plan{Pack: "mpack", Mode: "copy", Target: target, Capabilities: items}
 }
 
+func TestExecutePlanRecordedHookIsNotWritten(t *testing.T) {
+	target := t.TempDir()
+	dest := filepath.Join(target, ".agent-packs", "hooks", "pre-commit.json")
+	item := model.PlanItem{
+		Type: "hook", Name: "Pre Commit", Action: "record", FileKind: "json",
+		Content: `{"event":"preCommit"}`, Destination: "", Status: "planned",
+		Reason: "hook not written: pass --allow-hooks to apply",
+	}
+	result := ExecutePlan(mergePlan(target, item), false)
+	got := result.Capabilities[0]
+	if got.Status != "recorded" {
+		t.Fatalf("want recorded, got %q", got.Status)
+	}
+	if got.Reason == "" || !strings.Contains(got.Reason, "allow-hooks") {
+		t.Fatalf("recorded hook should keep its gate reason, got %q", got.Reason)
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatalf("recorded hook must not be written, stat err=%v", err)
+	}
+}
+
 func TestExecutePlanInstallsMemoryBlock(t *testing.T) {
 	target := t.TempDir()
 	dest := filepath.Join(target, "CLAUDE.md")

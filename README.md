@@ -405,6 +405,12 @@ by default; other agents use portable `.agent-packs/commands/*.md` and
 `.agent-packs/hooks/*.json` destinations unless a pack provides an
 `agentTargets` override for a documented native path.
 
+Installing a hook writes a file the target agent may run automatically, so hook
+writes are opt-in: in `--mode copy` a hook is only written when you pass
+`--allow-hooks` (parallel to `--execute-plugins`). Without the flag the hook is
+recorded with a content preview and a note in the plan, but not written.
+Commands are not gated.
+
 ```json
 {
   "type": "command",
@@ -427,7 +433,7 @@ Install only commands or hooks from a mixed pack:
 
 ```sh
 agent-packs install my-pack --agent claude --only commands --mode copy
-agent-packs install my-pack --agent codex --only hooks --mode copy
+agent-packs install my-pack --agent codex --only hooks --mode copy --allow-hooks
 ```
 
 ## Pack Composition

@@ -290,13 +290,41 @@ func TestBuildInstallPlanCommandMapsToClaudeCommands(t *testing.T) {
 func TestBuildInstallPlanHookUsesPortableFallback(t *testing.T) {
 	cap := model.Capability{Type: "hook", Name: "Before Commit", Content: `{"event":"beforeCommit"}`}
 	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
-	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project", AllowHooks: true})
 	item := p.Capabilities[0]
 	if want := filepath.Join("/target", ".agent-packs/hooks/before-commit.json"); item.Destination != want {
 		t.Fatalf("want destination %q, got %q", want, item.Destination)
 	}
 	if item.FileKind != "json" {
 		t.Fatalf("want json file kind, got %q", item.FileKind)
+	}
+}
+
+func TestBuildInstallPlanHookGatedWithoutAllowHooks(t *testing.T) {
+	cap := model.Capability{Type: "hook", Name: "Before Commit", Content: `{"event":"beforeCommit"}`}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	// Copy mode but AllowHooks is false: the hook must be recorded, not written.
+	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "record" {
+		t.Fatalf("want record action without --allow-hooks, got %q", item.Action)
+	}
+	if item.Destination != "" {
+		t.Fatalf("gated hook should not set destination, got %q", item.Destination)
+	}
+	if item.Reason == "" {
+		t.Fatal("gated hook should explain why it was not written")
+	}
+}
+
+func TestBuildInstallPlanCommandNotGatedByAllowHooks(t *testing.T) {
+	cap := model.Capability{Type: "command", Name: "Review PR", Content: "Review this PR."}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	// Commands are not hooks: copy mode writes them regardless of AllowHooks.
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "copy" {
+		t.Fatalf("command should copy in copy mode, got %q", item.Action)
 	}
 }
 

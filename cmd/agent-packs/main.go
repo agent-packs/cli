@@ -242,6 +242,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, or hooks")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
 	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native ($AGENT_PACKS_MODE)")
 	onConflict := flags.String("on-conflict", envOrDefault("AGENT_PACKS_ON_CONFLICT", "skip"), "conflict policy: skip, overwrite, or backup ($AGENT_PACKS_ON_CONFLICT)")
 	project := flags.String("project", "", "project directory target")
@@ -288,7 +289,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 		installTarget = *target
 		scope = "global"
 	}
-	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope}
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Installing", packRef, index, len(remaining))
 		if err := agentpacks.InstallWithMinTrust(registry, *target, packRef, installTarget, *agent, *only, *executePlugins, *dryRun, options, *minTrust, os.Stdout); err != nil {
@@ -970,7 +971,7 @@ func normalizeInstallArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--global" {
+		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--allow-hooks" || arg == "--global" {
 			flags = append(flags, arg)
 			continue
 		}
@@ -1255,6 +1256,7 @@ _agent_packs() {
                 '--target=[install target directory]:directory:_directories' \
                 '--dry-run[print plan without writing files]' \
                 '--execute-plugins[run native plugin install commands]' \
+                '--allow-hooks[write hook capabilities in copy mode]' \
                 '--global[install into global target]' \
                 '--json[output as JSON]'
             ;;
@@ -1316,6 +1318,7 @@ complete -f -c agent-packs -l only         -a "all skills plugins memory setting
 complete -r -c agent-packs -l target       -d 'Installation target directory'
 complete -f -c agent-packs -l dry-run      -d 'Print plan without writing files'
 complete -f -c agent-packs -l execute-plugins -d 'Run native plugin install commands'
+complete -f -c agent-packs -l allow-hooks     -d 'Write hook capabilities in copy mode'
 complete -f -c agent-packs -l global       -d 'Install into global target'
 complete -f -c agent-packs -l json         -d 'Output as JSON'
 `
@@ -1609,7 +1612,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")
