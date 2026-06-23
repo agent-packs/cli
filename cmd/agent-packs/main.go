@@ -310,7 +310,6 @@ func runTestRun(registry, defaultTarget string, args []string) error {
 	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	command := flags.String("command", "", "command to launch the agent (overrides default agent executable)")
 	mode := flags.String("mode", "copy", "sync mode (defaults to copy for test-run)")
-	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
 	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -340,7 +339,7 @@ func runTestRun(registry, defaultTarget string, args []string) error {
 	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: "overwrite", Scope: "project", AllowHooks: *allowHooks}
 
 	printLifecycleHeader("Installing pack into sandbox", packID, 0, 1)
-	if err := agentpacks.InstallWithMinTrust(registry, defaultTarget, packID, tempDir, *agent, "all", *executePlugins, false, options, "", os.Stdout); err != nil {
+	if err := agentpacks.InstallWithMinTrust(registry, defaultTarget, packID, tempDir, *agent, "all", false, false, options, "", os.Stdout); err != nil {
 		return fmt.Errorf("failed to install pack in sandbox: %w", err)
 	}
 
@@ -1728,7 +1727,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--execute-plugins] [--allow-hooks]")
+	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
