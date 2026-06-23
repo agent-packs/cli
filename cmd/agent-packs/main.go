@@ -97,7 +97,7 @@ func main() {
 	case "version":
 		err = runVersion(os.Args[2:])
 	case "init":
-		err = runInit(os.Args[2:])
+		err = runInit(registry, os.Args[2:])
 	case "new":
 		err = runNew(os.Args[2:])
 	case "status":
@@ -625,7 +625,7 @@ func runVersion(args []string) error {
 	return nil
 }
 
-func runInit(args []string) error {
+func runInit(registry string, args []string) error {
 	flags := flag.NewFlagSet("init", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	agent := flags.String("agent", "codex", "default target agent")
@@ -635,19 +635,41 @@ func runInit(args []string) error {
 	registryPath := flags.String("registry", "", "default registry path")
 	target := flags.String("target", ".agent-packs", "default install target")
 	force := flags.Bool("force", false, "overwrite existing config")
-	if err := flags.Parse(args); err != nil {
+	noDetect := flags.Bool("no-detect", false, "skip project detection; write flag defaults only")
+	if err := flags.Parse(normalizeInitArgs(args)); err != nil {
 		return err
 	}
+	agentExplicit := false
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "agent" {
+			agentExplicit = true
+		}
+	})
 	projectDir := "."
 	if len(flags.Args()) > 0 {
 		projectDir = flags.Args()[0]
 	}
-	path, err := agentpacks.InitProject(projectDir, agentpacks.InitOptions{
+	detectRegistry := *registryPath
+	if detectRegistry == "" {
+		detectRegistry = registry
+	}
+	path, det, err := agentpacks.InitProjectWithDetection(projectDir, detectRegistry, !*noDetect, agentpacks.InitOptions{
 		Agent: *agent, Mode: *mode, OnConflict: *onConflict, Scope: *scope,
 		Registry: *registryPath, Target: *target, Force: *force,
-	})
+	}, agentExplicit)
 	if err != nil {
 		return err
+	}
+	if !*noDetect {
+		if det.Agent != "" {
+			fmt.Printf("Detected agent: %s\n", det.Agent)
+		}
+		if len(det.Stack) > 0 {
+			fmt.Printf("Detected stack: %s\n", strings.Join(det.Stack, ", "))
+		}
+		if len(det.Packs) > 0 {
+			fmt.Printf("Recommending packs: %s\n", strings.Join(det.Packs, ", "))
+		}
 	}
 	fmt.Printf("Wrote %s\n", path)
 	return nil
@@ -964,6 +986,35 @@ func runRegistry(defaultTarget string, args []string) error {
 	default:
 		return fmt.Errorf("unknown registry command: %s", sub)
 	}
+}
+
+// normalizeInitArgs reorders `init` args so flags precede the optional
+// positional project directory, since Go's flag parser stops at the first
+// non-flag argument.
+func normalizeInitArgs(args []string) []string {
+	valueFlags := map[string]bool{
+		"--agent": true, "--mode": true, "--on-conflict": true,
+		"--scope": true, "--registry": true, "--target": true,
+	}
+	flags := []string{}
+	positionals := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if valueFlags[arg] {
+			flags = append(flags, arg)
+			if i+1 < len(args) {
+				flags = append(flags, args[i+1])
+				i++
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, "--") {
+			flags = append(flags, arg)
+			continue
+		}
+		positionals = append(positionals, arg)
+	}
+	return append(flags, positionals...)
 }
 
 func normalizeInstallArgs(args []string) []string {
@@ -1623,7 +1674,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native]")
+	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native] [--no-detect]")
 	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin|command|hook|memory|settings> <id> [--name name] [--dir dir] [--force]")
 	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs tree|deps <pack-id> [--json]")

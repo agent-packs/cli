@@ -1,6 +1,6 @@
 # Spec: Capability authoring parity, smart init, and hook safety
 
-Status: **Plan proposed** (Phase 2) — spec approved, open questions resolved
+Status: **Implemented** (Phase 4) — Phases A, B, C landed; feature #4 deferred
 Owner: CLI maintainers
 Target: `agent-packs/cli` (Go). Registry content lives in the separate
 `agent-packs/registry` repo and is out of scope here.

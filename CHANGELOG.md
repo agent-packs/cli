@@ -20,6 +20,10 @@ repository and is versioned independently.
   recorded with a content preview and a note, but not written.
 - Install/dry-run plan output shows a content `preview` line for command and
   hook capabilities, plus a `note` for recorded items.
+- `agent-packs init` now detects the agent in use (project-local signals) and
+  the project stack (`go.mod`, `package.json`, `Cargo.toml`, `pyproject.toml`,
+  …) and recommends matching packs by tag/category overlap. An explicit
+  `--agent` wins; `--no-detect` writes flag defaults only.
 
 ## [0.6.0] - 2026-06-23
 

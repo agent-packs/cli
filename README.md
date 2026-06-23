@@ -211,7 +211,10 @@ Agent Packs supports a basic package-manager lifecycle:
 - `plugins install|list|upgrade|uninstall`: manages independent registry or local plugins; pass `--method`, `--package`, `--marketplace`, `--command`, or `--uninstall-command` to store native lifecycle metadata outside a pack. `list` also surfaces plugins pulled in by a pack install with a `pack:<id>` source.
 - `audit <pack>`: supply-chain SBOM report (`--json` supported).
 - `version`: prints CLI version (`--json` supported).
-- `init [dir]`: writes `.agent-packs.yaml` project defaults.
+- `init [dir]`: writes `.agent-packs.yaml` project defaults. Detects the agent
+  in use (project-local signals) and the stack (`go.mod`, `package.json`,
+  `Cargo.toml`, `pyproject.toml`, …) to recommend packs; an explicit `--agent`
+  wins and `--no-detect` skips detection.
 - `new pack|skill|plugin|command|hook|memory|settings <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
 - `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
