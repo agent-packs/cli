@@ -106,17 +106,19 @@ func TestBuildInstallPlanOnlyFilter(t *testing.T) {
 			pluginCapability("plugin-b"),
 			{Type: "command", Name: "cmd-c", Source: "/tmp/c"},
 			{Type: "hook", Name: "hook-d", Source: "/tmp/h"},
+			{Type: "subagent", Name: "sub-e", Source: "/tmp/s"},
 		},
 	}
 	cases := []struct {
 		only      string
 		wantTypes []string
 	}{
-		{"all", []string{"skill", "plugin", "command", "hook"}},
+		{"all", []string{"skill", "plugin", "command", "hook", "subagent"}},
 		{"skills", []string{"skill"}},
 		{"plugins", []string{"plugin"}},
 		{"commands", []string{"command"}},
 		{"hooks", []string{"hook"}},
+		{"subagents", []string{"subagent"}},
 	}
 	for _, c := range cases {
 		t.Run(c.only, func(t *testing.T) {
@@ -325,6 +327,28 @@ func TestBuildInstallPlanCommandNotGatedByAllowHooks(t *testing.T) {
 	item := p.Capabilities[0]
 	if item.Action != "copy" {
 		t.Fatalf("command should copy in copy mode, got %q", item.Action)
+	}
+}
+
+func TestBuildInstallPlanSubagentMapsToClaudeAgents(t *testing.T) {
+	cap := model.Capability{Type: "subagent", Name: "Code Reviewer", Content: "---\nname: code-reviewer\n---\nreview"}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "copy" {
+		t.Fatalf("subagent should copy (no gating), got %q", item.Action)
+	}
+	if want := filepath.Join("/target", ".claude/agents/code-reviewer.md"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+}
+
+func TestBuildInstallPlanSubagentPortableFallback(t *testing.T) {
+	cap := model.Capability{Type: "subagent", Name: "Code Reviewer", Content: "x"}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	if want := filepath.Join("/target", ".agent-packs/agents/code-reviewer.md"); p.Capabilities[0].Destination != want {
+		t.Fatalf("want destination %q, got %q", want, p.Capabilities[0].Destination)
 	}
 }
 

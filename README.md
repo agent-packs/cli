@@ -215,7 +215,7 @@ Agent Packs supports a basic package-manager lifecycle:
   in use (project-local signals) and the stack (`go.mod`, `package.json`,
   `Cargo.toml`, `pyproject.toml`, …) to recommend packs; an explicit `--agent`
   wins and `--no-detect` skips detection.
-- `new pack|skill|plugin|command|hook|memory|settings <id>`: scaffolds valid starter manifests.
+- `new pack|skill|plugin|command|hook|subagent|memory|settings <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
 - `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
 - `scan [path]`: discovers existing `SKILL.md` files.
@@ -394,19 +394,23 @@ destination path for each checked fragment.
 > until its target docs are verified; Goose memory is available as an
 > experimental markdown target, but Goose settings are not enabled in v1.
 
-## Specifying Commands And Hooks
+## Specifying Commands, Hooks, And Subagents
 
-Packs can also declare **`command`** and **`hook`** capabilities. In v1 these
-are managed files: `reference` mode records intent only, while `--mode copy`
-writes the command or hook file, tracks a content hash in the receipt, reports
-drift if the file is edited or removed, and deletes the managed file on
+Packs can also declare **`command`**, **`hook`**, and **`subagent`**
+capabilities. These are managed files: `reference` mode records intent only,
+while `--mode copy` writes the file, tracks a content hash in the receipt,
+reports drift if the file is edited or removed, and deletes the managed file on
 uninstall/rollback.
 
-Commands and hooks can use inline `content` or a `source` file. Directory
-sources require `entry`. Claude Code commands install to `.claude/commands/*.md`
-by default; other agents use portable `.agent-packs/commands/*.md` and
-`.agent-packs/hooks/*.json` destinations unless a pack provides an
-`agentTargets` override for a documented native path.
+They can use inline `content` or a `source` file. Directory sources require
+`entry`. Claude Code installs commands to `.claude/commands/*.md` and subagents
+to `.claude/agents/*.md`; other agents use portable `.agent-packs/commands/*.md`,
+`.agent-packs/hooks/*.json`, and `.agent-packs/agents/*.md` destinations unless a
+pack provides an `agentTargets` override for a documented native path.
+
+A subagent is a delegated assistant defined by a markdown file with frontmatter
+(`name`, `description`, `tools`, `model`). Unlike hooks, subagents are prompt
+definitions and run no commands, so they need no `--allow-hooks`-style gate.
 
 Installing a hook writes a file the target agent may run automatically, so hook
 writes are opt-in: in `--mode copy` a hook is only written when you pass
@@ -506,6 +510,9 @@ python3 -m unittest discover -s tests
   directory or portable Agent Packs command directory.
 - Hook: a reusable automation fragment installed as a managed file. Native hook
   activation is target-specific and should use `agentTargets` until verified.
+- Subagent: a delegated assistant defined by a markdown file with frontmatter,
+  installed to `.claude/agents/*.md` (Claude Code) or the portable
+  `.agent-packs/agents/*.md` directory.
 - Tool: shell command, API connector, or executable integration.
 - Recipe: recommended combinations of packs for a larger use case.
 

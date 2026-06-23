@@ -44,6 +44,8 @@ func New(opts NewOptions) (string, error) {
 		return newMemory(opts)
 	case "settings":
 		return newSettings(opts)
+	case "subagent":
+		return newSubagent(opts)
 	default:
 		return "", fmt.Errorf("unknown authoring kind: %s", opts.Kind)
 	}
@@ -123,6 +125,11 @@ func newMemory(opts NewOptions) (string, error) {
 func newSettings(opts NewOptions) (string, error) {
 	return newCapabilityFile(opts, "settings", "json",
 		`{"describe":"settings fragment to deep-merge into the agent settings file"}`)
+}
+
+func newSubagent(opts NewOptions) (string, error) {
+	content := fmt.Sprintf("---\nname: %s\ndescription: Describe when the agent should delegate to this subagent.\ntools: Read, Grep, Glob\n---\n\nYou are %s. Describe the subagent's role and how it should behave.\n", opts.ID, opts.Name)
+	return newCapabilityFile(opts, "subagent", "markdown", content)
 }
 
 func writeJSON(path string, value any, force bool) error {

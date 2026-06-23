@@ -11,6 +11,15 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+### Added
+- `subagent` capability type for distributing Claude Code subagents (delegated
+  assistants defined by a markdown file with frontmatter). Installs to
+  `.claude/agents/*.md` for Claude Code and the portable `.agent-packs/agents/*.md`
+  for other agents; supports `agent-packs new subagent` and
+  `install --only subagents`. Like commands, subagents are managed files with
+  drift detection and clean uninstall; unlike hooks they run nothing, so no
+  execution gate is required.
+
 ## [0.7.0] - 2026-06-23
 
 ### Added

@@ -89,7 +89,7 @@ func PrintPlan(plan model.Plan, out io.Writer) {
 		if item.UpstreamSource != "" && item.UpstreamSource != item.Source {
 			fmt.Fprintf(out, "  upstreamSource: %s\n", item.UpstreamSource)
 		}
-		if (item.Type == "hook" || item.Type == "command") && item.Content != "" {
+		if (item.Type == "hook" || item.Type == "command" || item.Type == "subagent") && item.Content != "" {
 			fmt.Fprintf(out, "  preview: %s\n", previewContent(item.Content))
 		}
 		if item.Reason != "" {
@@ -128,6 +128,8 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		wanted = "command"
 	case "hooks":
 		wanted = "hook"
+	case "subagents":
+		wanted = "subagent"
 	}
 	selected := []model.Capability{}
 	for _, capability := range capabilities {
@@ -143,7 +145,7 @@ func planCapability(packID string, capability model.Capability, target, agent st
 	switch capability.Type {
 	case "memory", "settings":
 		return planMergeCapability(packID, capability, target, agent, options)
-	case "command", "hook":
+	case "command", "hook", "subagent":
 		return planManagedFileCapability(packID, capability, target, agent, options)
 	case "skill":
 		entry := capability.Entry
