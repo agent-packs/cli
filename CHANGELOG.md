@@ -11,6 +11,32 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-23
+
+### Added
+- Full documented file-backed memory/settings support for Claude Code, Codex,
+  Gemini CLI, OpenCode, and GitHub Copilot.
+- Rich target metadata for instruction and settings destinations, including
+  scope, format, verification status, source documentation URL, and default
+  destination markers.
+- Codex TOML settings merge/retract/drift support with add-only, user-wins
+  semantics.
+- Copilot path-specific instruction support through `applyTo`, rendered as
+  `.github/instructions/*.instructions.md` files with frontmatter.
+- `install --only memory|settings` lifecycle support and JSON target matrix
+  output via `agent-packs doctor targets --json`.
+
+### Changed
+- Memory/settings documentation now explains durable instruction files,
+  reference-mode safety, generated-memory boundaries, and supported-agent
+  caveats.
+- Pack schema examples now include inline memory, Copilot instructions, Codex
+  TOML settings, and JSON settings fragments.
+
+### Fixed
+- Avoid duplicate TOML table declarations when merging settings into an existing
+  Codex config such as `[features]`.
+
 ## [0.4.0] - 2026-06-23
 
 ### Added
@@ -128,7 +154,8 @@ Goose, OpenCode).
   searchable catalog.
 - `CLAUDE.md` with build, test, and architecture guidance.
 
-[Unreleased]: https://github.com/agent-packs/cli/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/agent-packs/cli/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/agent-packs/cli/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/agent-packs/cli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/agent-packs/cli/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/agent-packs/cli/compare/v0.2.0...v0.2.1

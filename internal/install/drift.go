@@ -17,6 +17,7 @@ import (
 // DriftItem is a single capability checked for drift; exported for JSON output.
 type DriftItem struct {
 	Pack   string `json:"pack"`
+	Agent  string `json:"agent,omitempty"`
 	Name   string `json:"name"`
 	Dest   string `json:"dest"`
 	State  string `json:"state"`
@@ -51,13 +52,13 @@ func collectDriftItems(target string) ([]DriftItem, error) {
 				// Reference mode: the pack is installed but nothing is
 				// materialized on disk, so there is no file to verify drift
 				// against. Surface it so `status` doesn't look empty.
-				items = append(items, DriftItem{Pack: receipt.Plan.Pack, Name: item.Name, State: "referenced"})
+				items = append(items, DriftItem{Pack: receipt.Plan.Pack, Agent: receipt.Plan.Agent, Name: item.Name, State: "referenced"})
 				continue
 			}
 			if item.Status != "installed" {
 				continue
 			}
-			items = append(items, checkDrift(receipt.Plan.Pack, item))
+			items = append(items, checkDrift(receipt.Plan.Pack, receipt.Plan.Agent, item))
 		}
 	}
 
@@ -129,8 +130,8 @@ func DriftCheckJSON(target string, out io.Writer) error {
 	return enc.Encode(items)
 }
 
-func checkDrift(packID string, item model.PlanItem) DriftItem {
-	it := DriftItem{Pack: packID, Name: item.Name, Dest: item.Destination}
+func checkDrift(packID, agent string, item model.PlanItem) DriftItem {
+	it := DriftItem{Pack: packID, Agent: agent, Name: item.Name, Dest: item.Destination}
 	dest := util.ExpandHome(item.Destination)
 
 	if _, err := os.Stat(dest); err != nil {
@@ -200,6 +201,18 @@ func checkMergeDrift(it DriftItem, item model.PlanItem, dest string) DriftItem {
 		}
 	case "json":
 		present, hash, err := merge.OwnedKeysState(dest, item.OwnedKeys)
+		if err != nil || !present {
+			it.State = "missing"
+			it.Detail = "pack-owned settings keys not found"
+			return it
+		}
+		if item.ContentHash != "" && hash != item.ContentHash {
+			it.State = "drifted"
+			it.Detail = "pack-owned settings values were changed"
+			return it
+		}
+	case "toml":
+		present, hash, err := merge.OwnedTOMLKeysState(dest, item.OwnedKeys)
 		if err != nil || !present {
 			it.State = "missing"
 			it.Detail = "pack-owned settings keys not found"

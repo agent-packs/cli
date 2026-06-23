@@ -10,31 +10,69 @@ import (
 	"github.com/agent-packs/cli/internal/model"
 )
 
-// TargetMatrix maps each supported agent to its capability destinations. Memory
-// (markdown) is broadly supported; Settings (JSON deep-merge) is wired only for
-// agents with a clean, JSON config file we own. Empty FileDest fields mark
-// unsupported (agent, type, scope) combinations, which installs skip+warn.
-//
-// NOTE: several non-Claude paths are best-effort per the design's per-agent
-// matrix and should be confirmed against current agent docs before relying on
-// them; Claude is the confirmed reference implementation.
+// TargetMatrix maps each supported agent to its capability destinations. The
+// legacy Memory/Settings fields keep old custom-target JSON compatible; the
+// richer destination slices carry verification/source metadata and alternate
+// documented files.
 var TargetMatrix = map[string]model.TargetSpec{
 	"claude": {ID: "claude", Name: "Claude Code", GlobalSkills: ".claude/skills", ProjectSkills: ".claude/skills",
-		Memory:   model.FileDest{Global: ".claude/CLAUDE.md", Project: "CLAUDE.md", Kind: "markdown"},
-		Settings: model.FileDest{Global: ".claude/settings.json", Project: ".claude/settings.json", Kind: "json"}},
+		Memory:   model.FileDest{Global: ".claude/CLAUDE.md", Project: "CLAUDE.md", Kind: "markdown", Verified: true, SourceURL: "https://code.claude.com/docs/en/memory"},
+		Settings: model.FileDest{Global: ".claude/settings.json", Project: ".claude/settings.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings"},
+		InstructionDestinations: []model.FileDest{
+			{Scope: "global", Path: ".claude/CLAUDE.md", Kind: "markdown", Verified: true, SourceURL: "https://code.claude.com/docs/en/memory", Default: true},
+			{Scope: "project", Path: "CLAUDE.md", Kind: "markdown", Verified: true, SourceURL: "https://code.claude.com/docs/en/memory", Default: true},
+			{Scope: "project", Path: ".claude/CLAUDE.md", Kind: "markdown", Verified: true, SourceURL: "https://code.claude.com/docs/en/memory"},
+		},
+		SettingsDestinations: []model.FileDest{
+			{Scope: "global", Path: ".claude/settings.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings", Default: true},
+			{Scope: "project", Path: ".claude/settings.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings", Default: true},
+			{Scope: "project", Path: ".claude/settings.local.json", Kind: "json", Verified: true, SourceURL: "https://code.claude.com/docs/en/settings"},
+		}},
 	"codex": {ID: "codex", Name: "Codex", GlobalSkills: ".codex/skills", ProjectSkills: ".agents/skills",
-		Memory: model.FileDest{Global: ".codex/AGENTS.md", Project: "AGENTS.md", Kind: "markdown"}},
+		Memory:   model.FileDest{Global: ".codex/AGENTS.md", Project: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md"},
+		Settings: model.FileDest{Global: ".codex/config.toml", Project: ".codex/config.toml", Kind: "toml", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md"},
+		InstructionDestinations: []model.FileDest{
+			{Scope: "global", Path: ".codex/AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md", Default: true},
+			{Scope: "global", Path: ".codex/AGENTS.override.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md"},
+			{Scope: "project", Path: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md", Default: true},
+			{Scope: "project", Path: "AGENTS.override.md", Kind: "markdown", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md"},
+		},
+		SettingsDestinations: []model.FileDest{
+			{Scope: "global", Path: ".codex/config.toml", Kind: "toml", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md", Default: true},
+			{Scope: "project", Path: ".codex/config.toml", Kind: "toml", Verified: true, SourceURL: "https://developers.openai.com/codex/codex-manual.md", Default: true},
+		}},
 	"cursor": {ID: "cursor", Name: "Cursor", GlobalSkills: ".cursor/skills", ProjectSkills: ".cursor/skills"},
 	"gemini": {ID: "gemini", Name: "Gemini CLI", GlobalSkills: ".gemini/skills", ProjectSkills: ".gemini/skills",
-		Memory:   model.FileDest{Global: ".gemini/GEMINI.md", Project: "GEMINI.md", Kind: "markdown"},
-		Settings: model.FileDest{Global: ".gemini/settings.json", Project: ".gemini/settings.json", Kind: "json"}},
+		Memory:   model.FileDest{Global: ".gemini/GEMINI.md", Project: "GEMINI.md", Kind: "markdown", Verified: true, SourceURL: "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/memory.md"},
+		Settings: model.FileDest{Global: ".gemini/settings.json", Project: ".gemini/settings.json", Kind: "json", Verified: true, SourceURL: "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/configuration.md"},
+		InstructionDestinations: []model.FileDest{
+			{Scope: "global", Path: ".gemini/GEMINI.md", Kind: "markdown", Verified: true, SourceURL: "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/memory.md", Default: true},
+			{Scope: "project", Path: "GEMINI.md", Kind: "markdown", Verified: true, SourceURL: "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/memory.md", Default: true},
+		},
+		SettingsDestinations: []model.FileDest{
+			{Scope: "global", Path: ".gemini/settings.json", Kind: "json", Verified: true, SourceURL: "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/configuration.md", Default: true},
+			{Scope: "project", Path: ".gemini/settings.json", Kind: "json", Verified: true, SourceURL: "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/configuration.md", Default: true},
+		}},
 	"copilot": {ID: "copilot", Name: "GitHub Copilot", GlobalSkills: ".github/skills", ProjectSkills: ".github/skills",
-		Memory: model.FileDest{Project: ".github/copilot-instructions.md", Kind: "markdown"}},
+		Memory: model.FileDest{Project: ".github/copilot-instructions.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions"},
+		InstructionDestinations: []model.FileDest{
+			{Scope: "project", Path: ".github/copilot-instructions.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions", Default: true},
+			{Scope: "project", Path: ".github/instructions/*.instructions.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions"},
+			{Scope: "project", Path: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions"},
+		}},
 	"goose": {ID: "goose", Name: "Goose", GlobalSkills: ".goose/skills", ProjectSkills: ".goose/skills",
 		Memory: model.FileDest{Global: ".config/goose/.goosehints", Project: ".goosehints", Kind: "markdown"}},
 	"opencode": {ID: "opencode", Name: "OpenCode", GlobalSkills: ".opencode/skills", ProjectSkills: ".opencode/skills",
-		Memory:   model.FileDest{Global: ".config/opencode/AGENTS.md", Project: "AGENTS.md", Kind: "markdown"},
-		Settings: model.FileDest{Global: ".config/opencode/opencode.json", Project: "opencode.json", Kind: "json"}},
+		Memory:   model.FileDest{Global: ".config/opencode/AGENTS.md", Project: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://opencode.ai/docs/rules"},
+		Settings: model.FileDest{Global: ".config/opencode/opencode.json", Project: "opencode.json", Kind: "json", Verified: true, SourceURL: "https://opencode.ai/docs/config"},
+		InstructionDestinations: []model.FileDest{
+			{Scope: "global", Path: ".config/opencode/AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://opencode.ai/docs/rules", Default: true},
+			{Scope: "project", Path: "AGENTS.md", Kind: "markdown", Verified: true, SourceURL: "https://opencode.ai/docs/rules", Default: true},
+		},
+		SettingsDestinations: []model.FileDest{
+			{Scope: "global", Path: ".config/opencode/opencode.json", Kind: "json", Verified: true, SourceURL: "https://opencode.ai/docs/config", Default: true},
+			{Scope: "project", Path: "opencode.json", Kind: "json", Verified: true, SourceURL: "https://opencode.ai/docs/config", Default: true},
+		}},
 	"generic": {ID: "generic", Name: "Generic", GlobalSkills: "skills", ProjectSkills: "skills",
 		Memory: model.FileDest{Global: "AGENTS.md", Project: "AGENTS.md", Kind: "markdown"}},
 }
@@ -44,8 +82,14 @@ var TargetMatrix = map[string]model.TargetSpec{
 func MergeFileDest(spec model.TargetSpec, capType string) (model.FileDest, bool) {
 	switch capType {
 	case "memory":
+		if len(spec.InstructionDestinations) > 0 {
+			return spec.InstructionDestinations[0], true
+		}
 		return spec.Memory, true
 	case "settings":
+		if len(spec.SettingsDestinations) > 0 {
+			return spec.SettingsDestinations[0], true
+		}
 		return spec.Settings, true
 	default:
 		return model.FileDest{}, false
@@ -57,19 +101,49 @@ func MergeFileDest(spec model.TargetSpec, capType string) (model.FileDest, bool)
 // the agent does not support that capability type at that scope, in which case
 // the caller should skip+warn.
 func FileTargetRoot(capType, target, agent, scope string) (path, kind string, ok bool) {
+	dest, ok := FileTargetDest(capType, agent, scope)
+	if !ok {
+		return "", "", false
+	}
+	return filepath.Join(target, destPathForScope(dest, scope)), dest.Kind, true
+}
+
+func FileTargetDest(capType, agent, scope string) (model.FileDest, bool) {
 	spec, found := TargetMatrix[NormalizeAgent(agent)]
 	if !found {
 		spec = TargetMatrix["generic"]
 	}
-	dest, isMerge := MergeFileDest(spec, capType)
-	if !isMerge {
-		return "", "", false
+	var candidates []model.FileDest
+	switch capType {
+	case "memory":
+		candidates = spec.InstructionDestinations
+		if len(candidates) == 0 {
+			candidates = []model.FileDest{spec.Memory}
+		}
+	case "settings":
+		candidates = spec.SettingsDestinations
+		if len(candidates) == 0 {
+			candidates = []model.FileDest{spec.Settings}
+		}
+	default:
+		return model.FileDest{}, false
 	}
-	rel, supported := dest.PathFor(scope)
-	if !supported {
-		return "", "", false
+	for _, dest := range candidates {
+		if _, ok := dest.PathFor(scope); ok && dest.Default {
+			return dest, true
+		}
 	}
-	return filepath.Join(target, rel), dest.Kind, true
+	for _, dest := range candidates {
+		if _, ok := dest.PathFor(scope); ok {
+			return dest, true
+		}
+	}
+	return model.FileDest{}, false
+}
+
+func destPathForScope(dest model.FileDest, scope string) string {
+	rel, _ := dest.PathFor(scope)
+	return rel
 }
 
 // Aliases maps common pack metadata tool IDs to canonical target matrix keys.
@@ -156,6 +230,19 @@ func PrintTargetMatrix(out io.Writer) error {
 			supportCell(spec.Memory), supportCell(spec.Settings), strings.Join(aliases, ", "))
 	}
 	return nil
+}
+
+func TargetMatrixList() []model.TargetSpec {
+	ids := []string{}
+	for id := range TargetMatrix {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	specs := make([]model.TargetSpec, 0, len(ids))
+	for _, id := range ids {
+		specs = append(specs, TargetMatrix[id])
+	}
+	return specs
 }
 
 // supportCell renders a FileDest as a short support indicator for the matrix.

@@ -203,7 +203,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `cache`: shows and creates central source/cache/lock/registry directories under the Agent Packs home.
 - `update --all`: refreshes configured registries.
 - `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
-- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings.
+- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings` to install one capability family from a mixed pack.
 - `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings.
 - `rollback <pack...>`: restores one or more previous receipt-backed install states when history exists.
 - `uninstall <pack...>`: removes one or more installed packs, including installed inline skill folders, optional plugin cleanup commands, and receipts.
@@ -279,8 +279,8 @@ Plugins and skills are declared as entries in `capabilities`. Plugin entries mus
 
 Beyond skills and plugins, packs can declare **`memory`** and **`settings`**
 capabilities. Unlike skills (which install a whole directory), these **merge a
-fragment into a file the agent already owns** — the agent's memory markdown or
-its JSON settings — and are cleanly retracted on uninstall.
+fragment into a file the agent already owns** — the agent's durable instruction
+markdown or its JSON/TOML settings — and are cleanly retracted on uninstall.
 
 A **`memory`** capability carries its body inline as `content`, or points at a
 markdown file with `source`. The same body is written as a managed block into
@@ -312,9 +312,24 @@ Prefer small, focused PRs.
 <!-- END agent-packs:my-pack/house-rules -->
 ```
 
-A **`settings`** capability carries a JSON fragment that is deep-merged into the
-agent's settings file. Use the optional `mergeKey` to scope the merge to a dotted
-key path (e.g. `mcpServers`):
+For GitHub Copilot path-specific instructions, add `applyTo`; Agent Packs writes
+the fragment to `.github/instructions/<name>.instructions.md` with the required
+frontmatter:
+
+```json
+{
+  "type": "memory",
+  "name": "TypeScript Review Rules",
+  "applyTo": "src/**/*.{ts,tsx}",
+  "content": "Prefer explicit return types on exported functions."
+}
+```
+
+A **`settings`** capability carries a JSON object fragment that is deep-merged
+into the agent's settings file. JSON-backed agents receive JSON. Codex receives
+add-only TOML in `.codex/config.toml`, converted from the same JSON fragment.
+Use the optional `mergeKey` to scope the merge to a dotted key path (e.g.
+`mcpServers`):
 
 ```json
 {
@@ -338,15 +353,17 @@ status — the rest of the pack still installs):
 
 | Agent | Memory | Settings |
 | --- | --- | --- |
-| `claude` | `CLAUDE.md` / `.claude/CLAUDE.md` | `.claude/settings.json` |
-| `codex` | `AGENTS.md` / `.codex/AGENTS.md` | — |
+| `claude` | `CLAUDE.md`, `.claude/CLAUDE.md`, `~/.claude/CLAUDE.md` | `.claude/settings.json`, `.claude/settings.local.json`, `~/.claude/settings.json` |
+| `codex` | `AGENTS.md`, `AGENTS.override.md`, `~/.codex/AGENTS.md` | `.codex/config.toml`, `~/.codex/config.toml` |
 | `gemini` | `GEMINI.md` / `.gemini/GEMINI.md` | `.gemini/settings.json` |
-| `copilot` | `.github/copilot-instructions.md` | — |
+| `copilot` | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md` | — |
 | `goose` | `.goosehints` | — |
-| `opencode` | `AGENTS.md` | `opencode.json` |
+| `opencode` | `AGENTS.md`, `~/.config/opencode/AGENTS.md` | `opencode.json`, `~/.config/opencode/opencode.json` |
 | `generic` | `AGENTS.md` | — |
 
-`agent-packs targets` prints the live matrix. Merge semantics are **user-wins,
+`agent-packs doctor targets` prints the live matrix, and
+`agent-packs doctor targets --json` includes destination metadata such as
+`verified`, `sourceURL`, and `default`. Merge semantics are **user-wins,
 add-only**: an existing key or hand-written prose is never overwritten, and
 uninstall restores the file to its original state. Merges only happen with an
 explicit `--mode copy` — in the default `reference` mode the capability is
@@ -359,13 +376,20 @@ agent-packs install my-pack --agent claude
 
 # Actually merges the fragments into CLAUDE.md / settings.json.
 agent-packs install my-pack --agent claude --mode copy
+
+# Install only durable instructions or only settings from a mixed pack.
+agent-packs install my-pack --agent codex --only memory --mode copy
+agent-packs install my-pack --agent codex --only settings --mode copy
 ```
 
 `agent-packs status` reports drift if a managed memory block or a pack-owned
-settings key is later hand-edited.
+settings key is later hand-edited. `status --json` includes the target agent and
+destination path for each checked fragment.
 
-> Hooks and comment-preserving TOML/YAML settings are not yet supported and are
-> planned for a later release.
+> Generated auto-memory stores are intentionally not edited. Agent Packs writes
+> documented durable instruction/config files only. Cursor remains unsupported
+> until its target docs are verified; Goose memory is available as an
+> experimental markdown target, but Goose settings are not enabled in v1.
 
 ## Pack Composition
 

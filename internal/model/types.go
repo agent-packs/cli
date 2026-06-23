@@ -119,8 +119,21 @@ type Capability struct {
 	// MergeKey is a dotted key path within a structured settings file under
 	// which the fragment is merged (e.g. "mcpServers"). Empty merges at root.
 	MergeKey string `json:"mergeKey,omitempty"`
+	// ApplyTo scopes instruction fragments for agents with path-specific rule
+	// files, such as GitHub Copilot's .github/instructions/*.instructions.md.
+	ApplyTo string `json:"applyTo,omitempty"`
+	// AgentTargets can override the selected destination for a specific agent.
+	// It is intentionally narrow: the default target matrix remains the source
+	// of truth, while packs can opt into a documented alternate file.
+	AgentTargets map[string]AgentTarget `json:"agentTargets,omitempty"`
 
 	Reference bool `json:"-"`
+}
+
+type AgentTarget struct {
+	Destination string `json:"destination,omitempty"`
+	Scope       string `json:"scope,omitempty"`
+	Format      string `json:"format,omitempty"`
 }
 
 type Integrity struct {
@@ -289,16 +302,18 @@ type RegistryConfig struct {
 }
 
 type TargetSpec struct {
-	ID            string
-	Name          string
-	GlobalSkills  string
-	ProjectSkills string
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	GlobalSkills  string `json:"globalSkills"`
+	ProjectSkills string `json:"projectSkills"`
 
 	// Memory and Settings describe where merge-into-file capabilities land for
 	// this agent. An empty FileDest (or empty scope field) means the agent does
 	// not support that capability type at that scope, and installs skip+warn.
-	Memory   FileDest
-	Settings FileDest
+	Memory                  FileDest   `json:"memory"`
+	Settings                FileDest   `json:"settings"`
+	InstructionDestinations []FileDest `json:"instructionDestinations,omitempty"`
+	SettingsDestinations    []FileDest `json:"settingsDestinations,omitempty"`
 }
 
 // FileDest locates a merge-into-file capability for an agent. Global and
@@ -306,14 +321,29 @@ type TargetSpec struct {
 // marks that scope unsupported. Kind selects the merge strategy
 // ("markdown" or "json").
 type FileDest struct {
-	Global  string
-	Project string
-	Kind    string
+	Global    string `json:"global,omitempty"`
+	Project   string `json:"project,omitempty"`
+	Kind      string `json:"kind,omitempty"`
+	Scope     string `json:"scope,omitempty"`
+	Path      string `json:"path,omitempty"`
+	Verified  bool   `json:"verified,omitempty"`
+	SourceURL string `json:"sourceURL,omitempty"`
+	Default   bool   `json:"default,omitempty"`
 }
 
 // PathFor returns the relative path for the given scope ("project" uses the
 // project file, anything else uses the global file) and whether it is supported.
 func (d FileDest) PathFor(scope string) (string, bool) {
+	if d.Path != "" {
+		destScope := d.Scope
+		if destScope == "" {
+			destScope = "target"
+		}
+		if scope == destScope || (scope == "target" && destScope == "global") {
+			return d.Path, true
+		}
+		return "", false
+	}
 	rel := d.Global
 	if scope == "project" {
 		rel = d.Project

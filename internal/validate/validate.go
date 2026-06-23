@@ -452,9 +452,12 @@ func Verify(registryPath, packRef string, out io.Writer) error {
 			fail = true
 		}
 		seen[key] = true
-		if capability.Source == "" {
+		if capability.Source == "" && !(isMergeCapability(capability) && capability.Content != "") {
 			fmt.Fprintf(out, "FAIL  missing source: %s\n", key)
 			fail = true
+		}
+		if capability.Source == "" {
+			continue
 		}
 		resolution := resolve.ResolveSource(capability.Source)
 		if resolution.Warning != "" {
@@ -466,6 +469,10 @@ func Verify(registryPath, packRef string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "OK    %s verified (%d capabilities)\n", expanded.ID, len(expanded.Capabilities))
 	return nil
+}
+
+func isMergeCapability(capability model.Capability) bool {
+	return capability.Type == "memory" || capability.Type == "settings"
 }
 
 func ResolveSources(registryPath, packRef string, out io.Writer) error {

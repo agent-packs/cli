@@ -177,6 +177,40 @@ func TestBuildInstallPlanSettingsMapsToJSON(t *testing.T) {
 	}
 }
 
+func TestBuildInstallPlanCodexSettingsMapsToTOML(t *testing.T) {
+	cap := model.Capability{Type: "settings", Name: "memories", Content: `{"features":{"memories":true}}`}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.FileKind != "toml" {
+		t.Fatalf("want fileKind toml, got %q", item.FileKind)
+	}
+	if want := filepath.Join("/target", ".codex/config.toml"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+}
+
+func TestBuildInstallPlanOpenCodeGlobalMemoryUsesVerifiedPath(t *testing.T) {
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{memoryCapability("Rules", "Use tests.")}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "opencode", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "global"})
+	if want := filepath.Join("/target", ".config/opencode/AGENTS.md"); p.Capabilities[0].Destination != want {
+		t.Fatalf("want destination %q, got %q", want, p.Capabilities[0].Destination)
+	}
+}
+
+func TestBuildInstallPlanCopilotApplyToUsesInstructionsDirectory(t *testing.T) {
+	cap := model.Capability{Type: "memory", Name: "TypeScript Review", ApplyTo: "src/**/*.ts", Content: "Prefer strict types."}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "copilot", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if want := filepath.Join("/target", ".github/instructions/typescript-review.instructions.md"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+	if want := "---\napplyTo: \"src/**/*.ts\"\n---\n\nPrefer strict types."; item.Content != want {
+		t.Fatalf("want copilot frontmatter content %q, got %q", want, item.Content)
+	}
+}
+
 func TestBuildInstallPlanMergeReferenceModeRecordsOnly(t *testing.T) {
 	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{memoryCapability("m", "body")}}
 	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "reference", OnConflict: "skip", Scope: "target"})

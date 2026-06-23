@@ -282,9 +282,27 @@ func expandPackInner(registry string, pack model.Pack, seen, contributed map[str
 		}
 		out.Capabilities = append(out.Capabilities, plugin)
 	}
-	out.Capabilities = append(out.Capabilities, pack.Capabilities...)
+	out.Capabilities = append(out.Capabilities, normalizeMergeSources(pack.Capabilities, pack.Path)...)
 	delete(seen, pack.ID)
 	return out, nil
+}
+
+func normalizeMergeSources(capabilities []model.Capability, packPath string) []model.Capability {
+	if packPath == "" {
+		return append([]model.Capability{}, capabilities...)
+	}
+	base := filepath.Dir(packPath)
+	out := make([]model.Capability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		if (capability.Type == "memory" || capability.Type == "settings") &&
+			capability.Source != "" &&
+			util.IsLocalSource(capability.Source) &&
+			!filepath.IsAbs(util.ExpandHome(capability.Source)) {
+			capability.Source = filepath.Join(base, capability.Source)
+		}
+		out = append(out, capability)
+	}
+	return out
 }
 
 func ResolveCapabilityRef(registry, capabilityType string, ref model.CapabilityRef) (model.Capability, error) {

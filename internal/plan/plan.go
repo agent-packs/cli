@@ -171,11 +171,22 @@ func planMergeCapability(packID string, capability model.Capability, target, age
 			Reason: fmt.Sprintf("%s capabilities are not supported for agent %q at %s scope", capability.Type, agent, options.Scope),
 		}
 	}
+	if override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]; found && override.Destination != "" {
+		path = filepath.Join(target, override.Destination)
+		if override.Format != "" {
+			kind = override.Format
+		}
+	}
+	content := capability.Content
+	if capability.Type == "memory" && targets.NormalizeAgent(agent) == "copilot" && capability.ApplyTo != "" {
+		content = renderCopilotInstruction(capability.ApplyTo, content)
+		path = filepath.Join(target, ".github", "instructions", util.Slugify(capability.Name)+".instructions.md")
+	}
 	item := model.PlanItem{
 		Type: capability.Type, Name: capability.Name,
 		Mode: options.Mode, OnConflict: options.OnConflict,
 		Source: capability.Source, UpstreamSource: capability.UpstreamSource,
-		FileKind: kind, Content: capability.Content, MergeKey: capability.MergeKey,
+		FileKind: kind, Content: content, MergeKey: capability.MergeKey,
 		BlockID: packID + "/" + util.Slugify(capability.Name),
 		Status:  "planned",
 	}
@@ -186,6 +197,10 @@ func planMergeCapability(packID string, capability model.Capability, target, age
 	item.Action = "merge"
 	item.Destination = path
 	return item
+}
+
+func renderCopilotInstruction(applyTo, content string) string {
+	return fmt.Sprintf("---\napplyTo: %q\n---\n\n%s", applyTo, strings.TrimRight(content, "\n"))
 }
 
 func skillAction(capability model.Capability, options model.InstallOptions) string {

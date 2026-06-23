@@ -63,9 +63,9 @@ func ValidAgent(agent string) bool       { return targets.ValidAgent(agent) }
 
 func EnsureLocalRegistry(cacheDir string) (string, error) { return reg.EnsureLocalRegistry(cacheDir) }
 func RefreshLocalRegistry(cacheDir string) error          { return reg.RefreshLocalRegistry(cacheDir) }
-func LoadPacks(registry string) ([]Pack, error)  { return reg.LoadPacks(registry) }
-func LoadPack(path string) (Pack, error)         { return reg.LoadPack(path) }
-func FindPack(registry, id string) (Pack, error) { return reg.FindPack(registry, id) }
+func LoadPacks(registry string) ([]Pack, error)           { return reg.LoadPacks(registry) }
+func LoadPack(path string) (Pack, error)                  { return reg.LoadPack(path) }
+func FindPack(registry, id string) (Pack, error)          { return reg.FindPack(registry, id) }
 func ResolvePack(defaultRegistry, home, ref string) (Pack, string, error) {
 	return reg.ResolvePack(defaultRegistry, home, ref)
 }
@@ -86,14 +86,15 @@ func PluginCapability(id, root string, manifest PluginManifest) Capability {
 }
 func LoadSkillManifest(path string) (SkillManifest, error)   { return reg.LoadSkillManifest(path) }
 func LoadPluginManifest(path string) (PluginManifest, error) { return reg.LoadPluginManifest(path) }
+
 type SearchFilter = reg.SearchFilter
 
 func MatchPacks(registry, query string) ([]Pack, error) { return reg.MatchPacks(registry, query) }
 func FilteredMatchPacks(registry, query string, f SearchFilter) ([]Pack, error) {
 	return reg.FilteredMatchPacks(registry, query, f)
 }
-func Search(registry, query string, out io.Writer) error     { return reg.Search(registry, query, out) }
-func Show(registry, id string, out io.Writer) error          { return reg.Show(registry, id, out) }
+func Search(registry, query string, out io.Writer) error { return reg.Search(registry, query, out) }
+func Show(registry, id string, out io.Writer) error      { return reg.Show(registry, id, out) }
 func GenerateIndex(registry, outputPath string, out io.Writer) error {
 	return reg.GenerateIndex(registry, outputPath, out)
 }
@@ -181,7 +182,7 @@ func PinPack(registry, target, packRef string, check bool, out io.Writer) error 
 }
 func DriftCheck(target string, out io.Writer) error     { return install.DriftCheck(target, out) }
 func DriftCheckJSON(target string, out io.Writer) error { return install.DriftCheckJSON(target, out) }
-func CacheInfo(home string, out io.Writer) error    { return install.CacheInfo(home, out) }
+func CacheInfo(home string, out io.Writer) error        { return install.CacheInfo(home, out) }
 func CachePrune(home string, clean bool, out io.Writer) error {
 	return install.CachePrune(home, clean, out)
 }
@@ -249,19 +250,20 @@ func PublishReportForRegistry(registry, policyPath string) (PublishReport, error
 }
 
 func ResolveSource(source string) SourceResolution { return resolve.ResolveSource(source) }
-func PrintTargetMatrix(out io.Writer) error { return targets.PrintTargetMatrix(out) }
-func RegisterCustomTargets(home string)     { targets.RegisterCustomTargets(home) }
+func PrintTargetMatrix(out io.Writer) error        { return targets.PrintTargetMatrix(out) }
+func TargetMatrixList() []TargetSpec               { return targets.TargetMatrixList() }
+func RegisterCustomTargets(home string)            { targets.RegisterCustomTargets(home) }
 func AddCustomTarget(home, id, name, globalSkills, projectSkills string) error {
 	return targets.AddCustomTarget(home, id, name, globalSkills, projectSkills)
 }
-func RemoveCustomTarget(home, id string) error              { return targets.RemoveCustomTarget(home, id) }
-func ListCustomTargets(home string, out io.Writer) error    { return targets.ListCustomTargets(home, out) }
-func VersionString() string { return version.String() }
+func RemoveCustomTarget(home, id string) error           { return targets.RemoveCustomTarget(home, id) }
+func ListCustomTargets(home string, out io.Writer) error { return targets.ListCustomTargets(home, out) }
+func VersionString() string                              { return version.String() }
 
 // Tap / registry management
-func Tap(home, ref string, out io.Writer) error       { return reg.Tap(home, ref, out) }
-func Untap(home, ref string, out io.Writer) error     { return reg.Untap(home, ref, out) }
-func TapList(home string, out io.Writer) error        { return reg.TapList(home, out) }
+func Tap(home, ref string, out io.Writer) error   { return reg.Tap(home, ref, out) }
+func Untap(home, ref string, out io.Writer) error { return reg.Untap(home, ref, out) }
+func TapList(home string, out io.Writer) error    { return reg.TapList(home, out) }
 
 // Info / Home
 type InfoResult = reg.InfoResult
@@ -275,8 +277,8 @@ func PackInfoJSON(registry, home, packRef string, out io.Writer) error {
 func PackHome(registry, home, packRef string) error { return reg.OpenHome(registry, home, packRef) }
 
 // Analytics
-func AnalyticsEnable(home string) error              { return analytics.Enable(home) }
-func AnalyticsDisable(home string) error             { return analytics.Disable(home) }
+func AnalyticsEnable(home string) error                { return analytics.Enable(home) }
+func AnalyticsDisable(home string) error               { return analytics.Disable(home) }
 func AnalyticsStatus(home string, out io.Writer) error { return analytics.Status(home, out) }
 func AnalyticsTrack(home, event, packID, toolID, packVersion string) {
 	analytics.Track(home, event, packID, toolID, packVersion)

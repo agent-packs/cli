@@ -239,7 +239,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	target := flags.String("target", defaultTarget, "installation target directory")
 	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	targetTool := flags.String("target-tool", "", "target tool alias for --agent")
-	only := flags.String("only", "all", "capability filter: all, skills, or plugins")
+	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, or settings")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
 	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native ($AGENT_PACKS_MODE)")
@@ -269,8 +269,8 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if !agentpacks.ValidAgent(*agent) {
 		return fmt.Errorf("invalid agent %q: run `agent-packs doctor targets` for supported tools", *agent)
 	}
-	if *only != "all" && *only != "skills" && *only != "plugins" {
-		return fmt.Errorf("invalid --only %q: expected all, skills, or plugins", *only)
+	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" {
+		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, or settings", *only)
 	}
 	if *mode != "reference" && *mode != "symlink" && *mode != "copy" && *mode != "native" {
 		return fmt.Errorf("invalid --mode %q: expected reference, symlink, copy, or native", *mode)
@@ -494,10 +494,13 @@ func runUninstall(defaultTarget string, args []string) error {
 }
 
 func runDoctor(registry, defaultTarget string, args []string) error {
+	asJSON, args := extractJSONFlag(args)
 	if len(args) == 1 && args[0] == "targets" {
+		if asJSON {
+			return output.Encode(os.Stdout, agentpacks.TargetMatrixList())
+		}
 		return agentpacks.PrintTargetMatrix(os.Stdout)
 	}
-	asJSON, args := extractJSONFlag(args)
 	if len(args) != 0 {
 		return fmt.Errorf("usage: agent-packs doctor [targets] [--json]")
 	}
@@ -1137,7 +1140,7 @@ _agent_packs() {
             COMPREPLY=($(compgen -W "skip overwrite backup" -- "$cur"))
             return ;;
         --only)
-            COMPREPLY=($(compgen -W "all skills plugins" -- "$cur"))
+            COMPREPLY=($(compgen -W "all skills plugins memory settings" -- "$cur"))
             return ;;
     esac
 
@@ -1247,7 +1250,7 @@ _agent_packs() {
                 '--target-tool=[target tool alias]:agent:(claude codex cursor gemini copilot opencode goose)' \
                 '--mode=[install mode]:mode:(reference symlink copy native)' \
                 '--on-conflict=[conflict policy]:policy:(skip overwrite backup)' \
-                '--only=[capability filter]:filter:(all skills plugins)' \
+                '--only=[capability filter]:filter:(all skills plugins memory settings)' \
                 '--target=[install target directory]:directory:_directories' \
                 '--dry-run[print plan without writing files]' \
                 '--execute-plugins[run native plugin install commands]' \
@@ -1308,7 +1311,7 @@ complete -f -c agent-packs -l agent        -a "claude codex cursor gemini copilo
 complete -f -c agent-packs -l target-tool  -a "claude codex cursor gemini copilot opencode goose" -d 'Target tool alias'
 complete -f -c agent-packs -l mode         -a "reference symlink copy native"                     -d 'Install mode'
 complete -f -c agent-packs -l on-conflict  -a "skip overwrite backup"                             -d 'Conflict policy'
-complete -f -c agent-packs -l only         -a "all skills plugins"                                 -d 'Capability filter'
+complete -f -c agent-packs -l only         -a "all skills plugins memory settings"                 -d 'Capability filter'
 complete -r -c agent-packs -l target       -d 'Installation target directory'
 complete -f -c agent-packs -l dry-run      -d 'Print plan without writing files'
 complete -f -c agent-packs -l execute-plugins -d 'Run native plugin install commands'
@@ -1605,7 +1608,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")

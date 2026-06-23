@@ -114,3 +114,46 @@ func TestMergeLifecycleInstallDriftUninstall(t *testing.T) {
 		t.Fatalf("user key must be preserved, got %s", data)
 	}
 }
+
+func TestTOMLMergeLifecycleInstallDriftUninstall(t *testing.T) {
+	target := t.TempDir()
+	dest := filepath.Join(target, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dest, []byte("model = \"mine\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	item := model.PlanItem{
+		Type: "settings", Name: "codex memories", Action: "merge", FileKind: "toml",
+		Content: `{"features":{"memories":true}}`, Destination: dest, Status: "planned",
+	}
+	result := ExecutePlan(mergePlan(target, item), false)
+	if got := result.Capabilities[0].Status; got != "installed" {
+		t.Fatalf("want installed, got %q: %s", got, result.Capabilities[0].Reason)
+	}
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+		t.Fatal(err)
+	}
+	var clean strings.Builder
+	if err := DriftCheck(target, &clean); err != nil {
+		t.Fatalf("unexpected drift after install: %v\n%s", err, clean.String())
+	}
+	if err := os.WriteFile(dest, []byte("model = \"mine\"\n\n[features]\nmemories = false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var drifted strings.Builder
+	if err := DriftCheck(target, &drifted); err == nil {
+		t.Fatalf("expected drift error after edit, output:\n%s", drifted.String())
+	}
+	if err := Uninstall(target, "mpack", &strings.Builder{}); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	data, _ := os.ReadFile(dest)
+	if strings.Contains(string(data), "memories") {
+		t.Fatalf("pack TOML key should be removed, got %s", data)
+	}
+	if !strings.Contains(string(data), `model = "mine"`) {
+		t.Fatalf("user TOML key should be preserved, got %s", data)
+	}
+}

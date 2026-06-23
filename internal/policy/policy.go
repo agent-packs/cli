@@ -29,22 +29,24 @@ func PolicyCheck(registryPath, packRef, policyPath string, out io.Writer) error 
 	}
 	failed := false
 	for _, capability := range expanded.Capabilities {
-		if matchesAny(capability.Source, policy.DenySources) {
-			fmt.Fprintf(out, "FAIL  denied source: %s\n", capability.Source)
-			failed = true
-		}
-		if len(policy.AllowSources) > 0 && !matchesAny(capability.Source, policy.AllowSources) {
-			fmt.Fprintf(out, "FAIL  source not allowed: %s\n", capability.Source)
-			failed = true
-		}
-		resolution := resolve.ResolveSource(capability.Source)
-		if policy.RequirePinnedRefs {
-			if resolution.Kind == "remote" {
-				fmt.Fprintf(out, "FAIL  source revision unresolved: %s\n", capability.Source)
+		if capability.Source != "" {
+			if matchesAny(capability.Source, policy.DenySources) {
+				fmt.Fprintf(out, "FAIL  denied source: %s\n", capability.Source)
 				failed = true
-			} else if !resolution.Pinned && !util.IsLocalSource(capability.Source) {
-				fmt.Fprintf(out, "FAIL  source is not pinned: %s\n", capability.Source)
+			}
+			if len(policy.AllowSources) > 0 && !matchesAny(capability.Source, policy.AllowSources) {
+				fmt.Fprintf(out, "FAIL  source not allowed: %s\n", capability.Source)
 				failed = true
+			}
+			resolution := resolve.ResolveSource(capability.Source)
+			if policy.RequirePinnedRefs {
+				if resolution.Kind == "remote" {
+					fmt.Fprintf(out, "FAIL  source revision unresolved: %s\n", capability.Source)
+					failed = true
+				} else if !resolution.Pinned && !util.IsLocalSource(capability.Source) {
+					fmt.Fprintf(out, "FAIL  source is not pinned: %s\n", capability.Source)
+					failed = true
+				}
 			}
 		}
 		if capability.Type == "plugin" && capability.Install != nil && capability.Install["command"] != "" && !policy.AllowNativeCommands {

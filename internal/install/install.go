@@ -764,6 +764,13 @@ func installMerge(item model.PlanItem) model.PlanItem {
 			}
 			item.ContentHash = res.ContentHash
 			item.OwnedKeys = res.OwnedKeys
+		case "toml":
+			res, err := merge.ApplyTOMLMerge(dest, item.MergeKey, []byte(content))
+			if err != nil {
+				return err
+			}
+			item.ContentHash = res.ContentHash
+			item.OwnedKeys = res.OwnedKeys
 		default:
 			return fmt.Errorf("unknown merge file kind %q", item.FileKind)
 		}
@@ -794,6 +801,8 @@ func retractMergeItem(item model.PlanItem) error {
 			return merge.RetractMarkdownBlock(dest, item.BlockID)
 		case "json":
 			return merge.RetractJSONMerge(dest, item.MergeKey, item.OwnedKeys)
+		case "toml":
+			return merge.RetractTOMLMerge(dest, item.MergeKey, item.OwnedKeys)
 		default:
 			return nil
 		}
