@@ -139,7 +139,7 @@ func checkDrift(packID, agent string, item model.PlanItem) DriftItem {
 		return it
 	}
 
-	if item.FileKind != "" {
+	if (item.Type == "memory" || item.Type == "settings") && item.FileKind != "" {
 		return checkMergeDrift(it, item, dest)
 	}
 
@@ -173,6 +173,17 @@ func checkDrift(packID, agent string, item model.PlanItem) DriftItem {
 					it.Detail = fmt.Sprintf("content hash differs from source (dest=%.8s src=%.8s)", destHash, srcHash)
 					return it
 				}
+			}
+		} else if item.Type == "command" || item.Type == "hook" {
+			destHash, err := hashFile(dest)
+			if err != nil {
+				it.State = "missing"
+				return it
+			}
+			if item.ContentHash != "" && item.ContentHash != destHash {
+				it.State = "drifted"
+				it.Detail = "managed file content was edited"
+				return it
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package install
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -156,6 +157,10 @@ func Rollback(target, packID string, out io.Writer) error {
 			if _, statErr := os.Stat(util.ExpandHome(item.Source)); statErr != nil {
 				return fmt.Errorf("rollback aborted: skill %q source %q unavailable: %w", item.Name, item.Source, statErr)
 			}
+		} else if isManagedFileType(item.Type) && item.Action != "record" && item.Source != "" && util.IsLocalSource(item.Source) {
+			if _, statErr := os.Stat(util.ExpandHome(item.Source)); statErr != nil {
+				return fmt.Errorf("rollback aborted: %s %q source %q unavailable: %w", item.Type, item.Name, item.Source, statErr)
+			}
 		}
 	}
 	current, err := LoadReceipt(filepath.Join(absTarget, "receipts", packID+".json"))
@@ -163,6 +168,8 @@ func Rollback(target, packID string, out io.Writer) error {
 		for _, item := range current.Plan.Capabilities {
 			if item.Type == "skill" && item.Destination != "" && item.Status == "installed" {
 				_ = os.RemoveAll(item.Destination)
+			} else if isManagedFileType(item.Type) && item.Destination != "" && item.Status == "installed" {
+				_ = os.Remove(item.Destination)
 			} else if item.Type == "memory" || item.Type == "settings" {
 				_ = retractMergeItem(item)
 			}
@@ -196,6 +203,8 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 			results = append(results, installPlugin(item, executePlugins))
 		case "memory", "settings":
 			results = append(results, installMerge(item))
+		case "command", "hook":
+			results = append(results, installManagedFile(item))
 		default:
 			item.Status = "recorded"
 			results = append(results, item)
@@ -379,6 +388,11 @@ func UninstallWithOptions(target, packID string, executePlugins bool, out io.Wri
 				return err
 			}
 			fmt.Fprintf(out, "Removed skill: %s\n", item.Destination)
+		} else if isManagedFileType(item.Type) && item.Destination != "" && item.Status == "installed" {
+			if err := os.Remove(item.Destination); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			fmt.Fprintf(out, "Removed %s: %s\n", item.Type, item.Destination)
 		} else if item.Type == "memory" || item.Type == "settings" {
 			if err := retractMergeItem(item); err != nil {
 				return err
@@ -838,9 +852,104 @@ func retractExistingMergeItems(absTarget, packID string) error {
 			if err := retractMergeItem(item); err != nil {
 				return err
 			}
+		} else if isManagedFileType(item.Type) && item.Destination != "" && item.Status == "installed" {
+			if err := os.Remove(item.Destination); err != nil && !os.IsNotExist(err) {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func isManagedFileType(capType string) bool {
+	return capType == "command" || capType == "hook"
+}
+
+func installManagedFile(item model.PlanItem) model.PlanItem {
+	if item.Status == "unsupported" {
+		return item
+	}
+	if item.Action == "record" {
+		item.Status = "recorded"
+		item.Reason = "reference mode; not copied into target (use --mode copy to apply)"
+		return item
+	}
+	content, mode, err := managedFileContent(item)
+	if err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	destination, err := filepath.Abs(util.ExpandHome(item.Destination))
+	if err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	if ok := handleDestinationConflict(destination, item.OnConflict, &item); !ok {
+		return item
+	}
+	if err := os.WriteFile(destination, []byte(content), mode); err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
+		return item
+	}
+	item.ContentHash = hashString(content)
+	item.Status = "installed"
+	return item
+}
+
+func managedFileContent(item model.PlanItem) (string, os.FileMode, error) {
+	if item.Content != "" {
+		return item.Content, 0o644, nil
+	}
+	if item.Source == "" {
+		return "", 0, fmt.Errorf("%s capability %q has neither inline content nor a source", item.Type, item.Name)
+	}
+	path, cleanup, err := resolve.MaterializeSkillSource(item.Source, filepath.Dir(util.ExpandHome(item.Destination)))
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
+		return "", 0, fmt.Errorf("materializing %s source: %w", item.Type, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", 0, fmt.Errorf("reading %s source: %w", item.Type, err)
+	}
+	if info.IsDir() {
+		entry := item.Entry
+		if entry == "" {
+			return "", 0, fmt.Errorf("%s capability %q source is a directory; entry is required", item.Type, item.Name)
+		}
+		path = filepath.Join(path, entry)
+		info, err = os.Stat(path)
+		if err != nil {
+			return "", 0, fmt.Errorf("reading %s source entry: %w", item.Type, err)
+		}
+		if info.IsDir() {
+			return "", 0, fmt.Errorf("%s source entry must be a file: %s", item.Type, entry)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", 0, fmt.Errorf("reading %s source: %w", item.Type, err)
+	}
+	mode := info.Mode().Perm()
+	if mode == 0 {
+		mode = 0o644
+	}
+	return string(data), mode, nil
+}
+
+func hashString(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return fmt.Sprintf("%x", sum[:])
 }
 
 func installSkill(item model.PlanItem, target string) model.PlanItem {

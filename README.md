@@ -187,13 +187,13 @@ Agent Packs orchestrates native install flows instead of replacing them.
 - Registry plugins reference their `repository` or `homepage` when available; otherwise they reference their registry directory.
 - Inline local skill capabilities can still be copied into the selected agent skill target when a pack explicitly declares them under `capabilities`.
 - Inline remote skill capabilities can still be fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
-- Sync modes are explicit: `reference` records sources only, `symlink` links materialized skills, `copy` copies skills, and `native` enables native plugin planning.
+- Sync modes are explicit: `reference` records sources only, `symlink` links materialized skills, `copy` copies skills plus command/hook files, and `native` enables native plugin planning.
 - Conflicts are controlled with `--on-conflict skip|overwrite|backup`.
 - Inline plugin install and uninstall commands are preview-safe by default and only run with `--execute-plugins`.
 - Lifecycle commands accept multiple pack IDs directly: `install`, `upgrade`, `rollback`, and `uninstall` run packs sequentially and fail fast on the first error.
 - Installed packs write receipts under `<target>/receipts/`.
 - Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
-- `uninstall` removes installed inline skill folders and receipts. Plugin cleanup commands run only with `uninstall --execute-plugins`; otherwise plugins are reported for native/manual cleanup.
+- `uninstall` removes installed inline skill folders, managed command/hook files, and receipts. Plugin cleanup commands run only with `uninstall --execute-plugins`; otherwise plugins are reported for native/manual cleanup.
 - Standalone `skills` and `plugins` commands manage independent capabilities under `<target>/receipts/skills/` and `<target>/receipts/plugins/` without requiring a pack wrapper.
 
 ## Lifecycle Commands
@@ -203,7 +203,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `cache`: shows and creates central source/cache/lock/registry directories under the Agent Packs home.
 - `update --all`: refreshes configured registries.
 - `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
-- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings` to install one capability family from a mixed pack.
+- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings|commands|hooks` to install one capability family from a mixed pack.
 - `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings.
 - `rollback <pack...>`: restores one or more previous receipt-backed install states when history exists.
 - `uninstall <pack...>`: removes one or more installed packs, including installed inline skill folders, optional plugin cleanup commands, and receipts.
@@ -391,6 +391,45 @@ destination path for each checked fragment.
 > until its target docs are verified; Goose memory is available as an
 > experimental markdown target, but Goose settings are not enabled in v1.
 
+## Specifying Commands And Hooks
+
+Packs can also declare **`command`** and **`hook`** capabilities. In v1 these
+are managed files: `reference` mode records intent only, while `--mode copy`
+writes the command or hook file, tracks a content hash in the receipt, reports
+drift if the file is edited or removed, and deletes the managed file on
+uninstall/rollback.
+
+Commands and hooks can use inline `content` or a `source` file. Directory
+sources require `entry`. Claude Code commands install to `.claude/commands/*.md`
+by default; other agents use portable `.agent-packs/commands/*.md` and
+`.agent-packs/hooks/*.json` destinations unless a pack provides an
+`agentTargets` override for a documented native path.
+
+```json
+{
+  "type": "command",
+  "name": "Review PR",
+  "content": "Review the current pull request for correctness, tests, and release risk.",
+  "format": "markdown"
+}
+```
+
+```json
+{
+  "type": "hook",
+  "name": "Pre Review",
+  "content": "{\"event\":\"preReview\",\"steps\":[\"git status --short\",\"detect test command\"]}",
+  "format": "json"
+}
+```
+
+Install only commands or hooks from a mixed pack:
+
+```sh
+agent-packs install my-pack --agent claude --only commands --mode copy
+agent-packs install my-pack --agent codex --only hooks --mode copy
+```
+
 ## Pack Composition
 
 Packs can include other packs with the `packs` field. They can also include reusable source references with `skills` and `plugins`. `skills` and `plugins` entries can be registry ID strings or objects with their own remote `source`. Included packs and referenced capabilities are expanded before install.
@@ -454,6 +493,10 @@ python3 -m unittest discover -s tests
 - Categories/tools/scope: searchable facets for registry discovery and install intent.
 - Skill: an instruction module, often `SKILL.md`.
 - Plugin: a packaged agent extension, such as an Anthropic/Claude Code plugin.
+- Command: a reusable prompt/command file installed into an agent command
+  directory or portable Agent Packs command directory.
+- Hook: a reusable automation fragment installed as a managed file. Native hook
+  activation is target-specific and should use `agentTargets` until verified.
 - Tool: shell command, API connector, or executable integration.
 - Recipe: recommended combinations of packs for a larger use case.
 

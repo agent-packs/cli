@@ -107,6 +107,15 @@ Integrity metadata uses `integrity.checksum` (`sha256:`) and optional `integrity
 
 The target matrix maps supported tools to global and project skill directories, with aliases such as `claude-code` → `claude`. Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target by default (`--mode reference`).
 
+Commands and hooks are managed file capabilities. In `reference` mode they are
+recorded only. In `copy` mode, Agent Packs writes a single file from inline
+`content` or a materialized source file, records a content hash in the receipt,
+checks drift with `status`, and removes the file on uninstall/rollback. Claude
+Code commands use the verified `.claude/commands/*.md` destination; other agents
+fall back to portable `.agent-packs/commands/*.md` and
+`.agent-packs/hooks/*.json` destinations unless a pack supplies an
+`agentTargets` override.
+
 ## Merge Capabilities (Memory And Settings)
 
 `memory` and `settings` capabilities differ from skills/plugins: instead of owning a whole filesystem object, they merge a fragment into a file the agent already owns (durable instruction markdown such as `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, Copilot `.instructions.md` files, or JSON/TOML settings such as `.claude/settings.json` and `.codex/config.toml`). The target matrix carries verified `instructionDestinations[]` and `settingsDestinations[]` entries with scope, format, source URL, and default markers. Unsupported `(agent, type, scope)` combinations install as `unsupported` skips.

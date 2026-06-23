@@ -217,13 +217,12 @@ type PlanItem struct {
 	Stdout            string `json:"stdout,omitempty"`
 	Stderr            string `json:"stderr,omitempty"`
 
-	// Merge-into-file fields, set for memory/settings capabilities. FileKind
-	// (markdown|json) flags that this item merges a fragment into a shared file
-	// the pack does not own — uninstall retracts the fragment rather than
-	// removing the whole file. Content carries the inline fragment; BlockID is
-	// the stable marker id for markdown blocks; MergeKey scopes structured
-	// merges; ContentHash and OwnedKeys are filled at install time and record
-	// exactly what was injected so it can be cleanly retracted and drift-checked.
+	// File-backed capability fields. For memory/settings, FileKind selects the
+	// merge strategy and uninstall retracts the fragment from a shared file. For
+	// command/hook, FileKind describes the managed copied file and uninstall
+	// removes that file. Content carries inline data; BlockID is the stable
+	// marker id for markdown blocks; MergeKey scopes structured merges;
+	// ContentHash and OwnedKeys record what was installed for drift checks.
 	FileKind    string   `json:"fileKind,omitempty"`
 	Content     string   `json:"content,omitempty"`
 	BlockID     string   `json:"blockId,omitempty"`
@@ -314,6 +313,8 @@ type TargetSpec struct {
 	Settings                FileDest   `json:"settings"`
 	InstructionDestinations []FileDest `json:"instructionDestinations,omitempty"`
 	SettingsDestinations    []FileDest `json:"settingsDestinations,omitempty"`
+	CommandDestinations     []FileDest `json:"commandDestinations,omitempty"`
+	HookDestinations        []FileDest `json:"hookDestinations,omitempty"`
 }
 
 // FileDest locates a merge-into-file capability for an agent. Global and

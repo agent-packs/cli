@@ -146,9 +146,9 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 		errs = append(errs, prefix+".name is required")
 	}
 	if capability.Source == "" {
-		// Memory/settings capabilities may carry an inline fragment instead of
-		// a source file; one of the two is required.
-		if capability.Type == "memory" || capability.Type == "settings" {
+		// File-backed fragment capabilities may carry inline content instead
+		// of a source file; one of the two is required.
+		if capabilityAllowsInlineContent(capability.Type) {
 			if capability.Content == "" {
 				errs = append(errs, prefix+".source or .content is required")
 			}
@@ -473,6 +473,10 @@ func Verify(registryPath, packRef string, out io.Writer) error {
 
 func isMergeCapability(capability model.Capability) bool {
 	return capability.Type == "memory" || capability.Type == "settings"
+}
+
+func capabilityAllowsInlineContent(capType string) bool {
+	return capType == "memory" || capType == "settings" || capType == "command" || capType == "hook"
 }
 
 func ResolveSources(registryPath, packRef string, out io.Writer) error {
