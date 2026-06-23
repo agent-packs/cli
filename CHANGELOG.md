@@ -11,6 +11,24 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-23
+
+### Added
+- File-backed `command` and `hook` capability types. In `reference` mode they
+  are recorded only; with `--mode copy` Agent Packs writes the file from inline
+  `content` or a materialized `source`, records a content hash, reports drift
+  when the file is edited or removed, and deletes the managed file on
+  uninstall/rollback.
+- `install --only commands|hooks` filters plus shell completions for them.
+- Target matrix `commandDestinations`/`hookDestinations`: Claude Code commands
+  install to `.claude/commands/*.md`; other agents fall back to portable
+  `.agent-packs/commands/*.md` and `.agent-packs/hooks/*.json` destinations
+  unless a pack supplies an `agentTargets` override.
+
+### Changed
+- Release workflow links CLI releases to the Homebrew tap sync and requires a
+  Homebrew tap token for the release dispatch.
+
 ## [0.5.0] - 2026-06-23
 
 ### Added
