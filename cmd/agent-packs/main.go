@@ -1163,7 +1163,7 @@ func normalizeTargetArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--execute-plugins" || arg == "--check" {
+		if arg == "--execute-plugins" || arg == "--execute-mcps" || arg == "--check" || arg == "--all" {
 			flags = append(flags, arg)
 			continue
 		}
