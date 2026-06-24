@@ -139,7 +139,7 @@ func checkDrift(packID, agent string, item model.PlanItem) DriftItem {
 		return it
 	}
 
-	if (item.Type == "memory" || item.Type == "settings") && item.FileKind != "" {
+	if (item.Type == "memory" || item.Type == "settings" || item.Type == "mcp") && item.FileKind != "" {
 		return checkMergeDrift(it, item, dest)
 	}
 

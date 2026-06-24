@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -140,6 +141,8 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		wanted = "hook"
 	case "subagents":
 		wanted = "subagent"
+	case "mcp":
+		wanted = "mcp"
 	case "prompts":
 		wanted = "prompt"
 	case "templates":
@@ -159,6 +162,8 @@ func planCapability(packID string, capability model.Capability, target, agent st
 	switch capability.Type {
 	case "memory", "settings":
 		return planMergeCapability(packID, capability, target, agent, options)
+	case "mcp":
+		return planMCPCapability(packID, capability, target, agent, options)
 	case "command", "hook", "subagent", "prompt", "template":
 		return planManagedFileCapability(packID, capability, target, agent, options)
 	case "skill":
@@ -326,4 +331,81 @@ func skillDestination(capability model.Capability, target, agent string, options
 		return ""
 	}
 	return filepath.Join(targets.SkillTargetRoot(target, agent, options.Scope), util.Slugify(capability.Name))
+}
+
+func planMCPCapability(packID string, capability model.Capability, target, agent string, options model.InstallOptions) model.PlanItem {
+	path, kind, ok := targets.FileTargetRoot("settings", target, agent, options.Scope)
+	if !ok {
+		return model.PlanItem{
+			Type: capability.Type, Name: capability.Name, Action: "skip", Status: "unsupported",
+			Reason: fmt.Sprintf("MCP servers are configured via settings, which are not supported for agent %q at %s scope", agent, options.Scope),
+		}
+	}
+	if override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]; found && override.Destination != "" {
+		path = filepath.Join(target, override.Destination)
+		if override.Format != "" {
+			kind = override.Format
+		}
+	}
+
+	var args []string
+	for _, arg := range capability.Args {
+		args = append(args, strings.ReplaceAll(arg, "${PROJECT_DIR}", target))
+	}
+	var env map[string]string
+	if len(capability.Env) > 0 {
+		env = make(map[string]string)
+		for k, v := range capability.Env {
+			env[k] = strings.ReplaceAll(v, "${PROJECT_DIR}", target)
+		}
+	}
+
+	serverDef := map[string]any{
+		"command": capability.Command,
+		"args":    args,
+	}
+	if len(env) > 0 {
+		serverDef["env"] = env
+	}
+	mcpConfig := map[string]any{
+		capability.ServerName: serverDef,
+	}
+	contentBytes, _ := json.Marshal(mcpConfig)
+
+	mergeKey := "mcpServers"
+	if targets.NormalizeAgent(agent) == "codex" {
+		mergeKey = "mcp_servers"
+	}
+
+	item := model.PlanItem{
+		Type: capability.Type, Name: capability.Name,
+		Mode: options.Mode, OnConflict: options.OnConflict,
+		Source: capability.Source, UpstreamSource: capability.UpstreamSource,
+		FileKind: kind, Content: string(contentBytes), MergeKey: mergeKey,
+		BlockID: packID + "/mcp/" + util.Slugify(capability.ServerName),
+		Status:  "planned",
+	}
+
+	action := "merge"
+	if options.Mode == "reference" {
+		action = "record"
+	}
+	if options.ExecuteMCPs && capability.Install != nil && capability.Install["command"] != "" {
+		if action == "merge" {
+			action = "native-install-and-merge"
+		} else {
+			action = "native-install"
+		}
+		item.Command = capability.Install["command"]
+		item.UninstallCommand = capability.Install["uninstall"]
+		item.Method = capability.Install["method"]
+		item.Package = capability.Install["package"]
+		item.Marketplace = capability.Install["marketplace"]
+	}
+
+	item.Action = action
+	if action != "record" && action != "native-install" {
+		item.Destination = path
+	}
+	return item
 }

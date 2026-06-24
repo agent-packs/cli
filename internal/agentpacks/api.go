@@ -133,14 +133,20 @@ func InstallStandalone(registry, ref, kind, target, agent string, executePlugins
 func InstallStandaloneWithOverrides(registry, ref, kind, target, agent string, executePlugins, dryRun bool, options InstallOptions, installOverrides map[string]string, out io.Writer) error {
 	return install.InstallStandaloneWithOverrides(registry, ref, kind, target, agent, executePlugins, dryRun, options, installOverrides, out)
 }
-func Upgrade(registry, home, packRef, target string, executePlugins bool, out io.Writer) error {
-	return install.Upgrade(registry, home, packRef, target, executePlugins, out)
+func Upgrade(registry, home, packRef, target string, executePlugins, executeMCPs bool, out io.Writer) error {
+	return install.Upgrade(registry, home, packRef, target, executePlugins, executeMCPs, out)
 }
 func UpgradeStandalone(target, id, kind string, executePlugins bool, out io.Writer) error {
 	return install.UpgradeStandalone(target, id, kind, executePlugins, out)
 }
 func Rollback(target, packID string, out io.Writer) error {
 	return install.Rollback(target, packID, out)
+}
+func Uninstall(target, packID string, out io.Writer) error {
+	return install.Uninstall(target, packID, out)
+}
+func UninstallWithOptions(target, packID string, executePlugins, executeMCPs bool, out io.Writer) error {
+	return install.UninstallWithOptions(target, packID, executePlugins, executeMCPs, out)
 }
 func ExecutePlan(p Plan, executePlugins bool) Plan { return install.ExecutePlan(p, executePlugins) }
 func WriteReceipt(target string, pack Pack, p Plan) (string, error) {
@@ -159,12 +165,7 @@ func ListInstalledReceipts(target string) ([]InstalledSummary, error) {
 func ListStandalone(target, kind string, out io.Writer) error {
 	return install.ListStandalone(target, kind, out)
 }
-func Uninstall(target, packID string, out io.Writer) error {
-	return install.Uninstall(target, packID, out)
-}
-func UninstallWithOptions(target, packID string, executePlugins bool, out io.Writer) error {
-	return install.UninstallWithOptions(target, packID, executePlugins, out)
-}
+
 func UninstallStandalone(target, id, kind string, executePlugins bool, out io.Writer) error {
 	return install.UninstallStandalone(target, id, kind, executePlugins, out)
 }

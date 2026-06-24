@@ -245,6 +245,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, hooks, subagents, prompts, or templates")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
 	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
 	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native ($AGENT_PACKS_MODE)")
 	onConflict := flags.String("on-conflict", envOrDefault("AGENT_PACKS_ON_CONFLICT", "skip"), "conflict policy: skip, overwrite, or backup ($AGENT_PACKS_ON_CONFLICT)")
@@ -264,7 +265,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 		remaining = append(extra, remaining...)
 	}
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs install <pack-id>... [--from file] [--target dir] [--agent name] [--only filter] [--dry-run] [--execute-plugins]")
+		return fmt.Errorf("usage: agent-packs install <pack-id>... [--from file] [--target dir] [--agent name] [--only filter] [--dry-run] [--execute-plugins] [--execute-mcps]")
 	}
 	if *targetTool != "" {
 		*agent = *targetTool
@@ -273,8 +274,8 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if !agentpacks.ValidAgent(*agent) {
 		return fmt.Errorf("invalid agent %q: run `agent-packs doctor targets` for supported tools", *agent)
 	}
-	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" && *only != "commands" && *only != "hooks" && *only != "subagents" && *only != "prompts" && *only != "templates" {
-		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, settings, commands, hooks, subagents, prompts, or templates", *only)
+	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" && *only != "commands" && *only != "hooks" && *only != "subagents" && *only != "mcp" && *only != "prompts" && *only != "templates" {
+		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, or templates", *only)
 	}
 	if *mode != "reference" && *mode != "symlink" && *mode != "copy" && *mode != "native" {
 		return fmt.Errorf("invalid --mode %q: expected reference, symlink, copy, or native", *mode)
@@ -292,7 +293,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 		installTarget = *target
 		scope = "global"
 	}
-	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks}
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks, ExecuteMCPs: *executeMCPs}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Installing", packRef, index, len(remaining))
 		if err := agentpacks.InstallWithMinTrust(registry, *target, packRef, installTarget, *agent, *only, *executePlugins, *dryRun, options, *minTrust, os.Stdout); err != nil {
@@ -336,7 +337,7 @@ func runTestRun(registry, defaultTarget string, args []string) error {
 
 	fmt.Fprintf(os.Stdout, "Creating sandbox at %s\n", tempDir)
 
-	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: "overwrite", Scope: "project", AllowHooks: *allowHooks}
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: "overwrite", Scope: "project", AllowHooks: *allowHooks, ExecuteMCPs: false}
 
 	printLifecycleHeader("Installing pack into sandbox", packID, 0, 1)
 	if err := agentpacks.InstallWithMinTrust(registry, defaultTarget, packID, tempDir, *agent, "all", false, false, options, "", os.Stdout); err != nil {
@@ -542,16 +543,17 @@ func runUninstall(defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin uninstall commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP uninstall commands")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
 	}
 	remaining := flags.Args()
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs uninstall <pack-id>... [--target dir] [--execute-plugins]")
+		return fmt.Errorf("usage: agent-packs uninstall <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
 	}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Uninstalling", packRef, index, len(remaining))
-		if err := agentpacks.UninstallWithOptions(*target, packRef, *executePlugins, os.Stdout); err != nil {
+		if err := agentpacks.UninstallWithOptions(*target, packRef, *executePlugins, *executeMCPs, os.Stdout); err != nil {
 			return err
 		}
 	}
@@ -605,6 +607,7 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
 	all := flags.Bool("all", false, "upgrade all installed packs")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
@@ -621,18 +624,18 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 		}
 		for index, s := range summaries {
 			printLifecycleHeader("Upgrading", s.ID, index, len(summaries))
-			if err := agentpacks.Upgrade(registry, *target, s.ID, *target, *executePlugins, os.Stdout); err != nil {
+			if err := agentpacks.Upgrade(registry, *target, s.ID, *target, *executePlugins, *executeMCPs, os.Stdout); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs upgrade <pack-id>... [--all] [--target dir] [--execute-plugins]")
+		return fmt.Errorf("usage: agent-packs upgrade <pack-id>... [--all] [--target dir] [--execute-plugins] [--execute-mcps]")
 	}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Upgrading", packRef, index, len(remaining))
-		if err := agentpacks.Upgrade(registry, *target, packRef, *target, *executePlugins, os.Stdout); err != nil {
+		if err := agentpacks.Upgrade(registry, *target, packRef, *target, *executePlugins, *executeMCPs, os.Stdout); err != nil {
 			return err
 		}
 	}
@@ -1086,7 +1089,7 @@ func normalizeInstallArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--allow-hooks" || arg == "--global" {
+		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--execute-mcps" || arg == "--allow-hooks" || arg == "--global" {
 			flags = append(flags, arg)
 			continue
 		}
@@ -1160,7 +1163,7 @@ func normalizeTargetArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--execute-plugins" || arg == "--check" {
+		if arg == "--execute-plugins" || arg == "--execute-mcps" || arg == "--check" || arg == "--all" {
 			flags = append(flags, arg)
 			continue
 		}
@@ -1728,7 +1731,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|prompts|templates] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--allow-hooks]")
+	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")
@@ -1736,7 +1739,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs plugins install|list|upgrade|uninstall ... [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
 	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native] [--no-detect]")
