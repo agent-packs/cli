@@ -141,6 +141,8 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		wanted = "hook"
 	case "subagents":
 		wanted = "subagent"
+	case "mcp":
+		wanted = "mcp"
 	case "prompts":
 		wanted = "prompt"
 	case "templates":

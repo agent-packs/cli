@@ -274,8 +274,8 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if !agentpacks.ValidAgent(*agent) {
 		return fmt.Errorf("invalid agent %q: run `agent-packs doctor targets` for supported tools", *agent)
 	}
-	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" && *only != "commands" && *only != "hooks" && *only != "subagents" && *only != "prompts" && *only != "templates" {
-		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, settings, commands, hooks, subagents, prompts, or templates", *only)
+	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" && *only != "commands" && *only != "hooks" && *only != "subagents" && *only != "mcp" && *only != "prompts" && *only != "templates" {
+		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, or templates", *only)
 	}
 	if *mode != "reference" && *mode != "symlink" && *mode != "copy" && *mode != "native" {
 		return fmt.Errorf("invalid --mode %q: expected reference, symlink, copy, or native", *mode)
@@ -311,7 +311,6 @@ func runTestRun(registry, defaultTarget string, args []string) error {
 	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	command := flags.String("command", "", "command to launch the agent (overrides default agent executable)")
 	mode := flags.String("mode", "copy", "sync mode (defaults to copy for test-run)")
-	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
 	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -338,7 +337,7 @@ func runTestRun(registry, defaultTarget string, args []string) error {
 
 	fmt.Fprintf(os.Stdout, "Creating sandbox at %s\n", tempDir)
 
-	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: "overwrite", Scope: "project", AllowHooks: *allowHooks, ExecuteMCPs: *executeMCPs}
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: "overwrite", Scope: "project", AllowHooks: *allowHooks, ExecuteMCPs: false}
 
 	printLifecycleHeader("Installing pack into sandbox", packID, 0, 1)
 	if err := agentpacks.InstallWithMinTrust(registry, defaultTarget, packID, tempDir, *agent, "all", false, false, options, "", os.Stdout); err != nil {
@@ -1088,7 +1087,7 @@ func normalizeInstallArgs(args []string) []string {
 	positionals := []string{}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--allow-hooks" || arg == "--global" {
+		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--execute-mcps" || arg == "--allow-hooks" || arg == "--global" {
 			flags = append(flags, arg)
 			continue
 		}
@@ -1729,7 +1728,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--execute-mcps] [--allow-hooks]")
+	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
