@@ -476,7 +476,7 @@ func isMergeCapability(capability model.Capability) bool {
 }
 
 func capabilityAllowsInlineContent(capType string) bool {
-	return capType == "memory" || capType == "settings" || capType == "command" || capType == "hook" || capType == "subagent"
+	return capType == "memory" || capType == "settings" || capType == "command" || capType == "hook" || capType == "subagent" || capType == "prompt" || capType == "template"
 }
 
 func ResolveSources(registryPath, packRef string, out io.Writer) error {

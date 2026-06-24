@@ -89,13 +89,23 @@ func PrintPlan(plan model.Plan, out io.Writer) {
 		if item.UpstreamSource != "" && item.UpstreamSource != item.Source {
 			fmt.Fprintf(out, "  upstreamSource: %s\n", item.UpstreamSource)
 		}
-		if (item.Type == "hook" || item.Type == "command" || item.Type == "subagent") && item.Content != "" {
+		if isManagedFileType(item.Type) && item.Content != "" {
 			fmt.Fprintf(out, "  preview: %s\n", previewContent(item.Content))
 		}
 		if item.Reason != "" {
 			fmt.Fprintf(out, "  note: %s\n", item.Reason)
 		}
 	}
+}
+
+// isManagedFileType reports whether a capability is materialized as a single
+// managed file (copied verbatim), as opposed to a merge-into-file capability.
+func isManagedFileType(capType string) bool {
+	switch capType {
+	case "command", "hook", "subagent", "prompt", "template":
+		return true
+	}
+	return false
 }
 
 // previewContent renders a single-line, length-capped preview of inline
@@ -130,6 +140,10 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		wanted = "hook"
 	case "subagents":
 		wanted = "subagent"
+	case "prompts":
+		wanted = "prompt"
+	case "templates":
+		wanted = "template"
 	}
 	selected := []model.Capability{}
 	for _, capability := range capabilities {
@@ -145,7 +159,7 @@ func planCapability(packID string, capability model.Capability, target, agent st
 	switch capability.Type {
 	case "memory", "settings":
 		return planMergeCapability(packID, capability, target, agent, options)
-	case "command", "hook", "subagent":
+	case "command", "hook", "subagent", "prompt", "template":
 		return planManagedFileCapability(packID, capability, target, agent, options)
 	case "skill":
 		entry := capability.Entry

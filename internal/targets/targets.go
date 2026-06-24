@@ -97,6 +97,16 @@ var TargetMatrix = map[string]model.TargetSpec{
 			{Scope: "target", Path: ".agent-packs/agents/*.md", Kind: "markdown", Default: true},
 			{Scope: "global", Path: ".agent-packs/agents/*.md", Kind: "markdown", Default: true},
 			{Scope: "project", Path: ".agent-packs/agents/*.md", Kind: "markdown", Default: true},
+		},
+		PromptDestinations: []model.FileDest{
+			{Scope: "target", Path: ".agent-packs/prompts/*.md", Kind: "markdown", Default: true},
+			{Scope: "global", Path: ".agent-packs/prompts/*.md", Kind: "markdown", Default: true},
+			{Scope: "project", Path: ".agent-packs/prompts/*.md", Kind: "markdown", Default: true},
+		},
+		TemplateDestinations: []model.FileDest{
+			{Scope: "target", Path: ".agent-packs/templates/*.md", Kind: "markdown", Default: true},
+			{Scope: "global", Path: ".agent-packs/templates/*.md", Kind: "markdown", Default: true},
+			{Scope: "project", Path: ".agent-packs/templates/*.md", Kind: "markdown", Default: true},
 		}},
 }
 
@@ -162,6 +172,16 @@ func FileTargetDest(capType, agent, scope string) (model.FileDest, bool) {
 		candidates = spec.SubagentDestinations
 		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
 			candidates = TargetMatrix["generic"].SubagentDestinations
+		}
+	case "prompt":
+		candidates = spec.PromptDestinations
+		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
+			candidates = TargetMatrix["generic"].PromptDestinations
+		}
+	case "template":
+		candidates = spec.TemplateDestinations
+		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
+			candidates = TargetMatrix["generic"].TemplateDestinations
 		}
 	default:
 		return model.FileDest{}, false

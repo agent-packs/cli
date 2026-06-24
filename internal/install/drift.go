@@ -174,7 +174,7 @@ func checkDrift(packID, agent string, item model.PlanItem) DriftItem {
 					return it
 				}
 			}
-		} else if item.Type == "command" || item.Type == "hook" || item.Type == "subagent" {
+		} else if isManagedFileType(item.Type) {
 			destHash, err := hashFile(dest)
 			if err != nil {
 				it.State = "missing"

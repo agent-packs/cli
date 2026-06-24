@@ -321,6 +321,8 @@ type TargetSpec struct {
 	CommandDestinations     []FileDest `json:"commandDestinations,omitempty"`
 	HookDestinations        []FileDest `json:"hookDestinations,omitempty"`
 	SubagentDestinations    []FileDest `json:"subagentDestinations,omitempty"`
+	PromptDestinations      []FileDest `json:"promptDestinations,omitempty"`
+	TemplateDestinations    []FileDest `json:"templateDestinations,omitempty"`
 }
 
 // FileDest locates a merge-into-file capability for an agent. Global and

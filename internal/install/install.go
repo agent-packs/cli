@@ -203,7 +203,7 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 			results = append(results, installPlugin(item, executePlugins))
 		case "memory", "settings":
 			results = append(results, installMerge(item))
-		case "command", "hook", "subagent":
+		case "command", "hook", "subagent", "prompt", "template":
 			results = append(results, installManagedFile(item))
 		default:
 			item.Status = "recorded"
@@ -862,7 +862,7 @@ func retractExistingMergeItems(absTarget, packID string) error {
 }
 
 func isManagedFileType(capType string) bool {
-	return capType == "command" || capType == "hook" || capType == "subagent"
+	return capType == "command" || capType == "hook" || capType == "subagent" || capType == "prompt" || capType == "template"
 }
 
 func installManagedFile(item model.PlanItem) model.PlanItem {

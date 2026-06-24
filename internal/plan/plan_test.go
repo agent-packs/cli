@@ -265,11 +265,12 @@ func TestBuildInstallPlanOnlyFilterNewTypes(t *testing.T) {
 	}
 }
 
-func TestBuildInstallPlanCommandCapabilityRecords(t *testing.T) {
-	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{{Type: "prompt", Name: "pr", Source: "/tmp/pr"}}}
+func TestBuildInstallPlanUnhandledCapabilityRecords(t *testing.T) {
+	// `tool` has no materialization path yet, so it falls through to record.
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{{Type: "tool", Name: "t", Source: "/tmp/t"}}}
 	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "target"})
 	if p.Capabilities[0].Action != "record" {
-		t.Fatalf("non-skill/non-plugin capability should record, got %q", p.Capabilities[0].Action)
+		t.Fatalf("unhandled capability type should record, got %q", p.Capabilities[0].Action)
 	}
 }
 
@@ -349,6 +350,27 @@ func TestBuildInstallPlanSubagentPortableFallback(t *testing.T) {
 	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
 	if want := filepath.Join("/target", ".agent-packs/agents/code-reviewer.md"); p.Capabilities[0].Destination != want {
 		t.Fatalf("want destination %q, got %q", want, p.Capabilities[0].Destination)
+	}
+}
+
+func TestBuildInstallPlanPromptAndTemplatePortableDestinations(t *testing.T) {
+	for _, tc := range []struct {
+		capType string
+		want    string
+	}{
+		{"prompt", ".agent-packs/prompts/review.md"},
+		{"template", ".agent-packs/templates/review.md"},
+	} {
+		cap := model.Capability{Type: tc.capType, Name: "Review", Content: "x"}
+		pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+		p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+		item := p.Capabilities[0]
+		if item.Action != "copy" {
+			t.Fatalf("%s should copy (no gating), got %q", tc.capType, item.Action)
+		}
+		if want := filepath.Join("/target", tc.want); item.Destination != want {
+			t.Fatalf("%s: want destination %q, got %q", tc.capType, want, item.Destination)
+		}
 	}
 }
 
