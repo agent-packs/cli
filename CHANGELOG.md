@@ -11,6 +11,8 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-24
+
 ### Added
 - `prompt` and `template` capability types, completing the materialization of
   the schema's capability enum. Both are managed files (drift-tracked, cleanly
