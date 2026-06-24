@@ -170,7 +170,7 @@ func Rollback(target, packID string, out io.Writer) error {
 				_ = os.RemoveAll(item.Destination)
 			} else if isManagedFileType(item.Type) && item.Destination != "" && item.Status == "installed" {
 				_ = os.Remove(item.Destination)
-			} else if item.Type == "memory" || item.Type == "settings" {
+			} else if item.Type == "memory" || item.Type == "settings" || item.Type == "mcp" {
 				_ = retractMergeItem(item)
 			}
 		}
@@ -203,6 +203,8 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 			results = append(results, installPlugin(item, executePlugins))
 		case "memory", "settings":
 			results = append(results, installMerge(item))
+		case "mcp":
+			results = append(results, installMCP(item))
 		case "command", "hook", "subagent":
 			results = append(results, installManagedFile(item))
 		default:
@@ -393,12 +395,20 @@ func UninstallWithOptions(target, packID string, executePlugins bool, out io.Wri
 				return err
 			}
 			fmt.Fprintf(out, "Removed %s: %s\n", item.Type, item.Destination)
-		} else if item.Type == "memory" || item.Type == "settings" {
+		} else if item.Type == "memory" || item.Type == "settings" || item.Type == "mcp" {
 			if err := retractMergeItem(item); err != nil {
 				return err
 			}
 			if item.Status == "installed" {
 				fmt.Fprintf(out, "Removed %s from: %s\n", item.Type, item.Destination)
+			}
+			if item.Type == "mcp" {
+				result := uninstallMCP(item, executePlugins) // executePlugins is passed because it maps to execution allowed
+				if result.Status == "uninstalled" {
+					fmt.Fprintf(out, "Uninstalled MCP: %s\n", item.Name)
+				} else if result.Status == "pending" {
+					fmt.Fprintf(out, "MCP requires native uninstall/manual cleanup: %s\n", item.Name)
+				}
 			}
 		} else if item.Type == "plugin" {
 			result := uninstallPlugin(item, executePlugins)

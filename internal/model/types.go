@@ -127,6 +127,12 @@ type Capability struct {
 	// of truth, while packs can opt into a documented alternate file.
 	AgentTargets map[string]AgentTarget `json:"agentTargets,omitempty"`
 
+	// MCP specific fields
+	ServerName string            `json:"serverName,omitempty"`
+	Command    string            `json:"command,omitempty"`
+	Args       []string          `json:"args,omitempty"`
+	Env        map[string]string `json:"env,omitempty"`
+
 	Reference bool `json:"-"`
 }
 
@@ -185,6 +191,8 @@ type InstallOptions struct {
 	// (parallel to --execute-plugins). When false, hooks are recorded for
 	// preview but not written.
 	AllowHooks bool
+	// ExecuteMCPs gates native installation commands for MCP servers (parallel to --execute-plugins).
+	ExecuteMCPs bool
 }
 
 type Plan struct {
