@@ -372,11 +372,16 @@ func planMCPCapability(packID string, capability model.Capability, target, agent
 	}
 	contentBytes, _ := json.Marshal(mcpConfig)
 
+	mergeKey := "mcpServers"
+	if targets.NormalizeAgent(agent) == "codex" {
+		mergeKey = "mcp_servers"
+	}
+
 	item := model.PlanItem{
 		Type: capability.Type, Name: capability.Name,
 		Mode: options.Mode, OnConflict: options.OnConflict,
 		Source: capability.Source, UpstreamSource: capability.UpstreamSource,
-		FileKind: kind, Content: string(contentBytes), MergeKey: "mcpServers",
+		FileKind: kind, Content: string(contentBytes), MergeKey: mergeKey,
 		BlockID: packID + "/mcp/" + util.Slugify(capability.ServerName),
 		Status:  "planned",
 	}

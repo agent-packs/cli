@@ -388,7 +388,7 @@ func TestUninstallExecutesPluginCleanupWhenOptedIn(t *testing.T) {
 	}
 	t.Setenv("AGENT_PACKS_PLUGIN_CWD", temp)
 	var output strings.Builder
-	if err := UninstallWithOptions(temp, "plugin-pack", true, &output); err != nil {
+	if err := UninstallWithOptions(temp, "plugin-pack", true, false, &output); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(temp, "plugin-cleanup.txt"))

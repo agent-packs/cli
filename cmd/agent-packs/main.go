@@ -543,16 +543,17 @@ func runUninstall(defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin uninstall commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP uninstall commands")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
 	}
 	remaining := flags.Args()
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs uninstall <pack-id>... [--target dir] [--execute-plugins]")
+		return fmt.Errorf("usage: agent-packs uninstall <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
 	}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Uninstalling", packRef, index, len(remaining))
-		if err := agentpacks.UninstallWithOptions(*target, packRef, *executePlugins, os.Stdout); err != nil {
+		if err := agentpacks.UninstallWithOptions(*target, packRef, *executePlugins, *executeMCPs, os.Stdout); err != nil {
 			return err
 		}
 	}
@@ -606,6 +607,7 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
 	all := flags.Bool("all", false, "upgrade all installed packs")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
@@ -622,18 +624,18 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 		}
 		for index, s := range summaries {
 			printLifecycleHeader("Upgrading", s.ID, index, len(summaries))
-			if err := agentpacks.Upgrade(registry, *target, s.ID, *target, *executePlugins, os.Stdout); err != nil {
+			if err := agentpacks.Upgrade(registry, *target, s.ID, *target, *executePlugins, *executeMCPs, os.Stdout); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs upgrade <pack-id>... [--all] [--target dir] [--execute-plugins]")
+		return fmt.Errorf("usage: agent-packs upgrade <pack-id>... [--all] [--target dir] [--execute-plugins] [--execute-mcps]")
 	}
 	for index, packRef := range remaining {
 		printLifecycleHeader("Upgrading", packRef, index, len(remaining))
-		if err := agentpacks.Upgrade(registry, *target, packRef, *target, *executePlugins, os.Stdout); err != nil {
+		if err := agentpacks.Upgrade(registry, *target, packRef, *target, *executePlugins, *executeMCPs, os.Stdout); err != nil {
 			return err
 		}
 	}
@@ -1737,7 +1739,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs plugins install|list|upgrade|uninstall ... [--execute-plugins]")
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
 	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native] [--no-detect]")
