@@ -11,6 +11,15 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-24
+
+### Added
+- `prompt` and `template` capability types, completing the materialization of
+  the schema's capability enum. Both are managed files (drift-tracked, cleanly
+  uninstalled) installed to the portable `.agent-packs/prompts/*.md` and
+  `.agent-packs/templates/*.md` directories; support `agent-packs new
+  prompt|template` and `install --only prompts|templates`. No execution gate.
+
 ## [0.8.0] - 2026-06-23
 
 ### Added
