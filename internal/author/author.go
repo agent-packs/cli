@@ -46,6 +46,10 @@ func New(opts NewOptions) (string, error) {
 		return newSettings(opts)
 	case "subagent":
 		return newSubagent(opts)
+	case "prompt":
+		return newPrompt(opts)
+	case "template":
+		return newTemplate(opts)
 	default:
 		return "", fmt.Errorf("unknown authoring kind: %s", opts.Kind)
 	}
@@ -130,6 +134,16 @@ func newSettings(opts NewOptions) (string, error) {
 func newSubagent(opts NewOptions) (string, error) {
 	content := fmt.Sprintf("---\nname: %s\ndescription: Describe when the agent should delegate to this subagent.\ntools: Read, Grep, Glob\n---\n\nYou are %s. Describe the subagent's role and how it should behave.\n", opts.ID, opts.Name)
 	return newCapabilityFile(opts, "subagent", "markdown", content)
+}
+
+func newPrompt(opts NewOptions) (string, error) {
+	content := fmt.Sprintf("# %s\n\nDescribe the reusable prompt this capability provides.\n", opts.Name)
+	return newCapabilityFile(opts, "prompt", "markdown", content)
+}
+
+func newTemplate(opts NewOptions) (string, error) {
+	content := fmt.Sprintf("# %s\n\nStarter template body. Replace with the scaffold this template provides.\n", opts.Name)
+	return newCapabilityFile(opts, "template", "markdown", content)
 }
 
 func writeJSON(path string, value any, force bool) error {

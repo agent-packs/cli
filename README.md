@@ -215,7 +215,7 @@ Agent Packs supports a basic package-manager lifecycle:
   in use (project-local signals) and the stack (`go.mod`, `package.json`,
   `Cargo.toml`, `pyproject.toml`, …) to recommend packs; an explicit `--agent`
   wins and `--no-detect` skips detection.
-- `new pack|skill|plugin|command|hook|subagent|memory|settings <id>`: scaffolds valid starter manifests.
+- `new pack|skill|plugin|command|hook|subagent|prompt|template|memory|settings <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
 - `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
 - `scan [path]`: discovers existing `SKILL.md` files.
@@ -513,6 +513,10 @@ python3 -m unittest discover -s tests
 - Subagent: a delegated assistant defined by a markdown file with frontmatter,
   installed to `.claude/agents/*.md` (Claude Code) or the portable
   `.agent-packs/agents/*.md` directory.
+- Prompt: a reusable prompt file, installed to the portable
+  `.agent-packs/prompts/*.md` directory.
+- Template: a reusable scaffold file, installed to the portable
+  `.agent-packs/templates/*.md` directory (stored as markdown in v1).
 - Tool: shell command, API connector, or executable integration.
 - Recipe: recommended combinations of packs for a larger use case.
 
