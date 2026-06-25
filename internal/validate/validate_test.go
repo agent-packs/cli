@@ -408,18 +408,44 @@ func containsSubstr(errs []string, sub string) bool {
 }
 
 func TestValidatePackBlockedKeys(t *testing.T) {
+	// Case 1: Plain variable names in description and setup instructions should be allowed.
 	p := validPack()
-	p.Description = "This pack requires XQUIK_API_KEY to post tweets."
+	p.Description = "This pack requires XQUIK_API_KEY or OPENAI_API_KEY to run. Please set it in your environment."
 	errs := ValidatePack(p)
-	if !containsSubstr(errs, "blocked API key/token/Xquik reference") {
-		t.Fatalf("expected pack to be rejected due to XQUIK_API_KEY reference, got %v", errs)
+	if len(errs) != 0 {
+		t.Fatalf("expected plain env var names in description to be allowed, got: %v", errs)
 	}
 
+	// Case 2: Env variable set to placeholder value should be allowed.
 	p2 := validPack()
-	p2.Capabilities[0].Name = "Uses Xquik tool"
+	p2.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "<your-openai-api-key>",
+		"PORT":           "8080",
+	}
 	errs2 := ValidatePack(p2)
-	if !containsSubstr(errs2, "blocked API key/token/Xquik reference") {
-		t.Fatalf("expected pack to be rejected due to Xquik reference, got %v", errs2)
+	if len(errs2) != 0 {
+		t.Fatalf("expected env variables with placeholder/standard values to be allowed, got: %v", errs2)
+	}
+
+	// Case 3: Env variable set to actual credential value should be blocked.
+	p3 := validPack()
+	p3.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "sk-proj-somekeyvalue12345",
+	}
+	errs3 := ValidatePack(p3)
+	if !containsSubstr(errs3, "contains a literal credentials value") {
+		t.Fatalf("expected env variable with literal key to be blocked, got: %v", errs3)
+	}
+
+	// Case 4: Literal secrets in settings should be blocked.
+	p4 := validPack()
+	p4.Capabilities[0].Type = "settings"
+	p4.Capabilities[0].Format = "other"
+	p4.Capabilities[0].Content = `{"secretToken": "ghp_abcdefghijklmnopqrstuvwxyz1234567890"}`
+	errs4 := ValidatePack(p4)
+	if !containsSubstr(errs4, "contains a secret-looking value") && !containsSubstr(errs4, "contains a literal credentials value") {
+		t.Fatalf("expected settings with literal secret token to be blocked, got: %v", errs4)
 	}
 }
+
 

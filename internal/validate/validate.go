@@ -189,6 +189,36 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 			errs = append(errs, prefix+".requiresExecution must be true when install.uninstall is set")
 		}
 	}
+
+	// Scan env variables
+	if capability.Env != nil {
+		for k, v := range capability.Env {
+			kLower := strings.ToLower(k)
+			isSecretKey := strings.Contains(kLower, "key") ||
+				strings.Contains(kLower, "token") ||
+				strings.Contains(kLower, "secret") ||
+				strings.Contains(kLower, "password")
+			if isSecretKey && v != "" && !isPlaceholder(v) {
+				errs = append(errs, fmt.Sprintf("%s.env.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, v))
+			}
+		}
+	}
+
+	// Scan args for secrets
+	for i, arg := range capability.Args {
+		if isActualSecret(arg) {
+			errs = append(errs, fmt.Sprintf("%s.args[%d] contains a secret-looking value: %q", prefix, i, arg))
+		}
+	}
+
+	// Scan settings content
+	if (capability.Type == "settings" || capability.Type == "mcp") && capability.Content != "" {
+		var settingsMap map[string]any
+		if err := json.Unmarshal([]byte(capability.Content), &settingsMap); err == nil {
+			errs = append(errs, scanMapForCredentials(settingsMap, prefix+".content")...)
+		}
+	}
+
 	return errs
 }
 
@@ -236,10 +266,6 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
 	}
 	errs = append(errs, validateCategories(pack.Categories, AllowedCategories(schemaDir))...)
-	packData, err := json.Marshal(pack)
-	if err == nil {
-		errs = append(errs, scanBlockedKeys(string(packData))...)
-	}
 	return errs
 }
 
@@ -266,19 +292,19 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, sche
 	return errs
 }
 
-// apiKeyPattern matches environment variable patterns, settings, or mentions of API keys/tokens.
-var apiKeyPattern = regexp.MustCompile(`(?i)\b[a-z0-9_]*(?:API_KEY|API_TOKEN|SECRET_KEY|AUTH_TOKEN|ACCESS_TOKEN)\b|xquik`)
+// strongSecretPattern matches actual inline credential patterns (OpenAI, GitHub).
+var strongSecretPattern = regexp.MustCompile(`(?i)\b(?:sk-[a-zA-Z0-9_]{20,}|ghp_[a-zA-Z0-9]{36,})\b`)
 
 func scanBlockedKeys(content string) []string {
 	var findings []string
-	matches := apiKeyPattern.FindAllString(content, -1)
+	matches := strongSecretPattern.FindAllString(content, -1)
 	if len(matches) > 0 {
 		seen := map[string]bool{}
 		for _, m := range matches {
 			mLower := strings.ToLower(m)
 			if !seen[mLower] {
 				seen[mLower] = true
-				findings = append(findings, "blocked API key/token/Xquik reference: "+m)
+				findings = append(findings, "blocked inline credential secret: "+m)
 			}
 		}
 	}
@@ -291,6 +317,71 @@ func scanSkillAPIKeys(skillPath string) []string {
 		return nil
 	}
 	return scanBlockedKeys(string(data))
+}
+
+func isPlaceholder(val string) bool {
+	val = strings.ToLower(val)
+	return strings.Contains(val, "your") ||
+		strings.Contains(val, "todo") ||
+		strings.Contains(val, "placeholder") ||
+		strings.Contains(val, "<") ||
+		strings.Contains(val, ">") ||
+		val == ""
+}
+
+// secretPatterns lists regexes that match actual secrets, not just names of env vars.
+var secretPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\bsk-[a-zA-Z0-9_]{20,}\b`),
+	regexp.MustCompile(`\bghp_[a-zA-Z0-9]{36,}\b`),
+	regexp.MustCompile(`\b[a-f0-9]{32,}\b`),
+	regexp.MustCompile(`\b[a-zA-Z0-9_-]{32,}\b`),
+}
+
+func isActualSecret(val string) bool {
+	if isPlaceholder(val) {
+		return false
+	}
+	// Ignore git commit SHAs (40-char hex)
+	if len(val) == 40 && regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(val) {
+		return false
+	}
+	// Ignore standard URL formats or paths
+	if strings.HasPrefix(val, "http://") || strings.HasPrefix(val, "https://") || strings.HasPrefix(val, "/") || strings.Contains(val, ".") {
+		return false
+	}
+	for _, pat := range secretPatterns {
+		if pat.MatchString(val) {
+			return true
+		}
+	}
+	return false
+}
+
+func scanMapForCredentials(m map[string]any, prefix string) []string {
+	var errs []string
+	for k, v := range m {
+		kLower := strings.ToLower(k)
+		if strVal, ok := v.(string); ok {
+			isSecretKey := strings.Contains(kLower, "key") ||
+				strings.Contains(kLower, "token") ||
+				strings.Contains(kLower, "secret") ||
+				strings.Contains(kLower, "password")
+			if isSecretKey && strVal != "" && !isPlaceholder(strVal) {
+				errs = append(errs, fmt.Sprintf("%s.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, strVal))
+			} else if isActualSecret(strVal) {
+				errs = append(errs, fmt.Sprintf("%s.%s contains a secret-looking value: %q", prefix, k, strVal))
+			}
+		} else if nestedMap, ok := v.(map[string]any); ok {
+			errs = append(errs, scanMapForCredentials(nestedMap, prefix+"."+k)...)
+		} else if listVal, ok := v.([]any); ok {
+			for i, item := range listVal {
+				if strItem, ok := item.(string); ok && isActualSecret(strItem) {
+					errs = append(errs, fmt.Sprintf("%s.%s[%d] contains a secret-looking value: %q", prefix, k, i, strItem))
+				}
+			}
+		}
+	}
+	return errs
 }
 
 // injectionPatterns are regexes that flag potential prompt injection in skill content.
