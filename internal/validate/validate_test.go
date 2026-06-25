@@ -504,6 +504,16 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 	if len(errs7) != 0 {
 		t.Fatalf("expected settings key 'tokenizer' or 'tokens_limit' to be allowed, got: %v", errs7)
 	}
+
+	// Case 8: Settings secrets inside arrays of objects should be blocked.
+	p8 := validPack()
+	p8.Capabilities[0].Type = "settings"
+	p8.Capabilities[0].Format = "other"
+	p8.Capabilities[0].Content = `{"servers": [{"apiKey": "literal-production-key"}]}`
+	errs8 := ValidatePack(p8)
+	if !containsSubstr(errs8, "contains a literal credentials value") {
+		t.Fatalf("expected nested settings inside array to be blocked, got: %v", errs8)
+	}
 }
 
 

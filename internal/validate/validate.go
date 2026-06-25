@@ -459,11 +459,24 @@ func scanMapForCredentials(m map[string]any, prefix string) []string {
 		} else if nestedMap, ok := v.(map[string]any); ok {
 			errs = append(errs, scanMapForCredentials(nestedMap, prefix+"."+k)...)
 		} else if listVal, ok := v.([]any); ok {
-			for i, item := range listVal {
-				if strItem, ok := item.(string); ok && isActualSecret(strItem) {
-					errs = append(errs, fmt.Sprintf("%s.%s[%d] contains a secret-looking value: %q", prefix, k, i, redactSecret(strItem)))
-				}
+			errs = append(errs, scanListForCredentials(listVal, prefix+"."+k)...)
+		}
+	}
+	return errs
+}
+
+func scanListForCredentials(list []any, prefix string) []string {
+	var errs []string
+	for i, item := range list {
+		itemPrefix := fmt.Sprintf("%s[%d]", prefix, i)
+		if strItem, ok := item.(string); ok {
+			if isActualSecret(strItem) {
+				errs = append(errs, fmt.Sprintf("%s contains a secret-looking value: %q", itemPrefix, redactSecret(strItem)))
 			}
+		} else if nestedMap, ok := item.(map[string]any); ok {
+			errs = append(errs, scanMapForCredentials(nestedMap, itemPrefix)...)
+		} else if nestedList, ok := item.([]any); ok {
+			errs = append(errs, scanListForCredentials(nestedList, itemPrefix)...)
 		}
 	}
 	return errs
