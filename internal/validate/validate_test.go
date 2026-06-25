@@ -427,7 +427,19 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 		t.Fatalf("expected env variables with placeholder/standard values to be allowed, got: %v", errs2)
 	}
 
-	// Case 3: Env variable set to actual credential value should be blocked.
+	// Case 2b: Env variable set to an environment variable reference/interpolation should be allowed.
+	p2b := validPack()
+	p2b.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "${OPENAI_API_KEY}",
+		"ANOTHER_KEY":    "$ANOTHER_KEY",
+		"WIN_KEY":        "%WIN_KEY%",
+	}
+	errs2b := ValidatePack(p2b)
+	if len(errs2b) != 0 {
+		t.Fatalf("expected env variables with references to be allowed, got: %v", errs2b)
+	}
+
+	// Case 3: Env variable set to actual credential value should be blocked, and the output must be redacted.
 	p3 := validPack()
 	p3.Capabilities[0].Env = map[string]string{
 		"OPENAI_API_KEY": "sk-proj-somekeyvalue12345",
@@ -436,8 +448,15 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 	if !containsSubstr(errs3, "contains a literal credentials value") {
 		t.Fatalf("expected env variable with literal key to be blocked, got: %v", errs3)
 	}
+	// Assert that it's redacted
+	if containsSubstr(errs3, "somekeyvalue12345") {
+		t.Fatalf("expected env validation error to redact the secret, but found it in: %v", errs3)
+	}
+	if !containsSubstr(errs3, "sk-...2345") {
+		t.Fatalf("expected env validation error to contain redacted fingerprint 'sk-...2345', got: %v", errs3)
+	}
 
-	// Case 4: Literal secrets in settings should be blocked.
+	// Case 4: Literal secrets in settings should be blocked and redacted.
 	p4 := validPack()
 	p4.Capabilities[0].Type = "settings"
 	p4.Capabilities[0].Format = "other"
@@ -445,6 +464,25 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 	errs4 := ValidatePack(p4)
 	if !containsSubstr(errs4, "contains a secret-looking value") && !containsSubstr(errs4, "contains a literal credentials value") {
 		t.Fatalf("expected settings with literal secret token to be blocked, got: %v", errs4)
+	}
+	if containsSubstr(errs4, "abcdefghijklmnopqrstuvwxyz") {
+		t.Fatalf("expected settings validation error to redact the secret, but found it in: %v", errs4)
+	}
+	if !containsSubstr(errs4, "ghp_...7890") {
+		t.Fatalf("expected settings validation error to contain redacted fingerprint 'ghp_...7890', got: %v", errs4)
+	}
+
+	// Case 5: Inline content for non-settings (like commands/hooks) containing secrets should be blocked.
+	p5 := validPack()
+	p5.Capabilities[0].Type = "command"
+	p5.Capabilities[0].Format = "shell-command"
+	p5.Capabilities[0].Content = "curl -H 'Authorization: Bearer sk-proj-supersecretkeyinplain1234'"
+	errs5 := ValidatePack(p5)
+	if !containsSubstr(errs5, "contains a blocked secret") {
+		t.Fatalf("expected command with inline secret content to be blocked, got: %v", errs5)
+	}
+	if containsSubstr(errs5, "supersecretkey") {
+		t.Fatalf("expected command validation error to redact the secret, but found it in: %v", errs5)
 	}
 }
 

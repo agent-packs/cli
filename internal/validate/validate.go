@@ -198,8 +198,8 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 				strings.Contains(kLower, "token") ||
 				strings.Contains(kLower, "secret") ||
 				strings.Contains(kLower, "password")
-			if isSecretKey && v != "" && !isPlaceholder(v) {
-				errs = append(errs, fmt.Sprintf("%s.env.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, v))
+			if isSecretKey && v != "" && !isPlaceholder(v) && !isEnvVarRef(v) {
+				errs = append(errs, fmt.Sprintf("%s.env.%s contains a literal credentials value: %q (use a placeholder like '<your-key>' or env reference)", prefix, k, redactSecret(v)))
 			}
 		}
 	}
@@ -207,15 +207,23 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 	// Scan args for secrets
 	for i, arg := range capability.Args {
 		if isActualSecret(arg) {
-			errs = append(errs, fmt.Sprintf("%s.args[%d] contains a secret-looking value: %q", prefix, i, arg))
+			errs = append(errs, fmt.Sprintf("%s.args[%d] contains a secret-looking value: %q", prefix, i, redactSecret(arg)))
 		}
 	}
 
-	// Scan settings content
-	if (capability.Type == "settings" || capability.Type == "mcp") && capability.Content != "" {
-		var settingsMap map[string]any
-		if err := json.Unmarshal([]byte(capability.Content), &settingsMap); err == nil {
-			errs = append(errs, scanMapForCredentials(settingsMap, prefix+".content")...)
+	// Scan inline capability content
+	if capability.Content != "" {
+		// Scan for strong secret tokens in any inline content
+		for _, errStr := range scanBlockedKeys(capability.Content) {
+			errs = append(errs, fmt.Sprintf("%s.content contains a blocked secret: %s", prefix, errStr))
+		}
+
+		// For settings/mcp, unmarshal and do deeper key-value placeholder checks
+		if capability.Type == "settings" || capability.Type == "mcp" {
+			var settingsMap map[string]any
+			if err := json.Unmarshal([]byte(capability.Content), &settingsMap); err == nil {
+				errs = append(errs, scanMapForCredentials(settingsMap, prefix+".content")...)
+			}
 		}
 	}
 
@@ -293,7 +301,7 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, sche
 }
 
 // strongSecretPattern matches actual inline credential patterns (OpenAI, GitHub).
-var strongSecretPattern = regexp.MustCompile(`(?i)\b(?:sk-[a-zA-Z0-9_]{20,}|ghp_[a-zA-Z0-9]{36,})\b`)
+var strongSecretPattern = regexp.MustCompile(`(?i)\b(?:sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36,})\b`)
 
 func scanBlockedKeys(content string) []string {
 	var findings []string
@@ -304,7 +312,7 @@ func scanBlockedKeys(content string) []string {
 			mLower := strings.ToLower(m)
 			if !seen[mLower] {
 				seen[mLower] = true
-				findings = append(findings, "blocked inline credential secret: "+m)
+				findings = append(findings, "blocked inline credential secret: "+redactSecret(m))
 			}
 		}
 	}
@@ -319,6 +327,19 @@ func scanSkillAPIKeys(skillPath string) []string {
 	return scanBlockedKeys(string(data))
 }
 
+func redactSecret(val string) string {
+	if len(val) <= 8 {
+		return "[redacted]"
+	}
+	if strings.HasPrefix(val, "sk-") && len(val) > 7 {
+		return "sk-..." + val[len(val)-4:]
+	}
+	if strings.HasPrefix(val, "ghp_") && len(val) > 8 {
+		return "ghp_..." + val[len(val)-4:]
+	}
+	return val[:3] + "..." + val[len(val)-4:]
+}
+
 func isPlaceholder(val string) bool {
 	val = strings.ToLower(val)
 	return strings.Contains(val, "your") ||
@@ -329,16 +350,33 @@ func isPlaceholder(val string) bool {
 		val == ""
 }
 
+func isEnvVarRef(val string) bool {
+	val = strings.TrimSpace(val)
+	// Check for $VAR, ${VAR}, $Env:VAR, $(VAR)
+	if strings.HasPrefix(val, "$") {
+		return true
+	}
+	// Check for %VAR%
+	if strings.HasPrefix(val, "%") && strings.HasSuffix(val, "%") && len(val) > 2 {
+		return true
+	}
+	// Check for {{VAR}}
+	if strings.HasPrefix(val, "{{") && strings.HasSuffix(val, "}}") && len(val) > 4 {
+		return true
+	}
+	return false
+}
+
 // secretPatterns lists regexes that match actual secrets, not just names of env vars.
 var secretPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`\bsk-[a-zA-Z0-9_]{20,}\b`),
+	regexp.MustCompile(`\bsk-[a-zA-Z0-9_-]{20,}\b`),
 	regexp.MustCompile(`\bghp_[a-zA-Z0-9]{36,}\b`),
 	regexp.MustCompile(`\b[a-f0-9]{32,}\b`),
 	regexp.MustCompile(`\b[a-zA-Z0-9_-]{32,}\b`),
 }
 
 func isActualSecret(val string) bool {
-	if isPlaceholder(val) {
+	if isPlaceholder(val) || isEnvVarRef(val) {
 		return false
 	}
 	// Ignore git commit SHAs (40-char hex)
@@ -366,17 +404,17 @@ func scanMapForCredentials(m map[string]any, prefix string) []string {
 				strings.Contains(kLower, "token") ||
 				strings.Contains(kLower, "secret") ||
 				strings.Contains(kLower, "password")
-			if isSecretKey && strVal != "" && !isPlaceholder(strVal) {
-				errs = append(errs, fmt.Sprintf("%s.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, strVal))
+			if isSecretKey && strVal != "" && !isPlaceholder(strVal) && !isEnvVarRef(strVal) {
+				errs = append(errs, fmt.Sprintf("%s.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, redactSecret(strVal)))
 			} else if isActualSecret(strVal) {
-				errs = append(errs, fmt.Sprintf("%s.%s contains a secret-looking value: %q", prefix, k, strVal))
+				errs = append(errs, fmt.Sprintf("%s.%s contains a secret-looking value: %q", prefix, k, redactSecret(strVal)))
 			}
 		} else if nestedMap, ok := v.(map[string]any); ok {
 			errs = append(errs, scanMapForCredentials(nestedMap, prefix+"."+k)...)
 		} else if listVal, ok := v.([]any); ok {
 			for i, item := range listVal {
 				if strItem, ok := item.(string); ok && isActualSecret(strItem) {
-					errs = append(errs, fmt.Sprintf("%s.%s[%d] contains a secret-looking value: %q", prefix, k, i, strItem))
+					errs = append(errs, fmt.Sprintf("%s.%s[%d] contains a secret-looking value: %q", prefix, k, i, redactSecret(strItem)))
 				}
 			}
 		}
