@@ -302,7 +302,7 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, sche
 }
 
 // strongSecretPattern matches actual inline credential patterns (OpenAI, GitHub).
-var strongSecretPattern = regexp.MustCompile(`(?i)\b(?:sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36,})\b`)
+var strongSecretPattern = regexp.MustCompile(`(?i)\b(?:sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36,}|github_pat_[a-zA-Z0-9_]{82,})\b`)
 
 func scanBlockedKeys(content string) []string {
 	var findings []string
@@ -337,6 +337,9 @@ func redactSecret(val string) string {
 	}
 	if strings.HasPrefix(val, "ghp_") && len(val) > 8 {
 		return "ghp_..." + val[len(val)-4:]
+	}
+	if strings.HasPrefix(val, "github_pat_") && len(val) > 15 {
+		return "github_pat_..." + val[len(val)-4:]
 	}
 	return val[:3] + "..." + val[len(val)-4:]
 }
@@ -420,6 +423,7 @@ func isEnvVarRef(val string) bool {
 var secretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\bsk-[a-zA-Z0-9_-]{20,}\b`),
 	regexp.MustCompile(`\bghp_[a-zA-Z0-9]{36,}\b`),
+	regexp.MustCompile(`\bgithub_pat_[a-zA-Z0-9_]{82,}\b`),
 	regexp.MustCompile(`\b[a-f0-9]{32,}\b`),
 	regexp.MustCompile(`\b[a-zA-Z0-9_-]{32,}\b`),
 }

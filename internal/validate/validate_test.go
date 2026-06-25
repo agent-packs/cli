@@ -536,6 +536,23 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 	if len(errs10) != 0 {
 		t.Fatalf("expected UUID and SHA-256 env fallbacks to be allowed, got: %v", errs10)
 	}
+
+	// Case 11: Fine-grained GitHub PAT tokens should be blocked and redacted.
+	p11 := validPack()
+	p11.Capabilities[0].Type = "command"
+	p11.Capabilities[0].Format = "shell-command"
+	p11.Capabilities[0].Content = "git clone https://github_pat_1234567890123456789012345678901234567890123456789012345678901234567890123456789012@github.com/org/repo"
+	errs11 := ValidatePack(p11)
+	if !containsSubstr(errs11, "contains a blocked secret") {
+		t.Fatalf("expected fine-grained GitHub PAT to be blocked, got: %v", errs11)
+	}
+	// Assert it is redacted
+	if containsSubstr(errs11, "12345678901234567890") {
+		t.Fatalf("expected fine-grained GitHub PAT to be redacted in logs, but found it in: %v", errs11)
+	}
+	if !containsSubstr(errs11, "github_pat_...9012") {
+		t.Fatalf("expected fine-grained GitHub PAT to contain redacted fingerprint 'github_pat_...9012', got: %v", errs11)
+	}
 }
 
 
