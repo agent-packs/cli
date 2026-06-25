@@ -484,6 +484,26 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 	if containsSubstr(errs5, "supersecretkey") {
 		t.Fatalf("expected command validation error to redact the secret, but found it in: %v", errs5)
 	}
+
+	// Case 6: Env interpolation fallback with literal secrets should be blocked.
+	p6 := validPack()
+	p6.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "${OPENAI_API_KEY:-sk-proj-supersecretkeyinplain1234}",
+	}
+	errs6 := ValidatePack(p6)
+	if len(errs6) == 0 {
+		t.Fatalf("expected env interpolation fallback with literal secret to be blocked, but validation passed")
+	}
+
+	// Case 7: Key containing 'token' but not ending in 'token' (like 'tokenizer') should be allowed.
+	p7 := validPack()
+	p7.Capabilities[0].Type = "settings"
+	p7.Capabilities[0].Format = "other"
+	p7.Capabilities[0].Content = `{"tokenizer": "cl100k_base", "tokens_limit": 1000}`
+	errs7 := ValidatePack(p7)
+	if len(errs7) != 0 {
+		t.Fatalf("expected settings key 'tokenizer' or 'tokens_limit' to be allowed, got: %v", errs7)
+	}
 }
 
 

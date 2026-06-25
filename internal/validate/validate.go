@@ -194,10 +194,11 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 	if capability.Env != nil {
 		for k, v := range capability.Env {
 			kLower := strings.ToLower(k)
-			isSecretKey := strings.Contains(kLower, "key") ||
-				strings.Contains(kLower, "token") ||
-				strings.Contains(kLower, "secret") ||
-				strings.Contains(kLower, "password")
+			isSecretKey := strings.HasSuffix(kLower, "key") ||
+				strings.HasSuffix(kLower, "token") ||
+				strings.HasSuffix(kLower, "secret") ||
+				strings.HasSuffix(kLower, "password") ||
+				strings.HasSuffix(kLower, "pwd")
 			if isSecretKey && v != "" && !isPlaceholder(v) && !isEnvVarRef(v) {
 				errs = append(errs, fmt.Sprintf("%s.env.%s contains a literal credentials value: %q (use a placeholder like '<your-key>' or env reference)", prefix, k, redactSecret(v)))
 			}
@@ -352,19 +353,64 @@ func isPlaceholder(val string) bool {
 
 func isEnvVarRef(val string) bool {
 	val = strings.TrimSpace(val)
-	// Check for $VAR, ${VAR}, $Env:VAR, $(VAR)
-	if strings.HasPrefix(val, "$") {
-		return true
+	isRef := strings.HasPrefix(val, "$") ||
+		(strings.HasPrefix(val, "%") && strings.HasSuffix(val, "%") && len(val) > 2) ||
+		(strings.HasPrefix(val, "{{") && strings.HasSuffix(val, "}}") && len(val) > 4)
+
+	if !isRef {
+		return false
 	}
-	// Check for %VAR%
-	if strings.HasPrefix(val, "%") && strings.HasSuffix(val, "%") && len(val) > 2 {
-		return true
+
+	// 1. If it contains a strong secret token (sk-..., ghp_...), it's never safe
+	if strongSecretPattern.MatchString(val) {
+		return false
 	}
-	// Check for {{VAR}}
-	if strings.HasPrefix(val, "{{") && strings.HasSuffix(val, "}}") && len(val) > 4 {
-		return true
+
+	// 2. Extract fallback if there is one
+	var fallback string
+	if strings.HasPrefix(val, "${") && strings.HasSuffix(val, "}") {
+		inner := val[2 : len(val)-1]
+		if idx := strings.Index(inner, ":-"); idx != -1 {
+			fallback = inner[idx+2:]
+		} else if idx := strings.Index(inner, "-"); idx != -1 {
+			fallback = inner[idx+1:]
+		} else if idx := strings.Index(inner, ":"); idx != -1 {
+			fallback = inner[idx+1:]
+		}
+	} else if strings.HasPrefix(val, "{{") && strings.HasSuffix(val, "}}") {
+		inner := val[2 : len(val)-2]
+		if idx := strings.Index(inner, ":-"); idx != -1 {
+			fallback = inner[idx+2:]
+		} else if idx := strings.Index(inner, "-"); idx != -1 {
+			fallback = inner[idx+1:]
+		} else if idx := strings.Index(inner, ":"); idx != -1 {
+			fallback = inner[idx+1:]
+		}
+	} else if strings.HasPrefix(val, "$") {
+		// Plain $VAR reference.
+		// If it's a plain reference but contains characters not typical in a variable name (like hyphens, colons, etc.),
+		// it might be a fallback or a literal secret.
+		name := val[1:]
+		if strings.HasPrefix(name, "(") && strings.HasSuffix(name, ")") {
+			name = name[1 : len(name)-1]
+		}
+		isStandardName := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(name) ||
+			regexp.MustCompile(`^(?i)env:[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(name)
+		if !isStandardName {
+			fallback = val
+		}
 	}
-	return false
+
+	// 3. Scan the fallback/literal candidate against all secret patterns
+	if fallback != "" {
+		for _, pat := range secretPatterns {
+			if pat.MatchString(fallback) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 // secretPatterns lists regexes that match actual secrets, not just names of env vars.
@@ -400,10 +446,11 @@ func scanMapForCredentials(m map[string]any, prefix string) []string {
 	for k, v := range m {
 		kLower := strings.ToLower(k)
 		if strVal, ok := v.(string); ok {
-			isSecretKey := strings.Contains(kLower, "key") ||
-				strings.Contains(kLower, "token") ||
-				strings.Contains(kLower, "secret") ||
-				strings.Contains(kLower, "password")
+			isSecretKey := strings.HasSuffix(kLower, "key") ||
+				strings.HasSuffix(kLower, "token") ||
+				strings.HasSuffix(kLower, "secret") ||
+				strings.HasSuffix(kLower, "password") ||
+				strings.HasSuffix(kLower, "pwd")
 			if isSecretKey && strVal != "" && !isPlaceholder(strVal) && !isEnvVarRef(strVal) {
 				errs = append(errs, fmt.Sprintf("%s.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, redactSecret(strVal)))
 			} else if isActualSecret(strVal) {
