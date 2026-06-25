@@ -278,6 +278,10 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
 	}
 	errs = append(errs, validateCategories(pack.Categories, AllowedCategories(schemaDir))...)
+	packData, err := json.Marshal(pack)
+	if err == nil {
+		errs = append(errs, scanBlockedKeys(string(packData))...)
+	}
 	return errs
 }
 
