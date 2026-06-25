@@ -514,6 +514,28 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 	if !containsSubstr(errs8, "contains a literal credentials value") {
 		t.Fatalf("expected nested settings inside array to be blocked, got: %v", errs8)
 	}
+
+	// Case 9: UUID and SHA arguments should not be flagged as secret-looking.
+	p9 := validPack()
+	p9.Capabilities[0].Args = []string{
+		"123e4567-e89b-12d3-a456-426614174000",
+		"a3c1e2d4f56789b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4",
+	}
+	errs9 := ValidatePack(p9)
+	if len(errs9) != 0 {
+		t.Fatalf("expected UUID and SHA-256 arguments to be allowed, got: %v", errs9)
+	}
+
+	// Case 10: UUID and SHA env fallbacks should not be flagged as secret-looking.
+	p10 := validPack()
+	p10.Capabilities[0].Env = map[string]string{
+		"UUID_VAR": "${UUID_VAR:-123e4567-e89b-12d3-a456-426614174000}",
+		"SHA_VAR":  "${SHA_VAR:-a3c1e2d4f56789b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4}",
+	}
+	errs10 := ValidatePack(p10)
+	if len(errs10) != 0 {
+		t.Fatalf("expected UUID and SHA-256 env fallbacks to be allowed, got: %v", errs10)
+	}
 }
 
 

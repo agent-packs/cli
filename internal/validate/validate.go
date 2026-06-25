@@ -403,6 +403,9 @@ func isEnvVarRef(val string) bool {
 
 	// 3. Scan the fallback/literal candidate against all secret patterns
 	if fallback != "" {
+		if isUUID(fallback) || isSHA(fallback) {
+			return true
+		}
 		for _, pat := range secretPatterns {
 			if pat.MatchString(fallback) {
 				return false
@@ -421,12 +424,20 @@ var secretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\b[a-zA-Z0-9_-]{32,}\b`),
 }
 
+func isUUID(val string) bool {
+	return len(val) == 36 && regexp.MustCompile(`^(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`).MatchString(val)
+}
+
+func isSHA(val string) bool {
+	return (len(val) == 40 && regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(val)) ||
+		(len(val) == 64 && regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(val))
+}
+
 func isActualSecret(val string) bool {
 	if isPlaceholder(val) || isEnvVarRef(val) {
 		return false
 	}
-	// Ignore git commit SHAs (40-char hex)
-	if len(val) == 40 && regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(val) {
+	if isUUID(val) || isSHA(val) {
 		return false
 	}
 	// Ignore standard URL formats or paths
