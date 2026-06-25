@@ -406,3 +406,20 @@ func containsSubstr(errs []string, sub string) bool {
 	}
 	return false
 }
+
+func TestValidatePackBlockedKeys(t *testing.T) {
+	p := validPack()
+	p.Description = "This pack requires XQUIK_API_KEY to post tweets."
+	errs := ValidatePack(p)
+	if !containsSubstr(errs, "blocked API key/token/Xquik reference") {
+		t.Fatalf("expected pack to be rejected due to XQUIK_API_KEY reference, got %v", errs)
+	}
+
+	p2 := validPack()
+	p2.Capabilities[0].Name = "Uses Xquik tool"
+	errs2 := ValidatePack(p2)
+	if !containsSubstr(errs2, "blocked API key/token/Xquik reference") {
+		t.Fatalf("expected pack to be rejected due to Xquik reference, got %v", errs2)
+	}
+}
+

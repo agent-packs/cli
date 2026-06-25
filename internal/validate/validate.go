@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -88,14 +89,24 @@ func ValidateCapabilityManifestPath(path string) []string {
 		if err != nil {
 			return []string{err.Error()}
 		}
-		return ValidateSkillManifest(filepath.Base(filepath.Dir(path)), manifest)
+		errs := ValidateSkillManifest(filepath.Base(filepath.Dir(path)), manifest)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			errs = append(errs, scanBlockedKeys(string(data))...)
+		}
+		return errs
 	}
 	if strings.HasSuffix(filepath.ToSlash(path), "/.claude-plugin/plugin.json") {
 		manifest, err := registry.LoadPluginManifest(path)
 		if err != nil {
 			return []string{err.Error()}
 		}
-		return ValidatePluginManifest(manifest)
+		errs := ValidatePluginManifest(manifest)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			errs = append(errs, scanBlockedKeys(string(data))...)
+		}
+		return errs
 	}
 	return []string{"unsupported capability manifest path"}
 }
@@ -225,6 +236,10 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
 	}
 	errs = append(errs, validateCategories(pack.Categories, AllowedCategories(schemaDir))...)
+	packData, err := json.Marshal(pack)
+	if err == nil {
+		errs = append(errs, scanBlockedKeys(string(packData))...)
+	}
 	return errs
 }
 
@@ -249,6 +264,33 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, sche
 		errs = append(errs, validateTrust(ref.Trust, AllowedTrustLevels(schemaDir), prefix)...)
 	}
 	return errs
+}
+
+// apiKeyPattern matches environment variable patterns, settings, or mentions of API keys/tokens.
+var apiKeyPattern = regexp.MustCompile(`(?i)\b[a-z0-9_]*(?:API_KEY|API_TOKEN|SECRET_KEY|AUTH_TOKEN|ACCESS_TOKEN)\b|xquik`)
+
+func scanBlockedKeys(content string) []string {
+	var findings []string
+	matches := apiKeyPattern.FindAllString(content, -1)
+	if len(matches) > 0 {
+		seen := map[string]bool{}
+		for _, m := range matches {
+			mLower := strings.ToLower(m)
+			if !seen[mLower] {
+				seen[mLower] = true
+				findings = append(findings, "blocked API key/token/Xquik reference: "+m)
+			}
+		}
+	}
+	return findings
+}
+
+func scanSkillAPIKeys(skillPath string) []string {
+	data, err := os.ReadFile(skillPath)
+	if err != nil {
+		return nil
+	}
+	return scanBlockedKeys(string(data))
 }
 
 // injectionPatterns are regexes that flag potential prompt injection in skill content.
@@ -288,6 +330,7 @@ func Lint(registryPath, packRef string, out io.Writer) error {
 	for _, skillRef := range pack.Skills {
 		skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
 		errs = append(errs, scanSkillInjection(skillPath)...)
+		errs = append(errs, scanSkillAPIKeys(skillPath)...)
 	}
 	if len(errs) > 0 {
 		for _, msg := range errs {
@@ -311,6 +354,7 @@ func LintAll(registryPath string, out io.Writer) error {
 		for _, skillRef := range pack.Skills {
 			skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
 			errs = append(errs, scanSkillInjection(skillPath)...)
+			errs = append(errs, scanSkillAPIKeys(skillPath)...)
 		}
 		if len(errs) > 0 {
 			for _, msg := range errs {
