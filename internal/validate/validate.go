@@ -62,6 +62,9 @@ func ValidatePath(path string, out io.Writer) error {
 			continue
 		}
 		errs := ValidatePackWithSchemaDir(pack, filepath.Dir(p))
+		if data, err := os.ReadFile(p); err == nil {
+			errs = append(errs, scanBlockedKeys(string(data))...)
+		}
 		if len(errs) > 0 {
 			fmt.Fprintf(out, "FAIL  %s\n", p)
 			for _, msg := range errs {

@@ -162,6 +162,42 @@ func TestValidateSkillManifest(t *testing.T) {
 	}
 }
 
+func TestValidatePathScansRawPackForBlockedKeys(t *testing.T) {
+	dir := t.TempDir()
+	packJSON := `{
+      "id": "source-token",
+      "name": "Source Token",
+      "version": "1.0.0",
+      "description": "sk-proj-descriptionsecret1234",
+      "capabilities": [{
+        "type":"skill",
+        "name":"s",
+        "source":"https://github_pat_1234567890123456789012345678901234567890123456789012345678901234567890123456789012@github.com/org/repo",
+        "format":"agent-skill",
+        "entry":"SKILL.md"
+      }]
+    }`
+	packPath := filepath.Join(dir, "source-token.json")
+	if err := os.WriteFile(packPath, []byte(packJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := ValidatePath(packPath, &out); err == nil {
+		t.Fatal("expected ValidatePath to fail for raw pack JSON containing blocked secrets")
+	}
+	got := out.String()
+	if !strings.Contains(got, "blocked inline credential secret") {
+		t.Fatalf("expected raw pack scan to report blocked secret, got: %s", got)
+	}
+	if strings.Contains(got, "descriptionsecret") || strings.Contains(got, "12345678901234567890") {
+		t.Fatalf("expected raw pack scan to redact secrets, got: %s", got)
+	}
+	if !strings.Contains(got, "sk-...1234") || !strings.Contains(got, "github_pat_...9012") {
+		t.Fatalf("expected redacted fingerprints in output, got: %s", got)
+	}
+}
+
 func TestValidatePathRejectsBadCategory(t *testing.T) {
 	dir := t.TempDir()
 	schemaDir := filepath.Join(dir, "schemas")
@@ -554,5 +590,3 @@ func TestValidatePackBlockedKeys(t *testing.T) {
 		t.Fatalf("expected fine-grained GitHub PAT to contain redacted fingerprint 'github_pat_...9012', got: %v", errs11)
 	}
 }
-
-
