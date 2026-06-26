@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -61,6 +62,9 @@ func ValidatePath(path string, out io.Writer) error {
 			continue
 		}
 		errs := ValidatePackWithSchemaDir(pack, filepath.Dir(p))
+		if data, err := os.ReadFile(p); err == nil {
+			errs = append(errs, scanBlockedKeys(string(data))...)
+		}
 		if len(errs) > 0 {
 			fmt.Fprintf(out, "FAIL  %s\n", p)
 			for _, msg := range errs {
@@ -88,14 +92,24 @@ func ValidateCapabilityManifestPath(path string) []string {
 		if err != nil {
 			return []string{err.Error()}
 		}
-		return ValidateSkillManifest(filepath.Base(filepath.Dir(path)), manifest)
+		errs := ValidateSkillManifest(filepath.Base(filepath.Dir(path)), manifest)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			errs = append(errs, scanBlockedKeys(string(data))...)
+		}
+		return errs
 	}
 	if strings.HasSuffix(filepath.ToSlash(path), "/.claude-plugin/plugin.json") {
 		manifest, err := registry.LoadPluginManifest(path)
 		if err != nil {
 			return []string{err.Error()}
 		}
-		return ValidatePluginManifest(manifest)
+		errs := ValidatePluginManifest(manifest)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			errs = append(errs, scanBlockedKeys(string(data))...)
+		}
+		return errs
 	}
 	return []string{"unsupported capability manifest path"}
 }
@@ -178,6 +192,45 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 			errs = append(errs, prefix+".requiresExecution must be true when install.uninstall is set")
 		}
 	}
+
+	// Scan env variables
+	if capability.Env != nil {
+		for k, v := range capability.Env {
+			kLower := strings.ToLower(k)
+			isSecretKey := strings.HasSuffix(kLower, "key") ||
+				strings.HasSuffix(kLower, "token") ||
+				strings.HasSuffix(kLower, "secret") ||
+				strings.HasSuffix(kLower, "password") ||
+				strings.HasSuffix(kLower, "pwd")
+			if isSecretKey && v != "" && !isPlaceholder(v) && !isEnvVarRef(v) {
+				errs = append(errs, fmt.Sprintf("%s.env.%s contains a literal credentials value: %q (use a placeholder like '<your-key>' or env reference)", prefix, k, redactSecret(v)))
+			}
+		}
+	}
+
+	// Scan args for secrets
+	for i, arg := range capability.Args {
+		if isActualSecret(arg) {
+			errs = append(errs, fmt.Sprintf("%s.args[%d] contains a secret-looking value: %q", prefix, i, redactSecret(arg)))
+		}
+	}
+
+	// Scan inline capability content
+	if capability.Content != "" {
+		// Scan for strong secret tokens in any inline content
+		for _, errStr := range scanBlockedKeys(capability.Content) {
+			errs = append(errs, fmt.Sprintf("%s.content contains a blocked secret: %s", prefix, errStr))
+		}
+
+		// For settings/mcp, unmarshal and do deeper key-value placeholder checks
+		if capability.Type == "settings" || capability.Type == "mcp" {
+			var settingsMap map[string]any
+			if err := json.Unmarshal([]byte(capability.Content), &settingsMap); err == nil {
+				errs = append(errs, scanMapForCredentials(settingsMap, prefix+".content")...)
+			}
+		}
+	}
+
 	return errs
 }
 
@@ -251,6 +304,202 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, sche
 	return errs
 }
 
+// strongSecretPattern matches actual inline credential patterns (OpenAI, GitHub).
+var strongSecretPattern = regexp.MustCompile(`(?i)\b(?:sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36,}|github_pat_[a-zA-Z0-9_]{82,})\b`)
+
+func scanBlockedKeys(content string) []string {
+	var findings []string
+	matches := strongSecretPattern.FindAllString(content, -1)
+	if len(matches) > 0 {
+		seen := map[string]bool{}
+		for _, m := range matches {
+			mLower := strings.ToLower(m)
+			if !seen[mLower] {
+				seen[mLower] = true
+				findings = append(findings, "blocked inline credential secret: "+redactSecret(m))
+			}
+		}
+	}
+	return findings
+}
+
+func scanSkillAPIKeys(skillPath string) []string {
+	data, err := os.ReadFile(skillPath)
+	if err != nil {
+		return nil
+	}
+	return scanBlockedKeys(string(data))
+}
+
+func redactSecret(val string) string {
+	if len(val) <= 8 {
+		return "[redacted]"
+	}
+	if strings.HasPrefix(val, "sk-") && len(val) > 7 {
+		return "sk-..." + val[len(val)-4:]
+	}
+	if strings.HasPrefix(val, "ghp_") && len(val) > 8 {
+		return "ghp_..." + val[len(val)-4:]
+	}
+	if strings.HasPrefix(val, "github_pat_") && len(val) > 15 {
+		return "github_pat_..." + val[len(val)-4:]
+	}
+	return val[:3] + "..." + val[len(val)-4:]
+}
+
+func isPlaceholder(val string) bool {
+	val = strings.ToLower(val)
+	return strings.Contains(val, "your") ||
+		strings.Contains(val, "todo") ||
+		strings.Contains(val, "placeholder") ||
+		strings.Contains(val, "<") ||
+		strings.Contains(val, ">") ||
+		val == ""
+}
+
+func isEnvVarRef(val string) bool {
+	val = strings.TrimSpace(val)
+	isRef := strings.HasPrefix(val, "$") ||
+		(strings.HasPrefix(val, "%") && strings.HasSuffix(val, "%") && len(val) > 2) ||
+		(strings.HasPrefix(val, "{{") && strings.HasSuffix(val, "}}") && len(val) > 4)
+
+	if !isRef {
+		return false
+	}
+
+	// 1. If it contains a strong secret token (sk-..., ghp_...), it's never safe
+	if strongSecretPattern.MatchString(val) {
+		return false
+	}
+
+	// 2. Extract fallback if there is one
+	var fallback string
+	if strings.HasPrefix(val, "${") && strings.HasSuffix(val, "}") {
+		inner := val[2 : len(val)-1]
+		if idx := strings.Index(inner, ":-"); idx != -1 {
+			fallback = inner[idx+2:]
+		} else if idx := strings.Index(inner, "-"); idx != -1 {
+			fallback = inner[idx+1:]
+		} else if idx := strings.Index(inner, ":"); idx != -1 {
+			fallback = inner[idx+1:]
+		}
+	} else if strings.HasPrefix(val, "{{") && strings.HasSuffix(val, "}}") {
+		inner := val[2 : len(val)-2]
+		if idx := strings.Index(inner, ":-"); idx != -1 {
+			fallback = inner[idx+2:]
+		} else if idx := strings.Index(inner, "-"); idx != -1 {
+			fallback = inner[idx+1:]
+		} else if idx := strings.Index(inner, ":"); idx != -1 {
+			fallback = inner[idx+1:]
+		}
+	} else if strings.HasPrefix(val, "$") {
+		// Plain $VAR reference.
+		// If it's a plain reference but contains characters not typical in a variable name (like hyphens, colons, etc.),
+		// it might be a fallback or a literal secret.
+		name := val[1:]
+		if strings.HasPrefix(name, "(") && strings.HasSuffix(name, ")") {
+			name = name[1 : len(name)-1]
+		}
+		isStandardName := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(name) ||
+			regexp.MustCompile(`^(?i)env:[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(name)
+		if !isStandardName {
+			fallback = val
+		}
+	}
+
+	// 3. Scan the fallback/literal candidate against all secret patterns
+	if fallback != "" {
+		if isUUID(fallback) || isSHA(fallback) {
+			return true
+		}
+		for _, pat := range secretPatterns {
+			if pat.MatchString(fallback) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// secretPatterns lists regexes that match actual secrets, not just names of env vars.
+var secretPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\bsk-[a-zA-Z0-9_-]{20,}\b`),
+	regexp.MustCompile(`\bghp_[a-zA-Z0-9]{36,}\b`),
+	regexp.MustCompile(`\bgithub_pat_[a-zA-Z0-9_]{82,}\b`),
+	regexp.MustCompile(`\b[a-f0-9]{32,}\b`),
+	regexp.MustCompile(`\b[a-zA-Z0-9_-]{32,}\b`),
+}
+
+func isUUID(val string) bool {
+	return len(val) == 36 && regexp.MustCompile(`^(?i)[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`).MatchString(val)
+}
+
+func isSHA(val string) bool {
+	return (len(val) == 40 && regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(val)) ||
+		(len(val) == 64 && regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(val))
+}
+
+func isActualSecret(val string) bool {
+	if isPlaceholder(val) || isEnvVarRef(val) {
+		return false
+	}
+	if isUUID(val) || isSHA(val) {
+		return false
+	}
+	// Ignore standard URL formats or paths
+	if strings.HasPrefix(val, "http://") || strings.HasPrefix(val, "https://") || strings.HasPrefix(val, "/") || strings.Contains(val, ".") {
+		return false
+	}
+	for _, pat := range secretPatterns {
+		if pat.MatchString(val) {
+			return true
+		}
+	}
+	return false
+}
+
+func scanMapForCredentials(m map[string]any, prefix string) []string {
+	var errs []string
+	for k, v := range m {
+		kLower := strings.ToLower(k)
+		if strVal, ok := v.(string); ok {
+			isSecretKey := strings.HasSuffix(kLower, "key") ||
+				strings.HasSuffix(kLower, "token") ||
+				strings.HasSuffix(kLower, "secret") ||
+				strings.HasSuffix(kLower, "password") ||
+				strings.HasSuffix(kLower, "pwd")
+			if isSecretKey && strVal != "" && !isPlaceholder(strVal) && !isEnvVarRef(strVal) {
+				errs = append(errs, fmt.Sprintf("%s.%s contains a literal credentials value: %q (use a placeholder like '<your-key>')", prefix, k, redactSecret(strVal)))
+			} else if isActualSecret(strVal) {
+				errs = append(errs, fmt.Sprintf("%s.%s contains a secret-looking value: %q", prefix, k, redactSecret(strVal)))
+			}
+		} else if nestedMap, ok := v.(map[string]any); ok {
+			errs = append(errs, scanMapForCredentials(nestedMap, prefix+"."+k)...)
+		} else if listVal, ok := v.([]any); ok {
+			errs = append(errs, scanListForCredentials(listVal, prefix+"."+k)...)
+		}
+	}
+	return errs
+}
+
+func scanListForCredentials(list []any, prefix string) []string {
+	var errs []string
+	for i, item := range list {
+		itemPrefix := fmt.Sprintf("%s[%d]", prefix, i)
+		if strItem, ok := item.(string); ok {
+			if isActualSecret(strItem) {
+				errs = append(errs, fmt.Sprintf("%s contains a secret-looking value: %q", itemPrefix, redactSecret(strItem)))
+			}
+		} else if nestedMap, ok := item.(map[string]any); ok {
+			errs = append(errs, scanMapForCredentials(nestedMap, itemPrefix)...)
+		} else if nestedList, ok := item.([]any); ok {
+			errs = append(errs, scanListForCredentials(nestedList, itemPrefix)...)
+		}
+	}
+	return errs
+}
+
 // injectionPatterns are regexes that flag potential prompt injection in skill content.
 var injectionPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)ignore\s+(all\s+|previous\s+|prior\s+|above\s+)?instructions`),
@@ -288,6 +537,7 @@ func Lint(registryPath, packRef string, out io.Writer) error {
 	for _, skillRef := range pack.Skills {
 		skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
 		errs = append(errs, scanSkillInjection(skillPath)...)
+		errs = append(errs, scanSkillAPIKeys(skillPath)...)
 	}
 	if len(errs) > 0 {
 		for _, msg := range errs {
@@ -311,6 +561,7 @@ func LintAll(registryPath string, out io.Writer) error {
 		for _, skillRef := range pack.Skills {
 			skillPath := filepath.Join(root, "skills", skillRef.ID, "SKILL.md")
 			errs = append(errs, scanSkillInjection(skillPath)...)
+			errs = append(errs, scanSkillAPIKeys(skillPath)...)
 		}
 		if len(errs) > 0 {
 			for _, msg := range errs {

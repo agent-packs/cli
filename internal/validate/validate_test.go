@@ -162,6 +162,42 @@ func TestValidateSkillManifest(t *testing.T) {
 	}
 }
 
+func TestValidatePathScansRawPackForBlockedKeys(t *testing.T) {
+	dir := t.TempDir()
+	packJSON := `{
+      "id": "source-token",
+      "name": "Source Token",
+      "version": "1.0.0",
+      "description": "sk-proj-descriptionsecret1234",
+      "capabilities": [{
+        "type":"skill",
+        "name":"s",
+        "source":"https://github_pat_1234567890123456789012345678901234567890123456789012345678901234567890123456789012@github.com/org/repo",
+        "format":"agent-skill",
+        "entry":"SKILL.md"
+      }]
+    }`
+	packPath := filepath.Join(dir, "source-token.json")
+	if err := os.WriteFile(packPath, []byte(packJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := ValidatePath(packPath, &out); err == nil {
+		t.Fatal("expected ValidatePath to fail for raw pack JSON containing blocked secrets")
+	}
+	got := out.String()
+	if !strings.Contains(got, "blocked inline credential secret") {
+		t.Fatalf("expected raw pack scan to report blocked secret, got: %s", got)
+	}
+	if strings.Contains(got, "descriptionsecret") || strings.Contains(got, "12345678901234567890") {
+		t.Fatalf("expected raw pack scan to redact secrets, got: %s", got)
+	}
+	if !strings.Contains(got, "sk-...1234") || !strings.Contains(got, "github_pat_...9012") {
+		t.Fatalf("expected redacted fingerprints in output, got: %s", got)
+	}
+}
+
 func TestValidatePathRejectsBadCategory(t *testing.T) {
 	dir := t.TempDir()
 	schemaDir := filepath.Join(dir, "schemas")
@@ -405,4 +441,152 @@ func containsSubstr(errs []string, sub string) bool {
 		}
 	}
 	return false
+}
+
+func TestValidatePackBlockedKeys(t *testing.T) {
+	// Case 1: Plain variable names in description and setup instructions should be allowed.
+	p := validPack()
+	p.Description = "This pack requires XQUIK_API_KEY or OPENAI_API_KEY to run. Please set it in your environment."
+	errs := ValidatePack(p)
+	if len(errs) != 0 {
+		t.Fatalf("expected plain env var names in description to be allowed, got: %v", errs)
+	}
+
+	// Case 2: Env variable set to placeholder value should be allowed.
+	p2 := validPack()
+	p2.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "<your-openai-api-key>",
+		"PORT":           "8080",
+	}
+	errs2 := ValidatePack(p2)
+	if len(errs2) != 0 {
+		t.Fatalf("expected env variables with placeholder/standard values to be allowed, got: %v", errs2)
+	}
+
+	// Case 2b: Env variable set to an environment variable reference/interpolation should be allowed.
+	p2b := validPack()
+	p2b.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "${OPENAI_API_KEY}",
+		"ANOTHER_KEY":    "$ANOTHER_KEY",
+		"WIN_KEY":        "%WIN_KEY%",
+	}
+	errs2b := ValidatePack(p2b)
+	if len(errs2b) != 0 {
+		t.Fatalf("expected env variables with references to be allowed, got: %v", errs2b)
+	}
+
+	// Case 3: Env variable set to actual credential value should be blocked, and the output must be redacted.
+	p3 := validPack()
+	p3.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "sk-proj-somekeyvalue12345",
+	}
+	errs3 := ValidatePack(p3)
+	if !containsSubstr(errs3, "contains a literal credentials value") {
+		t.Fatalf("expected env variable with literal key to be blocked, got: %v", errs3)
+	}
+	// Assert that it's redacted
+	if containsSubstr(errs3, "somekeyvalue12345") {
+		t.Fatalf("expected env validation error to redact the secret, but found it in: %v", errs3)
+	}
+	if !containsSubstr(errs3, "sk-...2345") {
+		t.Fatalf("expected env validation error to contain redacted fingerprint 'sk-...2345', got: %v", errs3)
+	}
+
+	// Case 4: Literal secrets in settings should be blocked and redacted.
+	p4 := validPack()
+	p4.Capabilities[0].Type = "settings"
+	p4.Capabilities[0].Format = "other"
+	p4.Capabilities[0].Content = `{"secretToken": "ghp_abcdefghijklmnopqrstuvwxyz1234567890"}`
+	errs4 := ValidatePack(p4)
+	if !containsSubstr(errs4, "contains a secret-looking value") && !containsSubstr(errs4, "contains a literal credentials value") {
+		t.Fatalf("expected settings with literal secret token to be blocked, got: %v", errs4)
+	}
+	if containsSubstr(errs4, "abcdefghijklmnopqrstuvwxyz") {
+		t.Fatalf("expected settings validation error to redact the secret, but found it in: %v", errs4)
+	}
+	if !containsSubstr(errs4, "ghp_...7890") {
+		t.Fatalf("expected settings validation error to contain redacted fingerprint 'ghp_...7890', got: %v", errs4)
+	}
+
+	// Case 5: Inline content for non-settings (like commands/hooks) containing secrets should be blocked.
+	p5 := validPack()
+	p5.Capabilities[0].Type = "command"
+	p5.Capabilities[0].Format = "shell-command"
+	p5.Capabilities[0].Content = "curl -H 'Authorization: Bearer sk-proj-supersecretkeyinplain1234'"
+	errs5 := ValidatePack(p5)
+	if !containsSubstr(errs5, "contains a blocked secret") {
+		t.Fatalf("expected command with inline secret content to be blocked, got: %v", errs5)
+	}
+	if containsSubstr(errs5, "supersecretkey") {
+		t.Fatalf("expected command validation error to redact the secret, but found it in: %v", errs5)
+	}
+
+	// Case 6: Env interpolation fallback with literal secrets should be blocked.
+	p6 := validPack()
+	p6.Capabilities[0].Env = map[string]string{
+		"OPENAI_API_KEY": "${OPENAI_API_KEY:-sk-proj-supersecretkeyinplain1234}",
+	}
+	errs6 := ValidatePack(p6)
+	if len(errs6) == 0 {
+		t.Fatalf("expected env interpolation fallback with literal secret to be blocked, but validation passed")
+	}
+
+	// Case 7: Key containing 'token' but not ending in 'token' (like 'tokenizer') should be allowed.
+	p7 := validPack()
+	p7.Capabilities[0].Type = "settings"
+	p7.Capabilities[0].Format = "other"
+	p7.Capabilities[0].Content = `{"tokenizer": "cl100k_base", "tokens_limit": 1000}`
+	errs7 := ValidatePack(p7)
+	if len(errs7) != 0 {
+		t.Fatalf("expected settings key 'tokenizer' or 'tokens_limit' to be allowed, got: %v", errs7)
+	}
+
+	// Case 8: Settings secrets inside arrays of objects should be blocked.
+	p8 := validPack()
+	p8.Capabilities[0].Type = "settings"
+	p8.Capabilities[0].Format = "other"
+	p8.Capabilities[0].Content = `{"servers": [{"apiKey": "literal-production-key"}]}`
+	errs8 := ValidatePack(p8)
+	if !containsSubstr(errs8, "contains a literal credentials value") {
+		t.Fatalf("expected nested settings inside array to be blocked, got: %v", errs8)
+	}
+
+	// Case 9: UUID and SHA arguments should not be flagged as secret-looking.
+	p9 := validPack()
+	p9.Capabilities[0].Args = []string{
+		"123e4567-e89b-12d3-a456-426614174000",
+		"a3c1e2d4f56789b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4",
+	}
+	errs9 := ValidatePack(p9)
+	if len(errs9) != 0 {
+		t.Fatalf("expected UUID and SHA-256 arguments to be allowed, got: %v", errs9)
+	}
+
+	// Case 10: UUID and SHA env fallbacks should not be flagged as secret-looking.
+	p10 := validPack()
+	p10.Capabilities[0].Env = map[string]string{
+		"UUID_VAR": "${UUID_VAR:-123e4567-e89b-12d3-a456-426614174000}",
+		"SHA_VAR":  "${SHA_VAR:-a3c1e2d4f56789b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4}",
+	}
+	errs10 := ValidatePack(p10)
+	if len(errs10) != 0 {
+		t.Fatalf("expected UUID and SHA-256 env fallbacks to be allowed, got: %v", errs10)
+	}
+
+	// Case 11: Fine-grained GitHub PAT tokens should be blocked and redacted.
+	p11 := validPack()
+	p11.Capabilities[0].Type = "command"
+	p11.Capabilities[0].Format = "shell-command"
+	p11.Capabilities[0].Content = "git clone https://github_pat_1234567890123456789012345678901234567890123456789012345678901234567890123456789012@github.com/org/repo"
+	errs11 := ValidatePack(p11)
+	if !containsSubstr(errs11, "contains a blocked secret") {
+		t.Fatalf("expected fine-grained GitHub PAT to be blocked, got: %v", errs11)
+	}
+	// Assert it is redacted
+	if containsSubstr(errs11, "12345678901234567890") {
+		t.Fatalf("expected fine-grained GitHub PAT to be redacted in logs, but found it in: %v", errs11)
+	}
+	if !containsSubstr(errs11, "github_pat_...9012") {
+		t.Fatalf("expected fine-grained GitHub PAT to contain redacted fingerprint 'github_pat_...9012', got: %v", errs11)
+	}
 }
