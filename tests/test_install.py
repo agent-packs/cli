@@ -287,6 +287,141 @@ class InstallCommandTest(unittest.TestCase):
             self.assertEqual((temp / "plugin-cleanup.txt").read_text(encoding="utf-8"), "cleaned")
             self.assertFalse((target / "receipts" / "plugins" / "standalone-plugin.json").exists())
 
+    def test_commands_command_manages_standalone_local_command(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry" / "packs"
+            target = temp / "install"
+            registry.mkdir(parents=True)
+            command = temp / "review-pr.json"
+            command.write_text(
+                json.dumps(
+                    {
+                        "type": "command",
+                        "name": "Review PR",
+                        "format": "markdown",
+                        "content": "Review this pull request.",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            install = self.run_cli("commands", "install", str(command), "--agent", "codex", "--mode", "copy", registry=registry, target=target)
+            self.assertEqual(install.returncode, 0, install.stderr)
+            installed_command = target / ".agent-packs" / "commands" / "review-pr.md"
+            self.assertEqual(installed_command.read_text(encoding="utf-8"), "Review this pull request.")
+            self.assertTrue((target / "receipts" / "commands" / "review-pr.json").exists())
+
+            listed = self.run_cli("commands", "list", registry=registry, target=target)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertIn("review-pr", listed.stdout)
+
+            uninstall = self.run_cli("commands", "uninstall", "review-pr", registry=registry, target=target)
+            self.assertEqual(uninstall.returncode, 0, uninstall.stderr)
+            self.assertFalse(installed_command.exists())
+            self.assertFalse((target / "receipts" / "commands" / "review-pr.json").exists())
+
+    def test_memory_command_manages_standalone_local_memory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry" / "packs"
+            target = temp / "install"
+            registry.mkdir(parents=True)
+            memory = temp / "house-rules.json"
+            memory.write_text(
+                json.dumps(
+                    {
+                        "type": "memory",
+                        "name": "House Rules",
+                        "content": "Prefer tests for behavior changes.",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            install = self.run_cli("memory", "install", str(memory), "--agent", "codex", "--mode", "copy", "--project", str(target), registry=registry, target=target)
+            self.assertEqual(install.returncode, 0, install.stderr)
+            agents_md = target / "AGENTS.md"
+            body = agents_md.read_text(encoding="utf-8")
+            self.assertIn("Prefer tests for behavior changes.", body)
+            self.assertIn("BEGIN agent-packs:house-rules/house-rules", body)
+            self.assertTrue((target / "receipts" / "memory" / "house-rules.json").exists())
+
+            listed = self.run_cli("memory", "list", registry=registry, target=target)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertIn("house-rules", listed.stdout)
+
+            uninstall = self.run_cli("memory", "uninstall", "house-rules", registry=registry, target=target)
+            self.assertEqual(uninstall.returncode, 0, uninstall.stderr)
+            self.assertNotIn("Prefer tests for behavior changes.", agents_md.read_text(encoding="utf-8"))
+            self.assertFalse((target / "receipts" / "memory" / "house-rules.json").exists())
+
+    def test_tools_command_manages_standalone_local_tool_descriptor(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry" / "packs"
+            target = temp / "install"
+            registry.mkdir(parents=True)
+            tool = temp / "browser-verify.json"
+            tool.write_text(
+                json.dumps(
+                    {
+                        "type": "tool",
+                        "name": "Browser Verify",
+                        "format": "json",
+                        "content": '{"name":"browser-verify","description":"descriptor only"}',
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            install = self.run_cli("tools", "install", str(tool), "--agent", "codex", "--mode", "copy", registry=registry, target=target)
+            self.assertEqual(install.returncode, 0, install.stderr)
+            installed_tool = target / ".agent-packs" / "tools" / "browser-verify.json"
+            self.assertEqual(installed_tool.read_text(encoding="utf-8"), '{"name":"browser-verify","description":"descriptor only"}')
+            self.assertTrue((target / "receipts" / "tools" / "browser-verify.json").exists())
+
+            listed = self.run_cli("tools", "list", registry=registry, target=target)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertIn("browser-verify", listed.stdout)
+
+            uninstall = self.run_cli("tools", "uninstall", "browser-verify", registry=registry, target=target)
+            self.assertEqual(uninstall.returncode, 0, uninstall.stderr)
+            self.assertFalse(installed_tool.exists())
+            self.assertFalse((target / "receipts" / "tools" / "browser-verify.json").exists())
+
+    def test_install_pack_only_tools(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            registry = temp / "registry"
+            target = temp / "install"
+            registry.mkdir()
+            self.write_pack(
+                registry,
+                {
+                    "id": "tool-pack",
+                    "name": "Tool Pack",
+                    "version": "0.1.0",
+                    "description": "A tool descriptor pack.",
+                    "capabilities": [
+                        {"type": "command", "name": "Review PR", "content": "Review this PR."},
+                        {"type": "tool", "name": "Browser Verify", "format": "json", "content": '{"name":"browser-verify"}'},
+                    ],
+                },
+            )
+
+            result = self.run_cli("install", "tool-pack", "--agent", "codex", "--only", "tools", "--mode", "copy", registry=registry, target=target)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((target / ".agent-packs" / "tools" / "browser-verify.json").exists())
+            self.assertFalse((target / ".agent-packs" / "commands" / "review-pr.md").exists())
+
 
 def example_pack(skill_source):
     return {

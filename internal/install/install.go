@@ -206,7 +206,7 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 			results = append(results, installMerge(item))
 		case "mcp":
 			results = append(results, installMCP(item))
-		case "command", "hook", "subagent", "prompt", "template":
+		case "command", "hook", "subagent", "prompt", "template", "tool":
 			results = append(results, installManagedFile(item))
 		default:
 			item.Status = "recorded"
@@ -873,7 +873,7 @@ func retractExistingMergeItems(absTarget, packID string) error {
 }
 
 func isManagedFileType(capType string) bool {
-	return capType == "command" || capType == "hook" || capType == "subagent" || capType == "prompt" || capType == "template"
+	return capType == "command" || capType == "hook" || capType == "subagent" || capType == "prompt" || capType == "template" || capType == "tool"
 }
 
 func installManagedFile(item model.PlanItem) model.PlanItem {

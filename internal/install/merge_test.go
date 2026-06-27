@@ -241,3 +241,32 @@ func TestManagedHookInstallsFromSourceFile(t *testing.T) {
 		t.Fatalf("hook file not written from source: %q", data)
 	}
 }
+
+func TestManagedToolDescriptorLifecycle(t *testing.T) {
+	target := t.TempDir()
+	dest := filepath.Join(target, ".agent-packs", "tools", "browser-verify.json")
+	item := model.PlanItem{
+		Type: "tool", Name: "Browser Verify", Action: "copy", FileKind: "json",
+		Content: `{"name":"browser-verify","description":"descriptor only"}`, Destination: dest, Status: "planned",
+	}
+	result := ExecutePlan(mergePlan(target, item), false)
+	got := result.Capabilities[0]
+	if got.Status != "installed" {
+		t.Fatalf("want installed, got %q: %s", got.Status, got.Reason)
+	}
+	if got.ContentHash == "" {
+		t.Fatal("expected tool content hash to be recorded")
+	}
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(dest); string(data) != item.Content {
+		t.Fatalf("tool descriptor not written: %q", data)
+	}
+	if err := Uninstall(target, "mpack", &strings.Builder{}); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatalf("tool descriptor should be removed on uninstall, stat err=%v", err)
+	}
+}

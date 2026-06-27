@@ -240,6 +240,15 @@ func expandPackInner(registry string, pack model.Pack, seen, contributed map[str
 	out.Packs = append([]string{}, pack.Packs...)
 	out.Skills = append(model.CapabilityRefs{}, pack.Skills...)
 	out.Plugins = append(model.CapabilityRefs{}, pack.Plugins...)
+	out.Commands = append(model.CapabilityRefs{}, pack.Commands...)
+	out.Hooks = append(model.CapabilityRefs{}, pack.Hooks...)
+	out.Subagents = append(model.CapabilityRefs{}, pack.Subagents...)
+	out.Prompts = append(model.CapabilityRefs{}, pack.Prompts...)
+	out.Templates = append(model.CapabilityRefs{}, pack.Templates...)
+	out.ToolRefs = append(model.CapabilityRefs{}, pack.ToolRefs...)
+	out.Memory = append(model.CapabilityRefs{}, pack.Memory...)
+	out.Settings = append(model.CapabilityRefs{}, pack.Settings...)
+	out.MCP = append(model.CapabilityRefs{}, pack.MCP...)
 	out.Capabilities = []model.Capability{}
 	for _, childRef := range pack.Packs {
 		if contributed[childRef] {
@@ -282,20 +291,41 @@ func expandPackInner(registry string, pack model.Pack, seen, contributed map[str
 		}
 		out.Capabilities = append(out.Capabilities, plugin)
 	}
-	out.Capabilities = append(out.Capabilities, normalizeMergeSources(pack.Capabilities, pack.Path)...)
+	for _, group := range []struct {
+		typ  string
+		refs model.CapabilityRefs
+	}{
+		{"command", pack.Commands},
+		{"hook", pack.Hooks},
+		{"subagent", pack.Subagents},
+		{"prompt", pack.Prompts},
+		{"template", pack.Templates},
+		{"tool", pack.ToolRefs},
+		{"memory", pack.Memory},
+		{"settings", pack.Settings},
+		{"mcp", pack.MCP},
+	} {
+		for _, ref := range group.refs {
+			capability, err := ResolveCapabilityRef(registry, group.typ, ref)
+			if err != nil {
+				return model.Pack{}, err
+			}
+			out.Capabilities = append(out.Capabilities, capability)
+		}
+	}
+	out.Capabilities = append(out.Capabilities, normalizeLocalSources(pack.Capabilities, pack.Path)...)
 	delete(seen, pack.ID)
 	return out, nil
 }
 
-func normalizeMergeSources(capabilities []model.Capability, packPath string) []model.Capability {
+func normalizeLocalSources(capabilities []model.Capability, packPath string) []model.Capability {
 	if packPath == "" {
 		return append([]model.Capability{}, capabilities...)
 	}
 	base := filepath.Dir(packPath)
 	out := make([]model.Capability, 0, len(capabilities))
 	for _, capability := range capabilities {
-		if (capability.Type == "memory" || capability.Type == "settings") &&
-			capability.Source != "" &&
+		if capability.Source != "" &&
 			util.IsLocalSource(capability.Source) &&
 			!filepath.IsAbs(util.ExpandHome(capability.Source)) {
 			capability.Source = filepath.Join(base, capability.Source)
@@ -310,7 +340,7 @@ func ResolveCapabilityRef(registry, capabilityType string, ref model.CapabilityR
 		return model.Capability{}, fmt.Errorf("%s reference id is required", capabilityType)
 	}
 	if ref.Source == "" {
-		kind := capabilityType + "s"
+		kind := pluralCapabilityKind(capabilityType)
 		return FindCapability(registry, kind, ref.ID)
 	}
 	name := ref.Name
@@ -338,14 +368,21 @@ func ResolveCapabilityRef(registry, capabilityType string, ref model.CapabilityR
 		if install == nil {
 			install = map[string]string{"method": "manual", "package": ref.ID}
 		}
-	} else {
-		return model.Capability{}, fmt.Errorf("unsupported capability reference type: %s", capabilityType)
 	}
 	return model.Capability{
 		Type: capabilityType, Name: name, Source: ref.Source, UpstreamSource: upstreamSource,
 		Format: format, Version: ref.Version, Entry: entry, Homepage: ref.Homepage,
 		Repository: ref.Repository, License: ref.License, Install: install, Trust: ref.Trust, Reference: true,
 	}, nil
+}
+
+func pluralCapabilityKind(capabilityType string) string {
+	switch capabilityType {
+	case "memory", "settings", "mcp":
+		return capabilityType
+	default:
+		return capabilityType + "s"
+	}
 }
 
 func FindCapability(registry, kind, id string) (model.Capability, error) {
@@ -366,7 +403,55 @@ func FindCapability(registry, kind, id string) (model.Capability, error) {
 		}
 		return PluginCapability(id, filepath.Dir(filepath.Dir(path)), manifest), nil
 	}
-	return model.Capability{}, fmt.Errorf("unsupported capability kind: %s", kind)
+	capType := singularCapabilityKind(kind)
+	if capType == "" {
+		return model.Capability{}, fmt.Errorf("unsupported capability kind: %s", kind)
+	}
+	path := filepath.Join(root, kind, id+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return model.Capability{}, fmt.Errorf("%s capability not found or invalid: %s", capType, id)
+	}
+	var capability model.Capability
+	if err := json.Unmarshal(data, &capability); err != nil {
+		return model.Capability{}, fmt.Errorf("%s capability not found or invalid: %s", capType, id)
+	}
+	if capability.Type == "" {
+		capability.Type = capType
+	}
+	if capability.Type != capType {
+		return model.Capability{}, fmt.Errorf("%s capability %q has type %q", capType, id, capability.Type)
+	}
+	if capability.Name == "" {
+		capability.Name = id
+	}
+	capability.Reference = true
+	return capability, nil
+}
+
+func singularCapabilityKind(kind string) string {
+	switch kind {
+	case "commands":
+		return "command"
+	case "hooks":
+		return "hook"
+	case "subagents":
+		return "subagent"
+	case "prompts":
+		return "prompt"
+	case "templates":
+		return "template"
+	case "tools":
+		return "tool"
+	case "memory":
+		return "memory"
+	case "settings":
+		return "settings"
+	case "mcp":
+		return "mcp"
+	default:
+		return ""
+	}
 }
 
 func SkillCapability(id, path string, manifest model.SkillManifest) model.Capability {
@@ -438,10 +523,37 @@ func buildIndex(registry string) (model.RegistryIndex, error) {
 			Replacement: pack.Replacement, LastVerified: pack.LastVerified, ReviewStatus: pack.ReviewStatus,
 			Tags: pack.Tags, Categories: pack.Categories, Tools: pack.Tools, Scope: pack.Scope,
 			Skills: pack.Skills.IDs(), Plugins: pack.Plugins.IDs(), Capabilities: len(expanded.Capabilities),
+			CapabilityTypes: capabilityTypeCounts(expanded.Capabilities), Trust: pack.Trust,
+			Compatibility: pack.Compatibility, Freshness: freshnessStatus(pack.LastVerified, time.Now().UTC()),
 		}
 		index.Packs = append(index.Packs, entry)
 	}
 	return index, nil
+}
+
+func capabilityTypeCounts(capabilities []model.Capability) map[string]int {
+	counts := map[string]int{}
+	for _, capability := range capabilities {
+		counts[capability.Type]++
+	}
+	if len(counts) == 0 {
+		return nil
+	}
+	return counts
+}
+
+func freshnessStatus(lastVerified string, now time.Time) string {
+	if lastVerified == "" {
+		return "missing"
+	}
+	verifiedAt, err := time.Parse("2006-01-02", lastVerified)
+	if err != nil {
+		return "invalid"
+	}
+	if now.Sub(verifiedAt) > 90*24*time.Hour {
+		return "stale"
+	}
+	return "fresh"
 }
 
 func indexOutputPath(registry, outputPath string) string {
@@ -550,22 +662,26 @@ func diffIndexPacks(existing, generated []model.IndexEntry) []string {
 // two entries with the same id, by comparing each field's canonical JSON form.
 func changedIndexFields(a, b model.IndexEntry) []string {
 	fields := map[string][2]any{
-		"name":         {a.Name, b.Name},
-		"version":      {a.Version, b.Version},
-		"description":  {a.Description, b.Description},
-		"maintainers":  {a.Maintainers, b.Maintainers},
-		"stability":    {a.Stability, b.Stability},
-		"deprecated":   {a.Deprecated, b.Deprecated},
-		"replacement":  {a.Replacement, b.Replacement},
-		"lastVerified": {a.LastVerified, b.LastVerified},
-		"reviewStatus": {a.ReviewStatus, b.ReviewStatus},
-		"tags":         {a.Tags, b.Tags},
-		"categories":   {a.Categories, b.Categories},
-		"tools":        {a.Tools, b.Tools},
-		"scope":        {a.Scope, b.Scope},
-		"skills":       {a.Skills, b.Skills},
-		"plugins":      {a.Plugins, b.Plugins},
-		"capabilities": {a.Capabilities, b.Capabilities},
+		"name":            {a.Name, b.Name},
+		"version":         {a.Version, b.Version},
+		"description":     {a.Description, b.Description},
+		"maintainers":     {a.Maintainers, b.Maintainers},
+		"stability":       {a.Stability, b.Stability},
+		"deprecated":      {a.Deprecated, b.Deprecated},
+		"replacement":     {a.Replacement, b.Replacement},
+		"lastVerified":    {a.LastVerified, b.LastVerified},
+		"reviewStatus":    {a.ReviewStatus, b.ReviewStatus},
+		"tags":            {a.Tags, b.Tags},
+		"categories":      {a.Categories, b.Categories},
+		"tools":           {a.Tools, b.Tools},
+		"scope":           {a.Scope, b.Scope},
+		"skills":          {a.Skills, b.Skills},
+		"plugins":         {a.Plugins, b.Plugins},
+		"capabilities":    {a.Capabilities, b.Capabilities},
+		"capabilityTypes": {a.CapabilityTypes, b.CapabilityTypes},
+		"trust":           {a.Trust, b.Trust},
+		"compatibility":   {a.Compatibility, b.Compatibility},
+		"freshness":       {a.Freshness, b.Freshness},
 	}
 	var changed []string
 	for name, pair := range fields {

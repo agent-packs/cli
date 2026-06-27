@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent Packs — Homebrew for AI Agent Capabilities</title>
-  <meta name="description" content="Install curated bundles of skills, plugins, commands, hooks, memory, and settings into Claude Code, Codex, Cursor, Gemini CLI, and more. The Homebrew of AI agent capabilities.">
+  <title>Agent Packs — Portable Capability Packs for AI Agents</title>
+  <meta name="description" content="Install curated bundles of skills, plugins, tool descriptors, MCP servers, commands, hooks, memory, and settings into Claude Code, Codex, Cursor, Gemini CLI, and more.">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -48,7 +48,7 @@
       padding: .9rem 2rem;
     }
     .logo { display: flex; align-items: center; gap: .55rem; text-decoration: none; color: var(--slate-900); font-weight: 800; font-size: 1rem; }
-    .logo-mark { width: 28px; height: 28px; background: var(--indigo); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: .8rem; letter-spacing: -.02em; }
+    .logo-mark { width: 28px; height: 28px; background: var(--indigo); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: .8rem; letter-spacing: 0; }
     .nav-links { display: flex; gap: 1.5rem; align-items: center; }
     .nav-links a { text-decoration: none; color: var(--slate-600); font-size: .9rem; transition: color .15s; }
     .nav-links a:hover { color: var(--indigo); }
@@ -57,27 +57,61 @@
 
     /* ── Hero ── */
     .hero {
-      background: linear-gradient(150deg, var(--slate-900) 0%, #1e1b4b 45%, #312e81 100%);
-      color: white; text-align: center; padding: 6.5rem 2rem 5.5rem;
+      background: #101320;
+      color: white; text-align: center; padding: 3.1rem 2rem 2rem;
       position: relative; overflow: hidden;
+      min-height: 560px;
+      display: grid; place-items: center;
     }
-    .hero::before {
-      content: ''; position: absolute; inset: 0;
-      background: radial-gradient(ellipse 80% 60% at 50% 120%, rgba(99,102,241,.35) 0%, transparent 70%);
+    .hero::after {
+      content: ''; position: absolute; inset: 0; background: rgba(16,19,32,.66);
     }
-    .hero > * { position: relative; }
+    .hero > * { position: relative; z-index: 1; }
+    .hero-visual { position: absolute; inset: 0; z-index: 0; opacity: .96; }
+    .scene-grid {
+      position: absolute; inset: 0;
+      background: #101320;
+    }
+    .scene-panel {
+      position: absolute; background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.22);
+      border-radius: 8px; box-shadow: 0 24px 70px rgba(0,0,0,.32);
+      text-align: left; overflow: hidden; opacity: .74;
+    }
+    .scene-terminal { left: max(1rem, 4vw); top: 4.5rem; width: min(430px, 33vw); }
+    .scene-registry { right: max(1rem, 4vw); top: 5.2rem; width: min(370px, 29vw); }
+    .scene-status { left: 5vw; bottom: 1.1rem; width: min(330px, 28vw); }
+    .scene-header { display: flex; gap: .38rem; padding: .7rem .85rem; border-bottom: 1px solid rgba(148,163,184,.16); background: rgba(255,255,255,.04); }
+    .scene-dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; }
+    .scene-dot:nth-child(2) { background: #f59e0b; }
+    .scene-dot:nth-child(3) { background: #10b981; }
+    .scene-body { padding: 1rem; font-family: var(--mono); font-size: .78rem; color: #cbd5e1; line-height: 1.75; }
+    .scene-line strong { color: #f8fafc; font-weight: 700; }
+    .scene-line .ok { color: #34d399; }
+    .scene-line .muted { color: #94a3b8; }
+    .scene-row { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem .8rem; border-bottom: 1px solid rgba(148,163,184,.13); font-family: var(--mono); font-size: .75rem; }
+    .scene-row:last-child { border-bottom: 0; }
+    .scene-row span:first-child { color: #e2e8f0; }
+    .scene-row span:last-child { color: #93c5fd; white-space: nowrap; }
+    .scene-chipline { display: flex; flex-wrap: wrap; gap: .45rem; padding: 1rem; }
+    .scene-chip { border: 1px solid rgba(148,163,184,.22); color: #dbeafe; border-radius: 999px; padding: .28rem .55rem; font-size: .68rem; font-weight: 700; background: rgba(37,99,235,.16); }
+    .scene-flow {
+      position: absolute; right: 9vw; bottom: 3rem; display: grid; grid-template-columns: repeat(3, 88px);
+      gap: .65rem; font-family: var(--mono); font-size: .68rem; color: #cbd5e1;
+    }
+    .scene-node { border: 1px solid rgba(148,163,184,.22); border-radius: 8px; padding: .55rem .4rem; background: rgba(15,23,42,.78); }
+    .hero-content { max-width: 760px; margin: 0 auto; text-shadow: 0 2px 24px rgba(0,0,0,.48); }
     .hero-badge {
-      display: inline-block; background: rgba(99,102,241,.25); color: #c7d2fe;
+      display: inline-block; background: rgba(15,23,42,.72); color: #c7d2fe;
       border: 1px solid rgba(165,180,252,.3); border-radius: 999px;
-      padding: .3rem .9rem; font-size: .75rem; font-weight: 700; letter-spacing: .07em;
-      text-transform: uppercase; margin-bottom: 1.5rem;
+      padding: .3rem .9rem; font-size: .75rem; font-weight: 700; letter-spacing: 0;
+      text-transform: uppercase; margin-bottom: 1rem;
     }
     .hero h1 {
-      font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800; line-height: 1.08;
-      letter-spacing: -.03em; margin-bottom: 1.25rem;
+      font-size: clamp(2.75rem, 7vw, 4.6rem); font-weight: 850; line-height: .95;
+      letter-spacing: 0; margin-bottom: .9rem;
     }
-    .hero h1 span { color: #a5b4fc; }
-    .hero p { font-size: 1.1rem; color: #c7d2fe; max-width: 520px; margin: 0 auto 2.75rem; line-height: 1.65; }
+    .hero h1 span { display: block; color: #c7d2fe; font-size: .45em; line-height: 1.25; margin-top: .45rem; }
+    .hero p { font-size: 1.05rem; color: #dbeafe; max-width: 640px; margin: 0 auto 1.35rem; line-height: 1.6; }
 
     .install-tabs { display: flex; gap: .4rem; justify-content: center; margin-bottom: .75rem; }
     .tab-btn {
@@ -91,7 +125,7 @@
       display: flex; align-items: center; gap: .75rem;
       background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
       border-radius: 10px; padding: .9rem 1.1rem;
-      max-width: 600px; margin: 0 auto 2.5rem; text-align: left;
+      max-width: 600px; margin: 0 auto .75rem; text-align: left;
     }
     .install-box code { font-family: var(--mono); font-size: .875rem; color: #a5b4fc; flex: 1; word-break: break-all; }
     .copy-btn {
@@ -102,7 +136,7 @@
     }
     .copy-btn:hover { background: rgba(255,255,255,.18); }
     .copy-btn.copied { background: rgba(99,102,241,.4); border-color: rgba(165,180,252,.5); color: white; }
-    .install-docs { display: inline-block; margin-top: .85rem; color: #a5b4fc; font-size: .82rem; text-decoration: none; opacity: .85; transition: opacity .15s; }
+    .install-docs { display: inline-block; margin: 0 0 .9rem; color: #a5b4fc; font-size: .82rem; text-decoration: none; opacity: .9; transition: opacity .15s; }
     .install-docs:hover { opacity: 1; text-decoration: underline; }
 
     .hero-cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
@@ -118,6 +152,8 @@
       font-weight: 700; font-size: .95rem; transition: background .15s; display: inline-block;
     }
     .btn-ghost:hover { background: rgba(255,255,255,.17); }
+    .hero-proof { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; margin-top: .85rem; color: #bfdbfe; font-size: .78rem; }
+    .proof-pill { border: 1px solid rgba(191,219,254,.28); background: rgba(15,23,42,.62); border-radius: 999px; padding: .34rem .7rem; font-weight: 700; }
 
     /* ── Stats ── */
     .stats {
@@ -133,7 +169,7 @@
 
     /* ── Tool badges ── */
     .tools-section { text-align: center; padding: 3.5rem 2rem; }
-    .tools-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--slate-500); margin-bottom: 1.25rem; }
+    .tools-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0; color: var(--slate-500); margin-bottom: 1.25rem; }
     .tool-badges { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
     .tool-badge {
       display: flex; align-items: center; gap: .55rem;
@@ -154,18 +190,18 @@
     .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
     .section { padding: 5.5rem 2rem; }
     .section-alt { padding: 5.5rem 2rem; background: var(--slate-50); }
-    .section-tag { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--indigo); margin-bottom: .75rem; }
-    .section-title { font-size: clamp(1.75rem, 3.5vw, 2.4rem); font-weight: 800; color: var(--slate-900); letter-spacing: -.02em; margin-bottom: .75rem; }
+    .section-tag { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0; color: var(--indigo); margin-bottom: .75rem; }
+    .section-title { font-size: clamp(1.75rem, 3.5vw, 2.4rem); font-weight: 800; color: var(--slate-900); letter-spacing: 0; margin-bottom: .75rem; }
     .section-sub { color: var(--slate-600); font-size: 1rem; max-width: 560px; line-height: 1.65; }
 
     /* ── Features ── */
     .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.25rem; margin-top: 3rem; }
     .feature-card {
-      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 8px;
       padding: 1.6rem; transition: border-color .2s, box-shadow .2s;
     }
     .feature-card:hover { border-color: var(--indigo); box-shadow: 0 4px 24px rgba(99,102,241,.12); }
-    .feature-icon { font-size: 1.6rem; margin-bottom: .9rem; line-height: 1; }
+    .feature-icon { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; margin-bottom: .9rem; background: var(--indigo-light); color: var(--indigo); font-family: var(--mono); font-size: .92rem; font-weight: 800; }
     .feature-title { font-size: .975rem; font-weight: 700; color: var(--slate-900); margin-bottom: .4rem; }
     .feature-desc { font-size: .85rem; color: var(--slate-600); line-height: 1.6; }
     .feature-cmd { font-family: var(--mono); font-size: .72rem; color: var(--indigo); background: var(--indigo-light); padding: .2rem .5rem; border-radius: 5px; display: inline-block; margin-top: .65rem; }
@@ -173,7 +209,7 @@
     /* ── Pack cards ── */
     .packs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 1.25rem; margin-top: 2.5rem; }
     .pack-card {
-      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 8px;
       padding: 1.5rem; transition: border-color .2s, box-shadow .2s;
       display: flex; flex-direction: column; text-decoration: none; color: inherit;
     }
@@ -219,7 +255,7 @@
     .footer-brand { }
     .footer-logo { display: flex; align-items: center; gap: .55rem; text-decoration: none; color: white; font-weight: 800; font-size: 1rem; margin-bottom: .6rem; }
     .footer-tagline { font-size: .85rem; color: var(--slate-500); max-width: 240px; line-height: 1.55; }
-    .footer-links-group h4 { color: var(--slate-400); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .85rem; }
+    .footer-links-group h4 { color: var(--slate-400); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0; margin-bottom: .85rem; }
     .footer-links-group a { display: block; color: var(--slate-500); text-decoration: none; font-size: .875rem; margin-bottom: .5rem; transition: color .15s; }
     .footer-links-group a:hover { color: white; }
     .footer-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 1.75rem; flex-wrap: wrap; gap: 1rem; }
@@ -237,7 +273,20 @@
 
     @media (max-width: 640px) {
       nav { padding: .85rem 1rem; }
-      .hero { padding: 4rem 1rem 3.5rem; }
+      .nav-links { gap: .8rem; }
+      .nav-links a:not(.nav-gh) { display: none; }
+      .hero { padding: 2.6rem 1rem 2rem; min-height: 560px; }
+      .scene-terminal, .scene-registry, .scene-status { display: none; }
+      .scene-flow { inset: auto 1rem 1rem 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .hero p { font-size: 1rem; }
+      .install-tabs { flex-wrap: wrap; }
+      .install-box { align-items: stretch; flex-direction: column; }
+      .section, .section-alt { padding: 4rem 1rem; }
+      .container { padding: 0; }
+      .steps { max-width: 100%; width: calc(100vw - 2rem); }
+      .step { gap: 1rem; width: 100%; }
+      .step > div:last-child { flex: 0 1 calc(100vw - 2rem - 52px); min-width: 0; max-width: calc(100vw - 2rem - 52px); }
+      .code-block { max-width: 100%; }
       .stat { padding: 1.75rem 2rem; }
       .packs-grid { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: 1fr; }
@@ -265,24 +314,70 @@
 
 <!-- ── Hero ── -->
 <section class="hero">
-  <div class="hero-badge">Open Source · Free · No Lock-in</div>
-  <h1>Homebrew for<br><span>AI Agent Capabilities</span></h1>
-  <p>One tool to install, update, and manage skills, plugins, subagents, commands, hooks, and more across all your AI coding agents — Claude Code, Codex, Cursor, Gemini CLI, and others.</p>
+  <div class="hero-visual" aria-hidden="true">
+    <div class="scene-grid"></div>
+    <div class="scene-panel scene-terminal">
+      <div class="scene-header"><span class="scene-dot"></span><span class="scene-dot"></span><span class="scene-dot"></span></div>
+      <div class="scene-body">
+        <div class="scene-line"><span class="muted">$</span> <strong>agent-packs install sre-engineer --agent codex --mode copy</strong></div>
+        <div class="scene-line"><span class="ok">OK</span> resolved 8 capabilities</div>
+        <div class="scene-line"><span class="ok">OK</span> wrote tool descriptor .agent-packs/tools/incident-review.json</div>
+        <div class="scene-line"><span class="ok">OK</span> merged memory into AGENTS.md</div>
+        <div class="scene-line"><span class="muted">receipt</span> receipts/sre-engineer.json</div>
+      </div>
+    </div>
+    <div class="scene-panel scene-registry">
+      <div class="scene-row"><span>backend-engineer</span><span>verified</span></div>
+      <div class="scene-row"><span>frontend-engineer</span><span>compatible</span></div>
+      <div class="scene-row"><span>security-engineer</span><span>verified</span></div>
+      <div class="scene-row"><span>tool descriptors</span><span>portable</span></div>
+      <div class="scene-chipline">
+        <span class="scene-chip">skills</span>
+        <span class="scene-chip">plugins</span>
+        <span class="scene-chip">tools</span>
+        <span class="scene-chip">mcp</span>
+        <span class="scene-chip">memory</span>
+        <span class="scene-chip">settings</span>
+      </div>
+    </div>
+    <div class="scene-panel scene-status">
+      <div class="scene-body">
+        <div class="scene-line"><strong>compat codex</strong> <span class="ok">verified</span></div>
+        <div class="scene-line"><strong>drift</strong> none</div>
+        <div class="scene-line"><strong>rollback</strong> previous receipt ready</div>
+      </div>
+    </div>
+    <div class="scene-flow">
+      <div class="scene-node">registry</div>
+      <div class="scene-node">plan</div>
+      <div class="scene-node">agent</div>
+    </div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">Open source · portable · evidence-based</div>
+    <h1>Agent Packs<span>Capability bundles for AI coding agents</span></h1>
+    <p>Install, audit, update, and roll back skills, plugins, managed tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
 
-  <div class="install-tabs">
-    <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
-    <button class="tab-btn" onclick="setTab('curl', this)">curl</button>
-    <button class="tab-btn" onclick="setTab('docker', this)">Docker</button>
-    <button class="tab-btn" onclick="setTab('go', this)">Go install</button>
-  </div>
-  <div class="install-box">
-    <code id="install-cmd">brew install agent-packs/tap/agent-packs</code>
-    <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
-  </div>
-  <a class="install-docs" href="https://github.com/agent-packs/cli#install">New here? Read the install guide →</a>
-  <div class="hero-cta">
-    <a href="catalog.html" class="btn-primary">Browse Catalog</a>
-    <a href="https://github.com/agent-packs/cli" class="btn-ghost">View on GitHub</a>
+    <div class="install-tabs">
+      <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
+      <button class="tab-btn" onclick="setTab('curl', this)">curl</button>
+      <button class="tab-btn" onclick="setTab('docker', this)">Docker</button>
+      <button class="tab-btn" onclick="setTab('go', this)">Go install</button>
+    </div>
+    <div class="install-box">
+      <code id="install-cmd">brew install agent-packs/tap/agent-packs</code>
+      <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
+    </div>
+    <a class="install-docs" href="https://github.com/agent-packs/cli#install">New here? Read the install guide →</a>
+    <div class="hero-cta">
+      <a href="catalog.html" class="btn-primary">Browse Catalog</a>
+      <a href="https://github.com/agent-packs/cli" class="btn-ghost">View on GitHub</a>
+    </div>
+    <div class="hero-proof">
+      <span class="proof-pill">No default execution</span>
+      <span class="proof-pill">Receipts and lockfiles</span>
+      <span class="proof-pill">Verified compatibility metadata</span>
+    </div>
   </div>
 </section>
 
@@ -290,7 +385,7 @@
 <div class="stats" id="stats-bar">
   <div class="stat"><span class="stat-num" id="s-packs">34</span><span class="stat-label">Packs</span></div>
   <div class="stat"><span class="stat-num" id="s-caps">—</span><span class="stat-label">Capabilities</span></div>
-  <div class="stat"><span class="stat-num">9</span><span class="stat-label">Capability Types</span></div>
+  <div class="stat"><span class="stat-num" id="s-types">11</span><span class="stat-label">Capability Types</span></div>
   <div class="stat"><span class="stat-num">7</span><span class="stat-label">Editors Supported</span></div>
 </div>
 
@@ -312,43 +407,43 @@
 <div class="section-alt">
   <div class="container">
     <p class="section-tag">Why Agent Packs</p>
-    <h2 class="section-title">Everything Homebrew does,<br>for AI Agent Capabilities</h2>
-    <p class="section-sub">One CLI to install, update, audit, and rollback skills, plugins, commands, hooks, and settings across every AI coding agent you use.</p>
+    <h2 class="section-title">One registry model,<br>many agent surfaces</h2>
+    <p class="section-sub">A coherent capability model for reusable skills, plugins, tools, MCP servers, prompts, commands, memory, and settings with clear install behavior for every type.</p>
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon">🤖</div>
+        <div class="feature-icon">AI</div>
         <div class="feature-title">One Tool, All Agents</div>
-        <div class="feature-desc">Manage skills, plugins, commands, hooks, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more from a single CLI. Install once, track everywhere.</div>
+        <div class="feature-desc">Manage skills, plugins, tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more from a single CLI.</div>
         <div class="feature-cmd">agent-packs install backend-engineer --agent claude</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">📦</div>
-        <div class="feature-title">Tap System</div>
-        <div class="feature-desc">Add third-party skill registries from any GitHub repository, just like Homebrew taps.</div>
-        <div class="feature-cmd">agent-packs tap myorg/skills</div>
+        <div class="feature-icon">TL</div>
+        <div class="feature-title">Portable Tool Descriptors</div>
+        <div class="feature-desc">Tool capabilities install as managed descriptor files by default. Agent Packs records, copies, drifts, and uninstalls them without executing arbitrary code.</div>
+        <div class="feature-cmd">agent-packs install my-pack --only tools --mode copy</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🛡️</div>
-        <div class="feature-title">Trust Tiers</div>
-        <div class="feature-desc">Every capability is rated <em>core → community → tap → unverified</em>. Set a minimum trust floor before installing.</div>
-        <div class="feature-cmd">agent-packs install backend-engineer --min-trust community</div>
+        <div class="feature-icon">OK</div>
+        <div class="feature-title">Compatibility Evidence</div>
+        <div class="feature-desc">Packs can advertise intended agents and separately report verified, compatible, partial, unsupported, or unknown evidence for each target.</div>
+        <div class="feature-cmd">agent-packs compat eng-leader --agent codex</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🔍</div>
+        <div class="feature-icon">DF</div>
         <div class="feature-title">Drift Detection</div>
-        <div class="feature-desc">See exactly what changed in an installed pack since you last updated — before pulling new changes.</div>
+        <div class="feature-desc">See exactly what changed in managed files and merged settings since install, before pulling updates or rolling back.</div>
         <div class="feature-cmd">agent-packs diff backend-engineer</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">⏪</div>
+        <div class="feature-icon">RB</div>
         <div class="feature-title">Rollback</div>
-        <div class="feature-desc">Every install writes a lockfile. Roll back to the previous version of any pack instantly.</div>
+        <div class="feature-desc">Every install writes receipts and lockfiles so pack upgrades, managed descriptors, and merged fragments can be traced and reverted.</div>
         <div class="feature-cmd">agent-packs rollback backend-engineer</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🔗</div>
-        <div class="feature-title">Dependency Resolution</div>
-        <div class="feature-desc">Packs declare required capabilities and conflict guards. Auto-expanded before install — no manual juggling.</div>
+        <div class="feature-icon">RG</div>
+        <div class="feature-title">Reusable Registry Refs</div>
+        <div class="feature-desc">Packs can compose other packs and reference reusable JSON capabilities from registry directories without duplicating manifests.</div>
         <div class="feature-cmd">agent-packs show rust-engineer</div>
       </div>
     </div>
@@ -360,14 +455,14 @@
   <div class="container">
     <p class="section-tag">How it works</p>
     <h2 class="section-title">Packs: one bundle,<br>every capability</h2>
-    <p class="section-sub">A Pack is a named collection of capabilities — skills, plugins, commands, hooks, and settings — tuned for a role like <em>backend engineer</em>, <em>ML engineer</em>, or <em>SRE</em>. One install command resolves every capability to the right directory for every agent you use. Packs can even compose other packs, so a full-stack pack just references the backend and frontend packs — no duplication.</p>
+    <p class="section-sub">A Pack is a named collection of capabilities — skills, plugins, managed tools, MCP servers, commands, hooks, prompts, templates, memory, and settings — tuned for a role like <em>backend engineer</em>, <em>ML engineer</em>, or <em>SRE</em>. One install command resolves each capability to the right behavior: record, copy, merge, or gated native setup.</p>
 
     <div class="diagram-wrap">
-      <svg class="pack-svg" viewBox="0 0 760 478" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing how a Pack bundles capabilities — skills, plugins, hooks, and memory — and installs them into AI agents">
+      <svg class="pack-svg" viewBox="0 0 760 478" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing how a Pack bundles skills, plugins, tools, MCP servers, memory, and settings into AI agents">
 
         <!-- ── Pack box ── -->
         <rect x="240" y="8" width="280" height="74" rx="13" fill="#6366f1"/>
-        <text x="380" y="30" text-anchor="middle" fill="#c7d2fe" font-size="10" font-weight="700" letter-spacing="0.1em">PACK</text>
+        <text x="380" y="30" text-anchor="middle" fill="#c7d2fe" font-size="10" font-weight="700" letter-spacing="0">PACK</text>
         <text x="380" y="52" text-anchor="middle" fill="white" font-size="17" font-weight="800">eng-leader</text>
         <text x="380" y="71" text-anchor="middle" fill="#a5b4fc" font-size="11" font-family="monospace">agent-packs install eng-leader</text>
 
@@ -397,24 +492,24 @@
         <text x="585" y="192" text-anchor="middle" fill="#166534" font-size="11" font-family="monospace">github-pr-inspection</text>
         <text x="585" y="222" text-anchor="middle" fill="#15803d" font-size="10">optional · requires --execute-plugins</text>
 
-        <!-- ── Hooks box ── -->
+        <!-- ── Tools box ── -->
         <rect x="42" y="262" width="266" height="120" rx="12" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
-        <text x="175" y="286" text-anchor="middle" fill="#c2410c" font-size="12" font-weight="700">Hooks</text>
+        <text x="175" y="286" text-anchor="middle" fill="#c2410c" font-size="12" font-weight="700">Tools + Commands</text>
         <rect x="56" y="294" width="238" height="22" rx="5" fill="white"/>
-        <text x="175" y="309" text-anchor="middle" fill="#9a3412" font-size="11" font-family="monospace">eng-leader-pre-review</text>
-        <text x="175" y="339" text-anchor="middle" fill="#c2410c" font-size="10">opt-in · requires --allow-hooks</text>
+        <text x="175" y="309" text-anchor="middle" fill="#9a3412" font-size="11" font-family="monospace">incident-review-tool</text>
+        <text x="175" y="339" text-anchor="middle" fill="#c2410c" font-size="10">portable descriptors · no execution in v1</text>
 
         <!-- ── Memory box ── -->
         <rect x="452" y="262" width="266" height="120" rx="12" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
-        <text x="585" y="286" text-anchor="middle" fill="#1d4ed8" font-size="12" font-weight="700">Memory</text>
+        <text x="585" y="286" text-anchor="middle" fill="#1d4ed8" font-size="12" font-weight="700">MCP + Memory</text>
         <rect x="466" y="294" width="238" height="22" rx="5" fill="white"/>
-        <text x="585" y="309" text-anchor="middle" fill="#1e40af" font-size="11" font-family="monospace">eng-leader-conventions</text>
-        <text x="585" y="339" text-anchor="middle" fill="#2563eb" font-size="10">merges into CLAUDE.md / AGENTS.md</text>
+        <text x="585" y="309" text-anchor="middle" fill="#1e40af" font-size="11" font-family="monospace">filesystem-mcp</text>
+        <text x="585" y="339" text-anchor="middle" fill="#2563eb" font-size="10">settings merge · native gated by --execute-mcps</text>
 
         <!-- Join lines → agents -->
         <path d="M175 382 V406 H585 V382" stroke="#cbd5e1" stroke-width="1.5"/>
         <path d="M380 406 V424" stroke="#cbd5e1" stroke-width="1.5"/>
-        <text x="380" y="420" text-anchor="middle" fill="#94a3b8" font-size="11" letter-spacing="0.04em">installs into</text>
+        <text x="380" y="420" text-anchor="middle" fill="#94a3b8" font-size="11" letter-spacing="0">installs into</text>
 
         <!-- ── Agent pills ── -->
         <rect x="18"  y="436" width="118" height="20" rx="10" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
@@ -477,8 +572,8 @@
         <div class="step-num">3</div>
         <div>
           <h3>Install into your agent</h3>
-          <p>Pick a tool and install. With <code>--mode copy</code>, skills land in the right directory automatically (the default <code>reference</code> mode records sources without copying).</p>
-          <div class="code-block">agent-packs install backend-engineer --agent claude --mode copy<br>agent-packs install sre-engineer --agent cursor --mode copy<br><span class="cm"># Installed 7 skills → ~/.claude/skills/</span></div>
+          <p>Pick a target agent and install. The default <code>reference</code> mode records sources; <code>--mode copy</code> writes managed files and merges supported settings.</p>
+          <div class="code-block">agent-packs install backend-engineer --agent claude --mode copy<br>agent-packs install sre-engineer --agent codex --only tools --mode copy<br><span class="cm"># Receipts track every managed capability</span></div>
         </div>
       </div>
       <div class="step">
@@ -502,7 +597,7 @@
           <div class="logo-mark">AP</div>
           Agent Packs
         </a>
-        <p class="footer-tagline">Homebrew for AI agent capabilities.</p>
+        <p class="footer-tagline">Portable capability packs for AI coding agents.</p>
       </div>
       <div class="footer-links-group">
         <h4>Registry</h4>
@@ -568,6 +663,11 @@
       document.getElementById('s-packs').textContent = packs.length;
       const caps = packs.reduce((sum, p) => sum + (Number(p.capabilities) || 0), 0);
       document.getElementById('s-caps').textContent = caps || '—';
+      const typeNames = new Set();
+      packs.forEach(p => {
+        Object.keys(p.capabilityTypes || {}).forEach(type => typeNames.add(type));
+      });
+      if (typeNames.size) document.getElementById('s-types').textContent = typeNames.size;
 
       const featured = FEATURED_IDS
         .map(id => packs.find(p => p.id === id))

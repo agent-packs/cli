@@ -107,18 +107,20 @@ func TestBuildInstallPlanOnlyFilter(t *testing.T) {
 			{Type: "command", Name: "cmd-c", Source: "/tmp/c"},
 			{Type: "hook", Name: "hook-d", Source: "/tmp/h"},
 			{Type: "subagent", Name: "sub-e", Source: "/tmp/s"},
+			{Type: "tool", Name: "tool-f", Source: "/tmp/t"},
 		},
 	}
 	cases := []struct {
 		only      string
 		wantTypes []string
 	}{
-		{"all", []string{"skill", "plugin", "command", "hook", "subagent"}},
+		{"all", []string{"skill", "plugin", "command", "hook", "subagent", "tool"}},
 		{"skills", []string{"skill"}},
 		{"plugins", []string{"plugin"}},
 		{"commands", []string{"command"}},
 		{"hooks", []string{"hook"}},
 		{"subagents", []string{"subagent"}},
+		{"tools", []string{"tool"}},
 	}
 	for _, c := range cases {
 		t.Run(c.only, func(t *testing.T) {
@@ -265,12 +267,34 @@ func TestBuildInstallPlanOnlyFilterNewTypes(t *testing.T) {
 	}
 }
 
-func TestBuildInstallPlanUnhandledCapabilityRecords(t *testing.T) {
-	// `tool` has no materialization path yet, so it falls through to record.
-	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{{Type: "tool", Name: "t", Source: "/tmp/t"}}}
-	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "target"})
-	if p.Capabilities[0].Action != "record" {
-		t.Fatalf("unhandled capability type should record, got %q", p.Capabilities[0].Action)
+func TestBuildInstallPlanToolUsesPortableDescriptor(t *testing.T) {
+	cap := model.Capability{Type: "tool", Name: "Browser Verify", Content: `{"command":"verify-browser"}`, Format: "json"}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "claude", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "copy" {
+		t.Fatalf("tool should copy in copy mode, got %q", item.Action)
+	}
+	if want := filepath.Join("/target", ".agent-packs/tools/browser-verify.json"); item.Destination != want {
+		t.Fatalf("want destination %q, got %q", want, item.Destination)
+	}
+	if item.FileKind != "json" {
+		t.Fatalf("want json file kind, got %q", item.FileKind)
+	}
+}
+
+func TestBuildInstallPlanAgentTargetScopeMismatchSkips(t *testing.T) {
+	cap := model.Capability{
+		Type: "tool", Name: "Browser Verify", Content: `{}`,
+		AgentTargets: map[string]model.AgentTarget{
+			"codex": {Destination: ".codex/tools/browser.json", Scope: "global", Format: "json"},
+		},
+	}
+	pack := model.Pack{ID: "p", Version: "1.0.0", Capabilities: []model.Capability{cap}}
+	p := BuildInstallPlanWithOptions(pack, "/target", "codex", "all", model.InstallOptions{Mode: "copy", OnConflict: "skip", Scope: "project"})
+	item := p.Capabilities[0]
+	if item.Action != "skip" || item.Status != "unsupported" {
+		t.Fatalf("want skip/unsupported for scope mismatch, got action=%q status=%q", item.Action, item.Status)
 	}
 }
 

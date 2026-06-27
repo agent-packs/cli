@@ -50,6 +50,8 @@ func New(opts NewOptions) (string, error) {
 		return newPrompt(opts)
 	case "template":
 		return newTemplate(opts)
+	case "tool":
+		return newTool(opts)
 	default:
 		return "", fmt.Errorf("unknown authoring kind: %s", opts.Kind)
 	}
@@ -144,6 +146,11 @@ func newPrompt(opts NewOptions) (string, error) {
 func newTemplate(opts NewOptions) (string, error) {
 	content := fmt.Sprintf("# %s\n\nStarter template body. Replace with the scaffold this template provides.\n", opts.Name)
 	return newCapabilityFile(opts, "template", "markdown", content)
+}
+
+func newTool(opts NewOptions) (string, error) {
+	return newCapabilityFile(opts, "tool", "json",
+		`{"name":"`+opts.ID+`","description":"Describe the portable tool descriptor. This file is not executed by Agent Packs."}`)
 }
 
 func writeJSON(path string, value any, force bool) error {

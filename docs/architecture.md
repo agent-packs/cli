@@ -8,6 +8,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 - Registry packs: static JSON manifests under `registry/packs/`.
 - Registry skills: Agent Skill source references under `registry/skills/<id>/SKILL.md`.
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
+- Registry reusable capability descriptors: JSON manifests under `registry/commands/`, `registry/hooks/`, `registry/subagents/`, `registry/prompts/`, `registry/templates/`, `registry/tools/`, `registry/memory/`, `registry/settings/`, and `registry/mcp/`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
 - Catalog metadata: maintainers, stability, review status, deprecation, replacement, last verified date, and tool/version requirements.
 - Policy defaults: `registry/policy/default.json`.
@@ -24,6 +25,7 @@ Implemented commands:
 - `agent-packs install <pack|registry/pack>`
 - `agent-packs skills install <skill-id|path>`
 - `agent-packs plugins install <plugin-id|path>`
+- `agent-packs commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp install <id|path>`
 - `agent-packs list [--json]`
 - `agent-packs uninstall <pack>`
 - `agent-packs upgrade <pack>`
@@ -31,7 +33,7 @@ Implemented commands:
 - `agent-packs audit <pack> [--json]`
 - `agent-packs version [--json]`
 - `agent-packs init [dir]`
-- `agent-packs new <pack|skill|plugin> <id>`
+- `agent-packs new <pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings> <id>`
 - `agent-packs doctor`
 - `agent-packs doctor targets`
 - `agent-packs validate <file-or-directory>`
@@ -97,9 +99,9 @@ CI (`.github/workflows/ci.yml`) runs Go and Python tests, JSON Schema validation
 
 ## Security Posture
 
-Plugin install and uninstall commands are not executed unless the user passes `--execute-plugins`. Plugin execution uses a timeout, respects `AGENT_PACKS_PLUGIN_CWD`, and supports structured handlers for `claude-marketplace` and `manual` lifecycle methods.
+Plugin install and uninstall commands are not executed unless the user passes `--execute-plugins`. Plugin execution uses a timeout, respects `AGENT_PACKS_PLUGIN_CWD`, and supports structured handlers for `claude-marketplace` and `manual` lifecycle methods. Any non-plugin capability with an install or uninstall command must declare `requiresExecution: true`; tool descriptors are never executed by Agent Packs v1.
 
-Standalone `skills` and `plugins` commands write receipts under `<target>/receipts/skills/` and `<target>/receipts/plugins/`, keeping independent capability lifecycle state separate from pack receipts.
+Standalone capability commands write receipts under `<target>/receipts/<kind>/`, keeping independent capability lifecycle state separate from pack receipts.
 
 Plugin capabilities with install or uninstall commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
 
@@ -107,14 +109,17 @@ Integrity metadata uses `integrity.checksum` (`sha256:`) and optional `integrity
 
 The target matrix maps supported tools to global and project skill directories, with aliases such as `claude-code` → `claude`. Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target by default (`--mode reference`).
 
-Commands and hooks are managed file capabilities. In `reference` mode they are
-recorded only. In `copy` mode, Agent Packs writes a single file from inline
-`content` or a materialized source file, records a content hash in the receipt,
-checks drift with `status`, and removes the file on uninstall/rollback. Claude
-Code commands use the verified `.claude/commands/*.md` destination; other agents
-fall back to portable `.agent-packs/commands/*.md` and
-`.agent-packs/hooks/*.json` destinations unless a pack supplies an
-`agentTargets` override.
+Commands, hooks, subagents, prompts, templates, and tools are managed file
+capabilities. In `reference` mode they are recorded only. In `copy` mode, Agent
+Packs writes a single file from inline `content` or a materialized source file,
+records a content hash in the receipt, checks drift with `status`, and removes
+the file on uninstall/rollback. Claude Code commands and subagents use verified
+`.claude/commands/*.md` and `.claude/agents/*.md` destinations; other agents fall
+back to portable `.agent-packs/commands/*.md`, `.agent-packs/hooks/*.json`,
+`.agent-packs/agents/*.md`, `.agent-packs/prompts/*.md`,
+`.agent-packs/templates/*.md`, and `.agent-packs/tools/*.json` destinations
+unless a pack supplies an `agentTargets` override. `targets` remains metadata;
+`agentTargets.scope` selects global, project, or target-scoped destinations.
 
 ## Merge Capabilities (Memory And Settings)
 

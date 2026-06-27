@@ -107,6 +107,11 @@ var TargetMatrix = map[string]model.TargetSpec{
 			{Scope: "target", Path: ".agent-packs/templates/*.md", Kind: "markdown", Default: true},
 			{Scope: "global", Path: ".agent-packs/templates/*.md", Kind: "markdown", Default: true},
 			{Scope: "project", Path: ".agent-packs/templates/*.md", Kind: "markdown", Default: true},
+		},
+		ToolDestinations: []model.FileDest{
+			{Scope: "target", Path: ".agent-packs/tools/*.json", Kind: "json", Default: true},
+			{Scope: "global", Path: ".agent-packs/tools/*.json", Kind: "json", Default: true},
+			{Scope: "project", Path: ".agent-packs/tools/*.json", Kind: "json", Default: true},
 		}},
 }
 
@@ -182,6 +187,11 @@ func FileTargetDest(capType, agent, scope string) (model.FileDest, bool) {
 		candidates = spec.TemplateDestinations
 		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
 			candidates = TargetMatrix["generic"].TemplateDestinations
+		}
+	case "tool":
+		candidates = spec.ToolDestinations
+		if len(candidates) == 0 && NormalizeAgent(agent) != "generic" {
+			candidates = TargetMatrix["generic"].ToolDestinations
 		}
 	default:
 		return model.FileDest{}, false
