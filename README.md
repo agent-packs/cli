@@ -194,7 +194,7 @@ Agent Packs orchestrates native install flows instead of replacing them.
 - Installed packs write receipts under `<target>/receipts/`.
 - Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
 - `uninstall` removes installed inline skill folders, managed command/hook files, and receipts. Plugin cleanup commands run only with `uninstall --execute-plugins`; otherwise plugins are reported for native/manual cleanup.
-- Standalone `skills` and `plugins` commands manage independent capabilities under `<target>/receipts/skills/` and `<target>/receipts/plugins/` without requiring a pack wrapper.
+- Standalone `skills`, `plugins`, `commands`, `hooks`, `subagents`, `prompts`, `templates`, `memory`, `settings`, and `mcp` commands manage independent capabilities under `<target>/receipts/<kind>/` without requiring a pack wrapper.
 
 ## Lifecycle Commands
 
@@ -203,12 +203,13 @@ Agent Packs supports a basic package-manager lifecycle:
 - `cache`: shows and creates central source/cache/lock/registry directories under the Agent Packs home.
 - `update --all`: refreshes configured registries.
 - `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
-- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings|commands|hooks` to install one capability family from a mixed pack.
+- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates` to install one capability family from a mixed pack.
 - `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings.
 - `rollback <pack...>`: restores one or more previous receipt-backed install states when history exists.
 - `uninstall <pack...>`: removes one or more installed packs, including installed inline skill folders, optional plugin cleanup commands, and receipts.
 - `skills install|list|upgrade|uninstall`: manages independent registry or local Agent Skills without wrapping them in a pack. `list` also discovers skills installed outside the standalone path, annotating each with a `source` column: `managed` (standalone receipt), `pack:<id>` (materialized by a pack install), or `external` (present on disk in a tool's skill directory with no receipt).
 - `plugins install|list|upgrade|uninstall`: manages independent registry or local plugins; pass `--method`, `--package`, `--marketplace`, `--command`, or `--uninstall-command` to store native lifecycle metadata outside a pack. `list` also surfaces plugins pulled in by a pack install with a `pack:<id>` source.
+- `commands|hooks|subagents|prompts|templates|memory|settings|mcp install|list|upgrade|uninstall`: manages standalone local JSON capability files or registry entries with the same target matrix, merge behavior, execution gates, and receipt lifecycle used by pack installs.
 - `audit <pack>`: supply-chain SBOM report (`--json` supported).
 - `version`: prints CLI version (`--json` supported).
 - `init [dir]`: writes `.agent-packs.yaml` project defaults. Detects the agent

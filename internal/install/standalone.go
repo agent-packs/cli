@@ -1,6 +1,7 @@
 package install
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -293,6 +294,28 @@ func UninstallStandalone(target, id, kind string, executePlugins bool, out io.Wr
 				return err
 			}
 			fmt.Fprintf(out, "Removed skill: %s\n", item.Destination)
+		} else if isManagedFileType(item.Type) && item.Destination != "" && item.Status == "installed" {
+			if err := os.Remove(item.Destination); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			fmt.Fprintf(out, "Removed %s: %s\n", item.Type, item.Destination)
+		} else if item.Type == "memory" || item.Type == "settings" || item.Type == "mcp" {
+			if err := retractMergeItem(item); err != nil {
+				return err
+			}
+			if item.Status == "installed" {
+				fmt.Fprintf(out, "Removed %s from: %s\n", item.Type, item.Destination)
+			}
+			if item.Type == "mcp" {
+				result := uninstallMCP(item, executePlugins)
+				if result.Status == "uninstalled" {
+					fmt.Fprintf(out, "Uninstalled MCP: %s\n", item.Name)
+				} else if result.Status == "pending" {
+					fmt.Fprintf(out, "MCP requires native uninstall/manual cleanup: %s\n", item.Name)
+				} else if result.Status == "failed" {
+					return fmt.Errorf("MCP uninstall failed for %s: %s", item.Name, result.Reason)
+				}
+			}
 		} else if item.Type == "plugin" {
 			result := uninstallPlugin(item, executePlugins)
 			if result.Status == "uninstalled" {
@@ -325,7 +348,7 @@ func LoadStandaloneReceipt(target, kind, id string) (model.Receipt, error) {
 }
 
 func resolveStandaloneCapability(registryPath, ref, kind string) (model.Capability, string, error) {
-	if kind != "skills" && kind != "plugins" {
+	if !supportedStandaloneKind(kind) {
 		return model.Capability{}, "", fmt.Errorf("unsupported standalone capability kind: %s", kind)
 	}
 	expanded := util.ExpandHome(ref)
@@ -336,6 +359,14 @@ func resolveStandaloneCapability(registryPath, ref, kind string) (model.Capabili
 		}
 		capability.Reference = false
 		return capability, util.Slugify(capability.Name), nil
+	}
+	if kind != "skills" && kind != "plugins" {
+		capability, err := registryCapabilityFile(registryPath, ref, kind)
+		if err != nil {
+			return model.Capability{}, "", err
+		}
+		capability.Reference = false
+		return capability, ref, nil
 	}
 	capability, err := registry.FindCapability(registryPath, kind, ref)
 	if err != nil {
@@ -359,6 +390,9 @@ func capabilityFromLocalPath(path, kind string) (model.Capability, error) {
 		capability.Source = filepath.Dir(skillPath)
 		return capability, nil
 	}
+	if kind != "plugins" {
+		return capabilityFromJSONFile(path, singularKind(kind))
+	}
 	root := path
 	manifestPath := filepath.Join(root, ".claude-plugin", "plugin.json")
 	if filepath.Base(path) == "plugin.json" {
@@ -372,6 +406,45 @@ func capabilityFromLocalPath(path, kind string) (model.Capability, error) {
 	capability := registry.PluginCapability(manifest.Name, root, manifest)
 	capability.Source = root
 	return capability, nil
+}
+
+func capabilityFromJSONFile(path, wantType string) (model.Capability, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return model.Capability{}, err
+	}
+	var capability model.Capability
+	if err := json.Unmarshal(data, &capability); err != nil {
+		return model.Capability{}, err
+	}
+	if capability.Type == "" {
+		capability.Type = wantType
+	}
+	if capability.Type != wantType {
+		return model.Capability{}, fmt.Errorf("capability type %q does not match standalone kind %q", capability.Type, wantType)
+	}
+	if capability.Name == "" {
+		capability.Name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	}
+	return capability, nil
+}
+
+func registryCapabilityFile(registryPath, id, kind string) (model.Capability, error) {
+	path := filepath.Join(registry.RegistryRoot(registryPath), kind, id+".json")
+	capability, err := capabilityFromJSONFile(path, singularKind(kind))
+	if err != nil {
+		return model.Capability{}, fmt.Errorf("%s capability not found or invalid: %s", singularKind(kind), id)
+	}
+	return capability, nil
+}
+
+func supportedStandaloneKind(kind string) bool {
+	switch kind {
+	case "skills", "plugins", "commands", "hooks", "subagents", "prompts", "templates", "memory", "settings", "mcp":
+		return true
+	default:
+		return false
+	}
 }
 
 func standalonePack(kind, id string, capability model.Capability) model.Pack {
@@ -393,11 +466,28 @@ func standaloneReceiptsDir(target, kind string) string {
 }
 
 func singularKind(kind string) string {
-	if kind == "skills" {
+	switch kind {
+	case "skills":
 		return "skill"
-	}
-	if kind == "plugins" {
+	case "plugins":
 		return "plugin"
+	case "commands":
+		return "command"
+	case "hooks":
+		return "hook"
+	case "subagents":
+		return "subagent"
+	case "prompts":
+		return "prompt"
+	case "templates":
+		return "template"
+	case "memory":
+		return "memory"
+	case "settings":
+		return "settings"
+	case "mcp":
+		return "mcp"
+	default:
+		return "capability"
 	}
-	return "capability"
 }

@@ -49,6 +49,22 @@ func main() {
 		err = runStandaloneLifecycle(registry, defaultTarget, "skills", os.Args[2:])
 	case "plugins":
 		err = runStandaloneLifecycle(registry, defaultTarget, "plugins", os.Args[2:])
+	case "mcp":
+		err = runStandaloneLifecycle(registry, defaultTarget, "mcp", os.Args[2:])
+	case "commands":
+		err = runStandaloneLifecycle(registry, defaultTarget, "commands", os.Args[2:])
+	case "hooks":
+		err = runStandaloneLifecycle(registry, defaultTarget, "hooks", os.Args[2:])
+	case "subagents":
+		err = runStandaloneLifecycle(registry, defaultTarget, "subagents", os.Args[2:])
+	case "prompts":
+		err = runStandaloneLifecycle(registry, defaultTarget, "prompts", os.Args[2:])
+	case "templates":
+		err = runStandaloneLifecycle(registry, defaultTarget, "templates", os.Args[2:])
+	case "memory":
+		err = runStandaloneLifecycle(registry, defaultTarget, "memory", os.Args[2:])
+	case "settings":
+		err = runStandaloneLifecycle(registry, defaultTarget, "settings", os.Args[2:])
 	case "list":
 		err = runList(defaultTarget, os.Args[2:])
 	case "outdated":
@@ -242,7 +258,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	target := flags.String("target", defaultTarget, "installation target directory")
 	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	targetTool := flags.String("target-tool", "", "target tool alias for --agent")
-	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, hooks, subagents, prompts, or templates")
+	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, or templates")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
 	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
@@ -409,6 +425,8 @@ func runStandaloneInstall(registry, defaultTarget, kind string, args []string) e
 	targetTool := flags.String("target-tool", "", "target tool alias for --agent")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
+	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
 	modeDefault := "copy"
 	if kind == "plugins" {
 		modeDefault = "native"
@@ -427,7 +445,7 @@ func runStandaloneInstall(registry, defaultTarget, kind string, args []string) e
 	}
 	remaining := flags.Args()
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs %s install <id-or-path>... [--target dir] [--agent name] [--mode mode] [--dry-run]", kind)
+		return fmt.Errorf("usage: agent-packs %s install <id-or-path>... [--target dir] [--agent name] [--mode mode] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]", kind)
 	}
 	if *targetTool != "" {
 		*agent = *targetTool
@@ -455,7 +473,7 @@ func runStandaloneInstall(registry, defaultTarget, kind string, args []string) e
 		installTarget = *target
 		scope = "global"
 	}
-	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope}
+	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks, ExecuteMCPs: *executeMCPs}
 	installOverrides := map[string]string{}
 	if kind == "plugins" {
 		installOverrides["method"] = *method
@@ -512,16 +530,21 @@ func runStandaloneUninstall(defaultTarget, kind string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin uninstall commands")
+	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP uninstall commands")
 	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
 		return err
 	}
 	remaining := flags.Args()
 	if len(remaining) < 1 {
-		return fmt.Errorf("usage: agent-packs %s uninstall <id>... [--target dir] [--execute-plugins]", kind)
+		return fmt.Errorf("usage: agent-packs %s uninstall <id>... [--target dir] [--execute-plugins] [--execute-mcps]", kind)
 	}
 	for index, id := range remaining {
 		printLifecycleHeader("Uninstalling "+singularStandaloneKind(kind), id, index, len(remaining))
-		if err := agentpacks.UninstallStandalone(*target, id, kind, *executePlugins, os.Stdout); err != nil {
+		executeNative := *executePlugins
+		if kind == "mcp" {
+			executeNative = *executeMCPs
+		}
+		if err := agentpacks.UninstallStandalone(*target, id, kind, executeNative, os.Stdout); err != nil {
 			return err
 		}
 	}
@@ -529,13 +552,30 @@ func runStandaloneUninstall(defaultTarget, kind string, args []string) error {
 }
 
 func singularStandaloneKind(kind string) string {
-	if kind == "skills" {
+	switch kind {
+	case "skills":
 		return "skill"
-	}
-	if kind == "plugins" {
+	case "plugins":
 		return "plugin"
+	case "commands":
+		return "command"
+	case "hooks":
+		return "hook"
+	case "subagents":
+		return "subagent"
+	case "prompts":
+		return "prompt"
+	case "templates":
+		return "template"
+	case "memory":
+		return "memory"
+	case "settings":
+		return "settings"
+	case "mcp":
+		return "MCP"
+	default:
+		return "capability"
 	}
-	return "capability"
 }
 
 func runUninstall(defaultTarget string, args []string) error {
@@ -1242,7 +1282,7 @@ _agent_packs() {
         cword=$COMP_CWORD
     }
 
-    local subcommands="search show install info home sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
+    local subcommands="search show install info home sync freeze export skills plugins commands hooks subagents prompts templates memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
@@ -1260,7 +1300,7 @@ _agent_packs() {
             COMPREPLY=($(compgen -W "skip overwrite backup" -- "$cur"))
             return ;;
         --only)
-            COMPREPLY=($(compgen -W "all skills plugins memory settings commands hooks subagents prompts templates" -- "$cur"))
+            COMPREPLY=($(compgen -W "all skills plugins memory settings commands hooks subagents mcp prompts templates" -- "$cur"))
             return ;;
     esac
 
@@ -1282,7 +1322,7 @@ _agent_packs() {
         target)
             COMPREPLY=($(compgen -W "add list remove" -- "$cur"))
             ;;
-        skills|plugins)
+        skills|plugins|commands|hooks|subagents|prompts|templates|memory|settings|mcp)
             COMPREPLY=($(compgen -W "install list upgrade uninstall" -- "$cur"))
             ;;
     esac
@@ -1314,6 +1354,14 @@ _agent_packs() {
                 'export:write installed packs to a portable YAML file'
                 'skills:manage standalone Agent Skills'
                 'plugins:manage standalone plugins'
+                'commands:manage standalone command capabilities'
+                'hooks:manage standalone hook capabilities'
+                'subagents:manage standalone subagent capabilities'
+                'prompts:manage standalone prompt capabilities'
+                'templates:manage standalone template capabilities'
+                'memory:manage standalone memory capabilities'
+                'settings:manage standalone settings capabilities'
+                'mcp:manage standalone MCP server capabilities'
                 'list:list installed packs'
                 'outdated:check for available updates'
                 'upgrade:upgrade an installed pack (--all for all)'
@@ -1370,7 +1418,7 @@ _agent_packs() {
                 '--target-tool=[target tool alias]:agent:(claude codex cursor gemini copilot opencode goose)' \
                 '--mode=[install mode]:mode:(reference symlink copy native)' \
                 '--on-conflict=[conflict policy]:policy:(skip overwrite backup)' \
-                '--only=[capability filter]:filter:(all skills plugins memory settings commands hooks subagents prompts templates)' \
+                '--only=[capability filter]:filter:(all skills plugins memory settings commands hooks subagents mcp prompts templates)' \
                 '--target=[install target directory]:directory:_directories' \
                 '--dry-run[print plan without writing files]' \
                 '--execute-plugins[run native plugin install commands]' \
@@ -1387,7 +1435,7 @@ _agent_packs "$@"
 const fishCompletion = `# agent-packs fish completion
 # Place in ~/.config/fish/completions/agent-packs.fish
 
-set -l __ap_subcommands search show install info home sync freeze export skills plugins list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
+set -l __ap_subcommands search show install info home sync freeze export skills plugins commands hooks subagents prompts templates memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
 
 # Subcommand completions
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a search     -d 'Search the registry for packs'
@@ -1398,6 +1446,14 @@ complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a export     -d 'Export installed packs to a portable file'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a skills     -d 'Manage standalone Agent Skills'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a plugins    -d 'Manage standalone plugins'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a commands   -d 'Manage standalone command capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a hooks      -d 'Manage standalone hook capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a subagents  -d 'Manage standalone subagent capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a prompts    -d 'Manage standalone prompt capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a templates  -d 'Manage standalone template capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a memory     -d 'Manage standalone memory capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a settings   -d 'Manage standalone settings capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a mcp        -d 'Manage standalone MCP server capabilities'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a list       -d 'List installed packs'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a outdated   -d 'Check for available updates'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a upgrade    -d 'Upgrade an installed pack (--all for all)'
@@ -1424,7 +1480,7 @@ complete -f -c agent-packs \
 
 # Shell name for completion subcommand
 complete -f -c agent-packs -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
-complete -f -c agent-packs -n "__fish_seen_subcommand_from skills plugins" -a "install list upgrade uninstall"
+complete -f -c agent-packs -n "__fish_seen_subcommand_from skills plugins commands hooks subagents prompts templates memory settings mcp" -a "install list upgrade uninstall"
 complete -f -c agent-packs -n "__fish_seen_subcommand_from registry target" -a "add list remove"
 
 # Shared flags
@@ -1432,7 +1488,7 @@ complete -f -c agent-packs -l agent        -a "claude codex cursor gemini copilo
 complete -f -c agent-packs -l target-tool  -a "claude codex cursor gemini copilot opencode goose" -d 'Target tool alias'
 complete -f -c agent-packs -l mode         -a "reference symlink copy native"                     -d 'Install mode'
 complete -f -c agent-packs -l on-conflict  -a "skip overwrite backup"                             -d 'Conflict policy'
-complete -f -c agent-packs -l only         -a "all skills plugins memory settings commands hooks subagents prompts templates"  -d 'Capability filter'
+complete -f -c agent-packs -l only         -a "all skills plugins memory settings commands hooks subagents mcp prompts templates"  -d 'Capability filter'
 complete -r -c agent-packs -l target       -d 'Installation target directory'
 complete -f -c agent-packs -l dry-run      -d 'Print plan without writing files'
 complete -f -c agent-packs -l execute-plugins -d 'Run native plugin install commands'
@@ -1737,6 +1793,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")
 	fmt.Fprintln(os.Stderr, "  agent-packs skills install|list|upgrade|uninstall ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs plugins install|list|upgrade|uninstall ... [--execute-plugins]")
+	fmt.Fprintln(os.Stderr, "  agent-packs commands|hooks|subagents|prompts|templates|memory|settings|mcp install|list|upgrade|uninstall ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
