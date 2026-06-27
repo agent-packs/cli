@@ -61,6 +61,8 @@ func main() {
 		err = runStandaloneLifecycle(registry, defaultTarget, "prompts", os.Args[2:])
 	case "templates":
 		err = runStandaloneLifecycle(registry, defaultTarget, "templates", os.Args[2:])
+	case "tools":
+		err = runStandaloneLifecycle(registry, defaultTarget, "tools", os.Args[2:])
 	case "memory":
 		err = runStandaloneLifecycle(registry, defaultTarget, "memory", os.Args[2:])
 	case "settings":
@@ -258,7 +260,7 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	target := flags.String("target", defaultTarget, "installation target directory")
 	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	targetTool := flags.String("target-tool", "", "target tool alias for --agent")
-	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, or templates")
+	only := flags.String("only", "all", "capability filter: all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, templates, or tools")
 	dryRun := flags.Bool("dry-run", false, "print installation plan without writing files")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
 	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
@@ -290,8 +292,8 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if !agentpacks.ValidAgent(*agent) {
 		return fmt.Errorf("invalid agent %q: run `agent-packs doctor targets` for supported tools", *agent)
 	}
-	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" && *only != "commands" && *only != "hooks" && *only != "subagents" && *only != "mcp" && *only != "prompts" && *only != "templates" {
-		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, or templates", *only)
+	if *only != "all" && *only != "skills" && *only != "plugins" && *only != "memory" && *only != "settings" && *only != "commands" && *only != "hooks" && *only != "subagents" && *only != "mcp" && *only != "prompts" && *only != "templates" && *only != "tools" {
+		return fmt.Errorf("invalid --only %q: expected all, skills, plugins, memory, settings, commands, hooks, subagents, mcp, prompts, templates, or tools", *only)
 	}
 	if *mode != "reference" && *mode != "symlink" && *mode != "copy" && *mode != "native" {
 		return fmt.Errorf("invalid --mode %q: expected reference, symlink, copy, or native", *mode)
@@ -567,6 +569,8 @@ func singularStandaloneKind(kind string) string {
 		return "prompt"
 	case "templates":
 		return "template"
+	case "tools":
+		return "tool"
 	case "memory":
 		return "memory"
 	case "settings":
@@ -783,7 +787,7 @@ func runInit(registry string, args []string) error {
 }
 
 func runNew(args []string) error {
-	const newUsage = "usage: agent-packs new <pack|skill|plugin|command|hook|subagent|prompt|template|memory|settings> <id> [--name name] [--dir dir] [--force]"
+	const newUsage = "usage: agent-packs new <pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings> <id> [--name name] [--dir dir] [--force]"
 	if len(args) < 1 {
 		return fmt.Errorf(newUsage)
 	}
@@ -1282,7 +1286,7 @@ _agent_packs() {
         cword=$COMP_CWORD
     }
 
-    local subcommands="search show install info home sync freeze export skills plugins commands hooks subagents prompts templates memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
+    local subcommands="search show install info home sync freeze export skills plugins commands hooks subagents prompts templates tools memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
@@ -1300,7 +1304,7 @@ _agent_packs() {
             COMPREPLY=($(compgen -W "skip overwrite backup" -- "$cur"))
             return ;;
         --only)
-            COMPREPLY=($(compgen -W "all skills plugins memory settings commands hooks subagents mcp prompts templates" -- "$cur"))
+            COMPREPLY=($(compgen -W "all skills plugins memory settings commands hooks subagents mcp prompts templates tools" -- "$cur"))
             return ;;
     esac
 
@@ -1322,7 +1326,7 @@ _agent_packs() {
         target)
             COMPREPLY=($(compgen -W "add list remove" -- "$cur"))
             ;;
-        skills|plugins|commands|hooks|subagents|prompts|templates|memory|settings|mcp)
+        skills|plugins|commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp)
             COMPREPLY=($(compgen -W "install list upgrade uninstall" -- "$cur"))
             ;;
     esac
@@ -1359,6 +1363,7 @@ _agent_packs() {
                 'subagents:manage standalone subagent capabilities'
                 'prompts:manage standalone prompt capabilities'
                 'templates:manage standalone template capabilities'
+                'tools:manage standalone tool descriptor capabilities'
                 'memory:manage standalone memory capabilities'
                 'settings:manage standalone settings capabilities'
                 'mcp:manage standalone MCP server capabilities'
@@ -1380,7 +1385,7 @@ _agent_packs() {
                 'registry:manage remote registries'
                 'target:manage custom agent tool targets'
                 'doctor:diagnose installation environment'
-                'new:scaffold a new pack, skill, plugin, command, hook, subagent, prompt, template, memory, or settings capability'
+                'new:scaffold a new pack, skill, plugin, command, hook, subagent, prompt, template, tool, memory, or settings capability'
                 'init:create a project .agent-packs.yaml config'
                 'publish:check registry packs for publish readiness'
                 'policy:check packs against a trust policy'
@@ -1418,7 +1423,7 @@ _agent_packs() {
                 '--target-tool=[target tool alias]:agent:(claude codex cursor gemini copilot opencode goose)' \
                 '--mode=[install mode]:mode:(reference symlink copy native)' \
                 '--on-conflict=[conflict policy]:policy:(skip overwrite backup)' \
-                '--only=[capability filter]:filter:(all skills plugins memory settings commands hooks subagents mcp prompts templates)' \
+                '--only=[capability filter]:filter:(all skills plugins memory settings commands hooks subagents mcp prompts templates tools)' \
                 '--target=[install target directory]:directory:_directories' \
                 '--dry-run[print plan without writing files]' \
                 '--execute-plugins[run native plugin install commands]' \
@@ -1435,7 +1440,7 @@ _agent_packs "$@"
 const fishCompletion = `# agent-packs fish completion
 # Place in ~/.config/fish/completions/agent-packs.fish
 
-set -l __ap_subcommands search show install info home sync freeze export skills plugins commands hooks subagents prompts templates memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
+set -l __ap_subcommands search show install info home sync freeze export skills plugins commands hooks subagents prompts templates tools memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
 
 # Subcommand completions
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a search     -d 'Search the registry for packs'
@@ -1451,6 +1456,7 @@ complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a subagents  -d 'Manage standalone subagent capabilities'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a prompts    -d 'Manage standalone prompt capabilities'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a templates  -d 'Manage standalone template capabilities'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a tools      -d 'Manage standalone tool descriptor capabilities'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a memory     -d 'Manage standalone memory capabilities'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a settings   -d 'Manage standalone settings capabilities'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a mcp        -d 'Manage standalone MCP server capabilities'
@@ -1480,7 +1486,7 @@ complete -f -c agent-packs \
 
 # Shell name for completion subcommand
 complete -f -c agent-packs -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
-complete -f -c agent-packs -n "__fish_seen_subcommand_from skills plugins commands hooks subagents prompts templates memory settings mcp" -a "install list upgrade uninstall"
+complete -f -c agent-packs -n "__fish_seen_subcommand_from skills plugins commands hooks subagents prompts templates tools memory settings mcp" -a "install list upgrade uninstall"
 complete -f -c agent-packs -n "__fish_seen_subcommand_from registry target" -a "add list remove"
 
 # Shared flags
@@ -1488,7 +1494,7 @@ complete -f -c agent-packs -l agent        -a "claude codex cursor gemini copilo
 complete -f -c agent-packs -l target-tool  -a "claude codex cursor gemini copilot opencode goose" -d 'Target tool alias'
 complete -f -c agent-packs -l mode         -a "reference symlink copy native"                     -d 'Install mode'
 complete -f -c agent-packs -l on-conflict  -a "skip overwrite backup"                             -d 'Conflict policy'
-complete -f -c agent-packs -l only         -a "all skills plugins memory settings commands hooks subagents mcp prompts templates"  -d 'Capability filter'
+complete -f -c agent-packs -l only         -a "all skills plugins memory settings commands hooks subagents mcp prompts templates tools"  -d 'Capability filter'
 complete -r -c agent-packs -l target       -d 'Installation target directory'
 complete -f -c agent-packs -l dry-run      -d 'Print plan without writing files'
 complete -f -c agent-packs -l execute-plugins -d 'Run native plugin install commands'
@@ -1787,20 +1793,20 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")
+	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
 	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")
 	fmt.Fprintln(os.Stderr, "  agent-packs skills install|list|upgrade|uninstall ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs plugins install|list|upgrade|uninstall ... [--execute-plugins]")
-	fmt.Fprintln(os.Stderr, "  agent-packs commands|hooks|subagents|prompts|templates|memory|settings|mcp install|list|upgrade|uninstall ...")
+	fmt.Fprintln(os.Stderr, "  agent-packs commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp install|list|upgrade|uninstall ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
 	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native] [--no-detect]")
-	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin|command|hook|subagent|prompt|template|memory|settings> <id> [--name name] [--dir dir] [--force]")
+	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings> <id> [--name name] [--dir dir] [--force]")
 	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs tree|deps <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs publish --check [--policy file] [--json]")

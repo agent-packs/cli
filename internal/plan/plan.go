@@ -103,7 +103,7 @@ func PrintPlan(plan model.Plan, out io.Writer) {
 // managed file (copied verbatim), as opposed to a merge-into-file capability.
 func isManagedFileType(capType string) bool {
 	switch capType {
-	case "command", "hook", "subagent", "prompt", "template":
+	case "command", "hook", "subagent", "prompt", "template", "tool":
 		return true
 	}
 	return false
@@ -147,6 +147,8 @@ func selectCapabilities(capabilities []model.Capability, only string) []model.Ca
 		wanted = "prompt"
 	case "templates":
 		wanted = "template"
+	case "tools":
+		wanted = "tool"
 	}
 	selected := []model.Capability{}
 	for _, capability := range capabilities {
@@ -164,7 +166,7 @@ func planCapability(packID string, capability model.Capability, target, agent st
 		return planMergeCapability(packID, capability, target, agent, options)
 	case "mcp":
 		return planMCPCapability(packID, capability, target, agent, options)
-	case "command", "hook", "subagent", "prompt", "template":
+	case "command", "hook", "subagent", "prompt", "template", "tool":
 		return planManagedFileCapability(packID, capability, target, agent, options)
 	case "skill":
 		entry := capability.Entry
@@ -211,10 +213,12 @@ func planManagedFileCapability(packID string, capability model.Capability, targe
 			Reason: fmt.Sprintf("%s capabilities are not supported for agent %q at %s scope", capability.Type, agent, options.Scope),
 		}
 	}
-	if override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]; found && override.Destination != "" {
-		path = filepath.Join(target, override.Destination)
-		if override.Format != "" {
-			kind = override.Format
+	var unsupportedReason string
+	path, kind, unsupportedReason = applyAgentTargetOverride(capability, target, agent, options.Scope, path, kind)
+	if unsupportedReason != "" {
+		return model.PlanItem{
+			Type: capability.Type, Name: capability.Name, Action: "skip", Status: "unsupported",
+			Reason: unsupportedReason,
 		}
 	}
 	path = expandManagedFileDestination(path, capability.Name, kind)
@@ -281,10 +285,12 @@ func planMergeCapability(packID string, capability model.Capability, target, age
 			Reason: fmt.Sprintf("%s capabilities are not supported for agent %q at %s scope", capability.Type, agent, options.Scope),
 		}
 	}
-	if override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]; found && override.Destination != "" {
-		path = filepath.Join(target, override.Destination)
-		if override.Format != "" {
-			kind = override.Format
+	var unsupportedReason string
+	path, kind, unsupportedReason = applyAgentTargetOverride(capability, target, agent, options.Scope, path, kind)
+	if unsupportedReason != "" {
+		return model.PlanItem{
+			Type: capability.Type, Name: capability.Name, Action: "skip", Status: "unsupported",
+			Reason: unsupportedReason,
 		}
 	}
 	content := capability.Content
@@ -341,10 +347,12 @@ func planMCPCapability(packID string, capability model.Capability, target, agent
 			Reason: fmt.Sprintf("MCP servers are configured via settings, which are not supported for agent %q at %s scope", agent, options.Scope),
 		}
 	}
-	if override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]; found && override.Destination != "" {
-		path = filepath.Join(target, override.Destination)
-		if override.Format != "" {
-			kind = override.Format
+	var unsupportedReason string
+	path, kind, unsupportedReason = applyAgentTargetOverride(capability, target, agent, options.Scope, path, kind)
+	if unsupportedReason != "" {
+		return model.PlanItem{
+			Type: capability.Type, Name: capability.Name, Action: "skip", Status: "unsupported",
+			Reason: unsupportedReason,
 		}
 	}
 
@@ -408,4 +416,18 @@ func planMCPCapability(packID string, capability model.Capability, target, agent
 		item.Destination = path
 	}
 	return item
+}
+
+func applyAgentTargetOverride(capability model.Capability, target, agent, scope, path, kind string) (string, string, string) {
+	override, found := capability.AgentTargets[targets.NormalizeAgent(agent)]
+	if !found || override.Destination == "" {
+		return path, kind, ""
+	}
+	if override.Scope != "" && override.Scope != scope {
+		return "", "", fmt.Sprintf("%s capability %q has an agentTargets override for %s scope, not %s scope", capability.Type, capability.Name, override.Scope, scope)
+	}
+	if override.Format != "" {
+		kind = override.Format
+	}
+	return filepath.Join(target, override.Destination), kind, ""
 }

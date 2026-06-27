@@ -440,7 +440,7 @@ func registryCapabilityFile(registryPath, id, kind string) (model.Capability, er
 
 func supportedStandaloneKind(kind string) bool {
 	switch kind {
-	case "skills", "plugins", "commands", "hooks", "subagents", "prompts", "templates", "memory", "settings", "mcp":
+	case "skills", "plugins", "commands", "hooks", "subagents", "prompts", "templates", "tools", "memory", "settings", "mcp":
 		return true
 	default:
 		return false
@@ -481,6 +481,8 @@ func singularKind(kind string) string {
 		return "prompt"
 	case "templates":
 		return "template"
+	case "tools":
+		return "tool"
 	case "memory":
 		return "memory"
 	case "settings":

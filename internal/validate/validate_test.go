@@ -39,7 +39,7 @@ func TestValidatePackRequiredFields(t *testing.T) {
 		{"bad stability", func(p *model.Pack) { p.Stability = "alpha" }, "stability must be"},
 		{"bad reviewStatus", func(p *model.Pack) { p.ReviewStatus = "wip" }, "reviewStatus must be"},
 		{"deprecated needs replacement", func(p *model.Pack) { p.Deprecated = true }, "replacement is required"},
-		{"empty content", func(p *model.Pack) { p.Capabilities = nil }, "capabilities, packs, skills, or plugins is required"},
+		{"empty content", func(p *model.Pack) { p.Capabilities = nil }, "capabilities, packs, skills, plugins, or reusable capability refs are required"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -144,6 +144,42 @@ func TestValidateCapability(t *testing.T) {
 				t.Fatalf("expected %q, got %v", c.wantSub, errs)
 			}
 		})
+	}
+}
+
+func TestValidateCapabilityAllowsInlineManagedTypesAndSourceFreeMCP(t *testing.T) {
+	for _, capType := range []string{"command", "hook", "subagent", "prompt", "template", "tool", "memory", "settings"} {
+		t.Run(capType, func(t *testing.T) {
+			capability := model.Capability{Type: capType, Name: "Inline", Content: "body"}
+			if capType == "settings" || capType == "hook" || capType == "tool" {
+				capability.Content = `{"ok":true}`
+			}
+			if errs := ValidateCapability(capability, "cap"); len(errs) != 0 {
+				t.Fatalf("%s with inline content should validate, got %v", capType, errs)
+			}
+		})
+	}
+
+	mcp := model.Capability{Type: "mcp", Name: "Filesystem", ServerName: "filesystem", Command: "npx", Args: []string{"-y", "server"}}
+	if errs := ValidateCapability(mcp, "cap"); len(errs) != 0 {
+		t.Fatalf("source-free mcp should validate, got %v", errs)
+	}
+}
+
+func TestValidateCapabilityRejectsMissingRequiredContent(t *testing.T) {
+	for _, capType := range []string{"command", "hook", "subagent", "prompt", "template", "tool", "memory", "settings"} {
+		t.Run(capType, func(t *testing.T) {
+			errs := ValidateCapability(model.Capability{Type: capType, Name: "Missing"}, "cap")
+			if !containsSubstr(errs, ".source or .content is required") {
+				t.Fatalf("expected source/content error for %s, got %v", capType, errs)
+			}
+		})
+	}
+	errs := ValidateCapability(model.Capability{Type: "mcp", Name: "Bad MCP"}, "cap")
+	for _, want := range []string{".serverName is required", ".command is required", ".args is required"} {
+		if !containsSubstr(errs, want) {
+			t.Fatalf("expected %q for mcp, got %v", want, errs)
+		}
 	}
 }
 

@@ -125,6 +125,92 @@ func TestGenerateIndexIsStableWhenContentUnchanged(t *testing.T) {
 	}
 }
 
+func TestExpandPackResolvesReusableJSONCapabilities(t *testing.T) {
+	root := t.TempDir()
+	packs := filepath.Join(root, "packs")
+	for _, dir := range []string{"packs", "commands", "tools", "mcp"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "commands", "review-pr.json"), []byte(`{"type":"command","name":"Review PR","content":"Review this PR."}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "tools", "browser-verify.json"), []byte(`{"type":"tool","name":"Browser Verify","content":"{\"name\":\"browser-verify\"}","format":"json"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "mcp", "filesystem.json"), []byte(`{"type":"mcp","name":"Filesystem","serverName":"filesystem","command":"npx","args":["server"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writePack(t, packs, "ops", `{
+  "id": "ops",
+  "name": "Ops",
+  "version": "0.1.0",
+  "description": "Ops pack.",
+  "commands": ["review-pr"],
+  "toolRefs": [{"id":"browser-verify","trust":"community"}],
+  "mcp": ["filesystem"]
+}`)
+
+	pack, err := FindPack(packs, "ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expanded, err := ExpandPack(packs, pack, map[string]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, capability := range expanded.Capabilities {
+		got[capability.Type+":"+capability.Name] = true
+	}
+	for _, want := range []string{"command:Review PR", "tool:Browser Verify", "mcp:Filesystem"} {
+		if !got[want] {
+			t.Fatalf("expanded capabilities missing %s: %+v", want, expanded.Capabilities)
+		}
+	}
+}
+
+func TestGenerateIndexIncludesCapabilityTypeCountsAndCompatibility(t *testing.T) {
+	dir := t.TempDir()
+	writePack(t, dir, "alpha", `{
+  "id": "alpha",
+  "name": "Alpha",
+  "version": "0.1.0",
+  "description": "Alpha pack.",
+  "trust": "community",
+  "lastVerified": "2026-06-01",
+  "compatibility": {
+    "codex": {"status":"verified","lastVerified":"2026-06-01"}
+  },
+  "capabilities": [
+    {"type":"command","name":"Review","content":"review"},
+    {"type":"tool","name":"Browser Verify","content":"{\"name\":\"browser\"}","format":"json"}
+  ]
+}`)
+	out := filepath.Join(t.TempDir(), "index.json")
+	if err := GenerateIndex(dir, out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	index, err := loadIndex(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := index.Packs[0]
+	if entry.CapabilityTypes["command"] != 1 || entry.CapabilityTypes["tool"] != 1 {
+		t.Fatalf("expected command/tool capability counts, got %#v", entry.CapabilityTypes)
+	}
+	if entry.Trust != "community" {
+		t.Fatalf("expected trust to be indexed, got %q", entry.Trust)
+	}
+	if entry.Compatibility["codex"].Status != "verified" {
+		t.Fatalf("expected codex compatibility evidence, got %#v", entry.Compatibility)
+	}
+	if entry.Freshness != "fresh" {
+		t.Fatalf("expected fresh status, got %q", entry.Freshness)
+	}
+}
+
 func TestGenerateIndexRestampsWhenContentChanges(t *testing.T) {
 	dir := t.TempDir()
 	writeMinimalPack(t, dir, "alpha")

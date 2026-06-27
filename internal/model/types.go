@@ -19,6 +19,7 @@ type Pack struct {
 	LastVerified   string         `json:"lastVerified,omitempty"`
 	ReviewStatus   string         `json:"reviewStatus,omitempty"`
 	Trust          string         `json:"trust,omitempty"`
+	Compatibility  Compatibility  `json:"compatibility,omitempty"`
 	Requirements   Requirements   `json:"requirements,omitempty"`
 	Tags           []string       `json:"tags,omitempty"`
 	Categories     []string       `json:"categories,omitempty"`
@@ -29,8 +30,25 @@ type Pack struct {
 	ConflictsWith  []string       `json:"conflictsWith,omitempty"`
 	Skills         CapabilityRefs `json:"skills,omitempty"`
 	Plugins        CapabilityRefs `json:"plugins,omitempty"`
+	Commands       CapabilityRefs `json:"commands,omitempty"`
+	Hooks          CapabilityRefs `json:"hooks,omitempty"`
+	Subagents      CapabilityRefs `json:"subagents,omitempty"`
+	Prompts        CapabilityRefs `json:"prompts,omitempty"`
+	Templates      CapabilityRefs `json:"templates,omitempty"`
+	ToolRefs       CapabilityRefs `json:"toolRefs,omitempty"`
+	Memory         CapabilityRefs `json:"memory,omitempty"`
+	Settings       CapabilityRefs `json:"settings,omitempty"`
+	MCP            CapabilityRefs `json:"mcp,omitempty"`
 	Capabilities   []Capability   `json:"capabilities,omitempty"`
 	Path           string         `json:"-"`
+}
+
+type Compatibility map[string]CompatibilityEvidence
+
+type CompatibilityEvidence struct {
+	Status       string `json:"status"`
+	LastVerified string `json:"lastVerified,omitempty"`
+	Notes        string `json:"notes,omitempty"`
 }
 
 type CapabilityRefs []CapabilityRef
@@ -290,23 +308,27 @@ type RegistryIndex struct {
 }
 
 type IndexEntry struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Version      string   `json:"version"`
-	Description  string   `json:"description"`
-	Maintainers  []string `json:"maintainers,omitempty"`
-	Stability    string   `json:"stability,omitempty"`
-	Deprecated   bool     `json:"deprecated,omitempty"`
-	Replacement  string   `json:"replacement,omitempty"`
-	LastVerified string   `json:"lastVerified,omitempty"`
-	ReviewStatus string   `json:"reviewStatus,omitempty"`
-	Tags         []string `json:"tags,omitempty"`
-	Categories   []string `json:"categories,omitempty"`
-	Tools        []string `json:"tools,omitempty"`
-	Scope        []string `json:"scope,omitempty"`
-	Skills       []string `json:"skills,omitempty"`
-	Plugins      []string `json:"plugins,omitempty"`
-	Capabilities int      `json:"capabilities"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Version         string         `json:"version"`
+	Description     string         `json:"description"`
+	Maintainers     []string       `json:"maintainers,omitempty"`
+	Stability       string         `json:"stability,omitempty"`
+	Deprecated      bool           `json:"deprecated,omitempty"`
+	Replacement     string         `json:"replacement,omitempty"`
+	LastVerified    string         `json:"lastVerified,omitempty"`
+	ReviewStatus    string         `json:"reviewStatus,omitempty"`
+	Tags            []string       `json:"tags,omitempty"`
+	Categories      []string       `json:"categories,omitempty"`
+	Tools           []string       `json:"tools,omitempty"`
+	Scope           []string       `json:"scope,omitempty"`
+	Skills          []string       `json:"skills,omitempty"`
+	Plugins         []string       `json:"plugins,omitempty"`
+	Capabilities    int            `json:"capabilities"`
+	CapabilityTypes map[string]int `json:"capabilityTypes,omitempty"`
+	Trust           string         `json:"trust,omitempty"`
+	Compatibility   Compatibility  `json:"compatibility,omitempty"`
+	Freshness       string         `json:"freshness,omitempty"`
 }
 
 type RegistryConfig struct {
@@ -331,6 +353,7 @@ type TargetSpec struct {
 	SubagentDestinations    []FileDest `json:"subagentDestinations,omitempty"`
 	PromptDestinations      []FileDest `json:"promptDestinations,omitempty"`
 	TemplateDestinations    []FileDest `json:"templateDestinations,omitempty"`
+	ToolDestinations        []FileDest `json:"toolDestinations,omitempty"`
 }
 
 // FileDest locates a merge-into-file capability for an agent. Global and

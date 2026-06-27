@@ -21,11 +21,12 @@ type InstalledSummary struct {
 }
 
 type CompatibilityResult struct {
-	Pack    string   `json:"pack"`
-	Agent   string   `json:"agent"`
-	OK      bool     `json:"ok"`
-	Tools   []string `json:"tools,omitempty"`
-	Message string   `json:"message,omitempty"`
+	Pack     string                 `json:"pack"`
+	Agent    string                 `json:"agent"`
+	OK       bool                   `json:"ok"`
+	Tools    []string               `json:"tools,omitempty"`
+	Evidence *CompatibilityEvidence `json:"evidence,omitempty"`
+	Message  string                 `json:"message,omitempty"`
 }
 
 type DependencyTree struct {

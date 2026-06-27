@@ -3,12 +3,13 @@
 Curated, installable capability bundles for AI coding agents.
 
 Agent Packs bundles public Skills, Plugins, commands, hooks, prompts, templates,
-and composed packs into ready-to-use workflow packs.
+tool descriptors, memory/settings fragments, MCP servers, and composed packs
+into ready-to-use workflow packs.
 
 ![Agent Packs high-level architecture](docs/architecture.svg)
 
 Agent Packs aggregates capabilities from public skill repositories, Claude/Codex plugins,
-prompts, templates, commands, hooks, and remote registries. The CLI
+prompts, templates, tools, commands, hooks, and remote registries. The CLI
 normalizes those sources into registry-backed packs, preserves provenance, writes
 receipts and lockfiles, and syncs capabilities into supported coding agents through
 reference, symlink, copy, or native install modes.
@@ -187,14 +188,14 @@ Agent Packs orchestrates native install flows instead of replacing them.
 - Registry plugins reference their `repository` or `homepage` when available; otherwise they reference their registry directory.
 - Inline local skill capabilities can still be copied into the selected agent skill target when a pack explicitly declares them under `capabilities`.
 - Inline remote skill capabilities can still be fetched with `git` when the source is a Git URL or a GitHub `/tree/<branch>/<path>` URL.
-- Sync modes are explicit: `reference` records sources only, `symlink` links materialized skills, `copy` copies skills plus command/hook files, and `native` enables native plugin planning.
+- Sync modes are explicit: `reference` records sources only, `symlink` links materialized skills, `copy` copies skills plus managed files, and `native` enables native plugin planning.
 - Conflicts are controlled with `--on-conflict skip|overwrite|backup`.
 - Inline plugin install and uninstall commands are preview-safe by default and only run with `--execute-plugins`.
 - Lifecycle commands accept multiple pack IDs directly: `install`, `upgrade`, `rollback`, and `uninstall` run packs sequentially and fail fast on the first error.
 - Installed packs write receipts under `<target>/receipts/`.
 - Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
 - `uninstall` removes installed inline skill folders, managed command/hook files, and receipts. Plugin cleanup commands run only with `uninstall --execute-plugins`; otherwise plugins are reported for native/manual cleanup.
-- Standalone `skills`, `plugins`, `commands`, `hooks`, `subagents`, `prompts`, `templates`, `memory`, `settings`, and `mcp` commands manage independent capabilities under `<target>/receipts/<kind>/` without requiring a pack wrapper.
+- Standalone `skills`, `plugins`, `commands`, `hooks`, `subagents`, `prompts`, `templates`, `tools`, `memory`, `settings`, and `mcp` commands manage independent capabilities under `<target>/receipts/<kind>/` without requiring a pack wrapper.
 
 ## Lifecycle Commands
 
@@ -203,20 +204,20 @@ Agent Packs supports a basic package-manager lifecycle:
 - `cache`: shows and creates central source/cache/lock/registry directories under the Agent Packs home.
 - `update --all`: refreshes configured registries.
 - `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
-- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates` to install one capability family from a mixed pack.
+- `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools` to install one capability family from a mixed pack.
 - `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings.
 - `rollback <pack...>`: restores one or more previous receipt-backed install states when history exists.
 - `uninstall <pack...>`: removes one or more installed packs, including installed inline skill folders, optional plugin cleanup commands, and receipts.
 - `skills install|list|upgrade|uninstall`: manages independent registry or local Agent Skills without wrapping them in a pack. `list` also discovers skills installed outside the standalone path, annotating each with a `source` column: `managed` (standalone receipt), `pack:<id>` (materialized by a pack install), or `external` (present on disk in a tool's skill directory with no receipt).
 - `plugins install|list|upgrade|uninstall`: manages independent registry or local plugins; pass `--method`, `--package`, `--marketplace`, `--command`, or `--uninstall-command` to store native lifecycle metadata outside a pack. `list` also surfaces plugins pulled in by a pack install with a `pack:<id>` source.
-- `commands|hooks|subagents|prompts|templates|memory|settings|mcp install|list|upgrade|uninstall`: manages standalone local JSON capability files or registry entries with the same target matrix, merge behavior, execution gates, and receipt lifecycle used by pack installs.
+- `commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp install|list|upgrade|uninstall`: manages standalone local JSON capability files or registry entries with the same target matrix, merge behavior, execution gates, and receipt lifecycle used by pack installs.
 - `audit <pack>`: supply-chain SBOM report (`--json` supported).
 - `version`: prints CLI version (`--json` supported).
 - `init [dir]`: writes `.agent-packs.yaml` project defaults. Detects the agent
   in use (project-local signals) and the stack (`go.mod`, `package.json`,
   `Cargo.toml`, `pyproject.toml`, …) to recommend packs; an explicit `--agent`
   wins and `--no-detect` skips detection.
-- `new pack|skill|plugin|command|hook|subagent|prompt|template|memory|settings <id>`: scaffolds valid starter manifests.
+- `new pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
 - `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
 - `scan [path]`: discovers existing `SKILL.md` files.
@@ -395,9 +396,10 @@ destination path for each checked fragment.
 > until its target docs are verified; Goose memory is available as an
 > experimental markdown target, but Goose settings are not enabled in v1.
 
-## Specifying Commands, Hooks, And Subagents
+## Specifying Managed File Capabilities
 
-Packs can also declare **`command`**, **`hook`**, and **`subagent`**
+Packs can also declare **`command`**, **`hook`**, **`subagent`**, **`prompt`**,
+**`template`**, and **`tool`**
 capabilities. These are managed files: `reference` mode records intent only,
 while `--mode copy` writes the file, tracks a content hash in the receipt,
 reports drift if the file is edited or removed, and deletes the managed file on
@@ -406,8 +408,10 @@ uninstall/rollback.
 They can use inline `content` or a `source` file. Directory sources require
 `entry`. Claude Code installs commands to `.claude/commands/*.md` and subagents
 to `.claude/agents/*.md`; other agents use portable `.agent-packs/commands/*.md`,
-`.agent-packs/hooks/*.json`, and `.agent-packs/agents/*.md` destinations unless a
-pack provides an `agentTargets` override for a documented native path.
+`.agent-packs/hooks/*.json`, `.agent-packs/agents/*.md`,
+`.agent-packs/prompts/*.md`, `.agent-packs/templates/*.md`, and
+`.agent-packs/tools/*.json` destinations unless a pack provides an `agentTargets`
+override for a documented native path.
 
 A subagent is a delegated assistant defined by a markdown file with frontmatter
 (`name`, `description`, `tools`, `model`). Unlike hooks, subagents are prompt
@@ -418,6 +422,10 @@ writes are opt-in: in `--mode copy` a hook is only written when you pass
 `--allow-hooks` (parallel to `--execute-plugins`). Without the flag the hook is
 recorded with a content preview and a note in the plan, but not written.
 Commands are not gated.
+
+`tool` is a portable descriptor in v1. Agent Packs writes and tracks the
+descriptor file, but never executes it; native tool installation is deferred
+until a target agent has verified docs for a native tool path.
 
 ```json
 {
@@ -442,11 +450,12 @@ Install only commands or hooks from a mixed pack:
 ```sh
 agent-packs install my-pack --agent claude --only commands --mode copy
 agent-packs install my-pack --agent codex --only hooks --mode copy --allow-hooks
+agent-packs install my-pack --agent codex --only tools --mode copy
 ```
 
 ## Pack Composition
 
-Packs can include other packs with the `packs` field. They can also include reusable source references with `skills` and `plugins`. `skills` and `plugins` entries can be registry ID strings or objects with their own remote `source`. Included packs and referenced capabilities are expanded before install.
+Packs can include other packs with the `packs` field. They can also include reusable source references with `skills`, `plugins`, `commands`, `hooks`, `subagents`, `prompts`, `templates`, `toolRefs`, `memory`, `settings`, and `mcp`. Entries can be registry ID strings or objects with their own remote `source`; object refs should include `trust`. Included packs and referenced capabilities are expanded before install.
 
 ```json
 {
@@ -472,11 +481,17 @@ Packs can include other packs with the `packs` field. They can also include reus
       "format": "anthropic-plugin",
       "entry": ".claude-plugin/plugin.json"
     }
+  ],
+  "toolRefs": [
+    {
+      "id": "browser-verify",
+      "trust": "community"
+    }
   ]
 }
 ```
 
-Reusable skills live as Agent Skills at `skills/<id>/SKILL.md` (in the registry repo). Reusable plugins live as Claude Code plugins at `plugins/<id>/.claude-plugin/plugin.json`. A pack can reference them by ID, or bypass local registry entries by using object refs with remote `source` URLs. The CLI treats both forms as references rather than installable copies.
+Reusable skills live as Agent Skills at `skills/<id>/SKILL.md` (in the registry repo). Reusable plugins live as Claude Code plugins at `plugins/<id>/.claude-plugin/plugin.json`. Other reusable capability kinds live as JSON manifests under directories such as `commands/<id>.json`, `tools/<id>.json`, or `mcp/<id>.json`. Pack-level `tools` remains the advertised target-agent list; reusable tool descriptors use `toolRefs`.
 
 Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.source` on registry skills and `repository` or `homepage` on registry plugins to point at the remote source.
 

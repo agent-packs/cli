@@ -156,10 +156,23 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 	if capability.Type == "" {
 		errs = append(errs, prefix+".type is required")
 	}
+	if capability.Type != "" && !knownCapabilityType(capability.Type) {
+		errs = append(errs, prefix+".type is not supported: "+capability.Type)
+	}
 	if capability.Name == "" {
 		errs = append(errs, prefix+".name is required")
 	}
-	if capability.Source == "" {
+	if capability.Type == "mcp" {
+		if capability.ServerName == "" {
+			errs = append(errs, prefix+".serverName is required")
+		}
+		if capability.Command == "" {
+			errs = append(errs, prefix+".command is required")
+		}
+		if len(capability.Args) == 0 {
+			errs = append(errs, prefix+".args is required")
+		}
+	} else if capability.Source == "" {
 		// File-backed fragment capabilities may carry inline content instead
 		// of a source file; one of the two is required.
 		if capabilityAllowsInlineContent(capability.Type) {
@@ -189,6 +202,14 @@ func ValidateCapability(capability model.Capability, prefix string) []string {
 			errs = append(errs, prefix+".requiresExecution must be true when install.command is set")
 		}
 		if capability.Install != nil && capability.Install["uninstall"] != "" && !capability.RequiresExecution {
+			errs = append(errs, prefix+".requiresExecution must be true when install.uninstall is set")
+		}
+	}
+	if capability.Type != "plugin" && capability.Install != nil {
+		if capability.Install["command"] != "" && !capability.RequiresExecution {
+			errs = append(errs, prefix+".requiresExecution must be true when install.command is set")
+		}
+		if capability.Install["uninstall"] != "" && !capability.RequiresExecution {
 			errs = append(errs, prefix+".requiresExecution must be true when install.uninstall is set")
 		}
 	}
@@ -265,8 +286,8 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 	if pack.Deprecated && pack.Replacement == "" {
 		errs = append(errs, "replacement is required when deprecated is true")
 	}
-	if len(pack.Capabilities) == 0 && len(pack.Packs) == 0 && len(pack.Skills) == 0 && len(pack.Plugins) == 0 {
-		errs = append(errs, "capabilities, packs, skills, or plugins is required")
+	if len(pack.Capabilities) == 0 && len(pack.Packs) == 0 && len(pack.Skills) == 0 && len(pack.Plugins) == 0 && !hasReusableCapabilityRefs(pack) {
+		errs = append(errs, "capabilities, packs, skills, plugins, or reusable capability refs are required")
 	}
 	for i, ref := range pack.Skills {
 		errs = append(errs, ValidateCapabilityRef(ref, "skill", fmt.Sprintf("skills[%d]", i), schemaDir)...)
@@ -274,8 +295,16 @@ func ValidatePackWithSchemaDir(pack model.Pack, schemaDir string) []string {
 	for i, ref := range pack.Plugins {
 		errs = append(errs, ValidateCapabilityRef(ref, "plugin", fmt.Sprintf("plugins[%d]", i), schemaDir)...)
 	}
+	for _, group := range reusableRefGroups(pack) {
+		for i, ref := range group.refs {
+			errs = append(errs, ValidateCapabilityRef(ref, group.typ, fmt.Sprintf("%s[%d]", group.field, i), schemaDir)...)
+		}
+	}
 	for i, capability := range pack.Capabilities {
 		errs = append(errs, ValidateCapability(capability, fmt.Sprintf("capabilities[%d]", i))...)
+	}
+	for agent, evidence := range pack.Compatibility {
+		errs = append(errs, validateCompatibilityEvidence(agent, evidence)...)
 	}
 	errs = append(errs, validateCategories(pack.Categories, AllowedCategories(schemaDir))...)
 	packData, err := json.Marshal(pack)
@@ -304,6 +333,57 @@ func ValidateCapabilityRef(ref model.CapabilityRef, capabilityType, prefix, sche
 	// metadata and are exempt, matching the schema's oneOf[string, object].
 	if ref.IsObjectRef() {
 		errs = append(errs, validateTrust(ref.Trust, AllowedTrustLevels(schemaDir), prefix)...)
+	}
+	return errs
+}
+
+func knownCapabilityType(capType string) bool {
+	switch capType {
+	case "skill", "plugin", "command", "hook", "subagent", "prompt", "template", "tool", "memory", "settings", "mcp":
+		return true
+	default:
+		return false
+	}
+}
+
+type refGroup struct {
+	field string
+	typ   string
+	refs  model.CapabilityRefs
+}
+
+func reusableRefGroups(pack model.Pack) []refGroup {
+	return []refGroup{
+		{"commands", "command", pack.Commands},
+		{"hooks", "hook", pack.Hooks},
+		{"subagents", "subagent", pack.Subagents},
+		{"prompts", "prompt", pack.Prompts},
+		{"templates", "template", pack.Templates},
+		{"toolRefs", "tool", pack.ToolRefs},
+		{"memory", "memory", pack.Memory},
+		{"settings", "settings", pack.Settings},
+		{"mcp", "mcp", pack.MCP},
+	}
+}
+
+func hasReusableCapabilityRefs(pack model.Pack) bool {
+	for _, group := range reusableRefGroups(pack) {
+		if len(group.refs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func validateCompatibilityEvidence(agent string, evidence model.CompatibilityEvidence) []string {
+	var errs []string
+	if !targets.ValidAgent(agent) {
+		errs = append(errs, fmt.Sprintf("compatibility.%s uses unsupported target tool", agent))
+	}
+	switch evidence.Status {
+	case "verified", "compatible", "partial", "unsupported", "unknown":
+	default:
+		errs = append(errs, fmt.Sprintf("compatibility.%s.status must be verified, compatible, partial, unsupported, or unknown", agent))
 	}
 	return errs
 }
@@ -707,7 +787,7 @@ func Verify(registryPath, packRef string, out io.Writer) error {
 			fail = true
 		}
 		seen[key] = true
-		if capability.Source == "" && !(isMergeCapability(capability) && capability.Content != "") {
+		if capability.Source == "" && !sourceOptionalCapability(capability) {
 			fmt.Fprintf(out, "FAIL  missing source: %s\n", key)
 			fail = true
 		}
@@ -730,8 +810,15 @@ func isMergeCapability(capability model.Capability) bool {
 	return capability.Type == "memory" || capability.Type == "settings"
 }
 
+func sourceOptionalCapability(capability model.Capability) bool {
+	if capability.Type == "mcp" {
+		return capability.ServerName != "" && capability.Command != "" && len(capability.Args) > 0
+	}
+	return capabilityAllowsInlineContent(capability.Type) && capability.Content != ""
+}
+
 func capabilityAllowsInlineContent(capType string) bool {
-	return capType == "memory" || capType == "settings" || capType == "command" || capType == "hook" || capType == "subagent" || capType == "prompt" || capType == "template"
+	return capType == "memory" || capType == "settings" || capType == "command" || capType == "hook" || capType == "subagent" || capType == "prompt" || capType == "template" || capType == "tool"
 }
 
 func ResolveSources(registryPath, packRef string, out io.Writer) error {
@@ -799,7 +886,11 @@ func Compatibility(registryPath, packRef, agent string, out io.Writer) error {
 		return err
 	}
 	if result.OK {
-		fmt.Fprintf(out, "OK    %s is compatible with %s\n", result.Pack, result.Agent)
+		if result.Evidence != nil {
+			fmt.Fprintf(out, "OK    %s is compatible with %s (evidence: %s)\n", result.Pack, result.Agent, result.Evidence.Status)
+		} else {
+			fmt.Fprintf(out, "OK    %s is compatible with %s\n", result.Pack, result.Agent)
+		}
 		return nil
 	}
 	if result.Message != "" {
@@ -815,6 +906,15 @@ func CompatibilityReport(registryPath, packRef, agent string) (model.Compatibili
 	}
 	normalized := targets.NormalizeAgent(agent)
 	result := model.CompatibilityResult{Pack: pack.ID, Agent: normalized, Tools: pack.Tools, OK: true}
+	if evidence, ok := pack.Compatibility[normalized]; ok {
+		result.Evidence = &evidence
+		if evidence.Status == "unsupported" {
+			result.OK = false
+			result.Message = fmt.Sprintf("%s is marked unsupported by compatibility evidence", normalized)
+		} else if evidence.Status == "partial" {
+			result.Message = fmt.Sprintf("%s has partial compatibility evidence", normalized)
+		}
+	}
 	if len(pack.Tools) > 0 && !targets.PackSupportsTool(pack.Tools, agent) {
 		result.OK = false
 		result.Message = fmt.Sprintf("%s not listed in pack tools: %s", normalized, strings.Join(pack.Tools, ", "))

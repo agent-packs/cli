@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewScaffoldsValidCapabilities(t *testing.T) {
-	for _, kind := range []string{"command", "hook", "memory", "settings", "subagent", "prompt", "template"} {
+	for _, kind := range []string{"command", "hook", "memory", "settings", "subagent", "prompt", "template", "tool"} {
 		t.Run(kind, func(t *testing.T) {
 			dir := t.TempDir()
 			path, err := New(NewOptions{Kind: kind, ID: "demo-" + kind, Dir: dir})
