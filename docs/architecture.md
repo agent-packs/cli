@@ -4,7 +4,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 
 ## Production Stack
 
-- CLI: Go module under `cli/` split into focused packages (`model`, `registry`, `resolve`, `plan`, `install`, `policy`, `validate`, `targets`, `config`, `output`, `version`).
+- CLI: Go module at the repository root, split into focused packages (`model`, `registry`, `resolve`, `plan`, `install`, `policy`, `validate`, `targets`, `config`, `output`, `version`).
 - Registry packs: static JSON manifests under `registry/packs/`.
 - Registry skills: Agent Skill source references under `registry/skills/<id>/SKILL.md`.
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.

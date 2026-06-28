@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
   <title id="title">Agent Packs high-level architecture</title>
-  <desc id="desc">Agent Packs aggregates skills, plugins, MCP servers, prompts, templates, commands, hooks, and remote registries into curated packs. The Go CLI resolves packs, creates install plans, writes receipts and lockfiles, and syncs capabilities to coding agents.</desc>
+  <desc id="desc">Agent Packs aggregates skills, plugins, tool descriptors, MCP servers, prompts, templates, commands, hooks, memory/settings fragments, reusable JSON refs, and remote registries into curated packs. The Go CLI resolves packs, creates install plans, writes receipts and lockfiles, tracks compatibility evidence, and syncs capabilities to coding agents.</desc>
   <defs>
     <style>
       .bg { fill: #f8fafc; }
@@ -31,43 +31,46 @@
 
   <rect class="bg" width="1200" height="820" />
   <text x="60" y="56" class="title">Agent Packs Architecture</text>
-  <text x="60" y="82" class="small">A registry and CLI that aggregate public agent capabilities into curated, installable packs.</text>
+  <text x="60" y="82" class="small">Curated packs with portable install modes, managed state, and compatibility evidence.</text>
 
   <rect x="40" y="118" width="270" height="470" class="panel" />
-  <text x="70" y="154" class="label">External Capability Sources</text>
+  <text x="70" y="154" class="label">Capability Sources</text>
   <rect x="70" y="180" width="210" height="54" class="source" />
   <text x="92" y="210" class="small">Agent Skills</text>
   <text x="92" y="228" class="tiny">SKILL.md repos and paths</text>
   <rect x="70" y="252" width="210" height="54" class="source" />
-  <text x="92" y="282" class="small">Claude / Codex Plugins</text>
+  <text x="92" y="282" class="small">Agent Plugins</text>
   <text x="92" y="300" class="tiny">plugin manifests</text>
   <rect x="70" y="324" width="210" height="54" class="source" />
-  <text x="92" y="354" class="small">MCP Servers</text>
-  <text x="92" y="372" class="tiny">tools and integrations</text>
+  <text x="92" y="354" class="small">Tools + MCP</text>
+  <text x="92" y="372" class="tiny">descriptors and servers</text>
   <rect x="70" y="396" width="210" height="54" class="source" />
   <text x="92" y="426" class="small">Prompts / Templates</text>
   <text x="92" y="444" class="tiny">workflow assets</text>
   <rect x="70" y="468" width="210" height="54" class="source" />
   <text x="92" y="498" class="small">Commands / Hooks</text>
-  <text x="92" y="516" class="tiny">automation snippets</text>
-  <rect x="70" y="540" width="210" height="38" class="source" />
-  <text x="92" y="564" class="small">Remote registries</text>
+  <text x="92" y="516" class="tiny">managed files</text>
+  <rect x="70" y="540" width="210" height="46" class="source" />
+  <text x="92" y="564" class="small">Memory / Settings</text>
+  <text x="92" y="579" class="tiny">plus remote registries</text>
 
   <rect x="365" y="178" width="180" height="170" class="module" />
   <text x="398" y="220" class="label">Aggregator</text>
   <text x="392" y="250" class="small">normalizes refs</text>
   <text x="392" y="274" class="small">keeps provenance</text>
   <text x="392" y="298" class="small">composes packs</text>
-  <text x="392" y="322" class="small">validates formats</text>
+  <text x="392" y="322" class="small">tracks evidence</text>
 
-  <rect x="360" y="410" width="190" height="178" class="panel" />
+  <rect x="360" y="410" width="190" height="220" class="panel" />
   <text x="390" y="446" class="label">Agent Packs Registry</text>
   <rect x="390" y="468" width="130" height="34" class="registry" />
   <text x="413" y="490" class="tiny">registry/packs</text>
-  <rect x="390" y="512" width="130" height="34" class="registry" />
-  <text x="412" y="534" class="tiny">registry/skills</text>
-  <rect x="390" y="556" width="130" height="34" class="registry" />
-  <text x="407" y="578" class="tiny">registry/plugins</text>
+  <rect x="390" y="508" width="130" height="34" class="registry" />
+  <text x="401" y="530" class="tiny">skills / plugins</text>
+  <rect x="390" y="548" width="130" height="34" class="registry" />
+  <text x="412" y="570" class="tiny">JSON refs</text>
+  <rect x="390" y="588" width="130" height="34" class="registry" />
+  <text x="401" y="610" class="tiny">schema + index</text>
 
   <rect x="605" y="154" width="220" height="132" class="cli" />
   <text x="668" y="205" class="whiteTitle">Go CLI</text>
@@ -187,13 +190,13 @@
   <path class="arrow" d="M865 470 C910 470, 1025 270, 1070 270" />
   <path class="dash" d="M865 540 C930 540, 1025 550, 1070 550" />
 
-  <rect x="60" y="640" width="520" height="116" class="flow" />
+  <rect x="60" y="640" width="520" height="128" class="flow" />
   <text x="90" y="678" class="label">Core Flow</text>
-  <text x="90" y="706" class="small">1. Aggregate public source references into registry entries.</text>
+  <text x="90" y="706" class="small">1. Aggregate public sources and reusable JSON refs.</text>
   <text x="90" y="730" class="small">2. Resolve a pack into a transaction plan.</text>
-  <text x="90" y="754" class="small">3. Write receipts and lockfiles, then sync to agent targets.</text>
+  <text x="90" y="754" class="small">3. Write receipts, lockfiles, and managed state.</text>
 
-  <rect x="650" y="640" width="490" height="116" class="flow" />
+  <rect x="650" y="640" width="490" height="128" class="flow" />
   <text x="680" y="678" class="label">Sync Modules</text>
   <rect x="680" y="704" width="102" height="36" class="module" />
   <text x="701" y="727" class="small">reference</text>

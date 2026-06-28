@@ -66,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | A
 
 ## Registry
 
-The pack/skill/plugin registry lives in a separate repo,
+The pack, skill, plugin, and reusable capability registry lives in a separate repo,
 [`agent-packs/registry`](https://github.com/agent-packs/registry). The CLI fetches
 it on first use and caches it under your user cache dir (e.g.
 `~/.cache/agent-packs/registry`); `agent-packs update` refreshes that cache.
@@ -507,7 +507,7 @@ Example manifests live in the registry repo under `schemas/examples/`:
 - `full-pack.json`: a complete manifest showing every supported capability type.
 - `real-world-pack.json`: examples based on public Claude Code plugin and Agent Skills repositories.
 - `composed-pack.json`: a pack that includes another pack.
-- `referenced-capabilities-pack.json`: a pack that includes reusable `skills` and `plugins` entries.
+- `referenced-capabilities-pack.json`: a pack that includes reusable `skills`, `plugins`, and JSON capability refs.
 
 ## Tests
 
