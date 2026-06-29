@@ -199,6 +199,18 @@ func Show(registry, id string, out io.Writer) error {
 	fmt.Fprintf(out, "Version: %s\n", pack.Version)
 	fmt.Fprintf(out, "License: %s\n", license)
 	fmt.Fprintf(out, "Tags: %s\n", strings.Join(pack.Tags, ", "))
+	if len(pack.UseCases) > 0 {
+		fmt.Fprintln(out, "Use cases:")
+		for _, useCase := range pack.UseCases {
+			fmt.Fprintf(out, "- %s\n", useCase)
+		}
+	}
+	if len(pack.ExamplePrompts) > 0 {
+		fmt.Fprintln(out, "Example prompts:")
+		for _, prompt := range pack.ExamplePrompts {
+			fmt.Fprintf(out, "- %s\n", prompt)
+		}
+	}
 	if len(pack.Packs) > 0 {
 		fmt.Fprintf(out, "Includes packs: %s\n", strings.Join(pack.Packs, ", "))
 	}
@@ -871,6 +883,8 @@ func packMatches(pack model.Pack, query string) bool {
 	fields := []string{pack.ID, pack.Name, pack.Description}
 	fields = append(fields, pack.Maintainers...)
 	fields = append(fields, pack.Stability, pack.ReviewStatus)
+	fields = append(fields, pack.UseCases...)
+	fields = append(fields, pack.ExamplePrompts...)
 	fields = append(fields, pack.Tags...)
 	fields = append(fields, pack.Categories...)
 	fields = append(fields, pack.Tools...)

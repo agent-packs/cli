@@ -109,7 +109,11 @@
     .badge-stable { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
     .badge-experimental { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
     .pack-id { font-family: var(--mono); font-size: .69rem; color: var(--slate-500); margin-bottom: .55rem; }
-    .pack-desc { font-size: .855rem; color: var(--slate-600); line-height: 1.58; margin-bottom: .85rem; flex: 1; }
+    .pack-desc { font-size: .855rem; color: var(--slate-600); line-height: 1.58; margin-bottom: .8rem; }
+    .pack-usecases { display: grid; gap: .35rem; margin-bottom: .85rem; }
+    .usecase-item { font-size: .76rem; color: var(--slate-700); line-height: 1.45; padding-left: .65rem; border-left: 2px solid var(--indigo-light); }
+    .pack-prompt { font-size: .74rem; color: var(--slate-600); line-height: 1.45; background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 7px; padding: .55rem .65rem; margin-bottom: .85rem; }
+    .prompt-label { display: block; font-size: .66rem; font-weight: 800; color: var(--slate-500); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .22rem; }
 
     .pack-skills { margin-bottom: .8rem; }
     .skills-label { font-size: .68rem; font-weight: 700; color: var(--slate-500); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .38rem; }
@@ -220,6 +224,12 @@
     'documentation','open-source','performance','ai','observability','devex'
   ];
 
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
   fetch('https://raw.githubusercontent.com/agent-packs/registry/main/index.json')
     .then(r => r.json())
     .then(data => {
@@ -267,7 +277,13 @@
     const q = document.getElementById('search').value.toLowerCase().trim();
     const filtered = ALL_PACKS.filter(p => {
       if (q) {
-        const hay = [p.name, p.id, p.description, ...(p.tags||[]), ...(p.skills||[])].join(' ').toLowerCase();
+        const hay = [
+          p.name, p.id, p.description,
+          ...(p.useCases||[]),
+          ...(p.examplePrompts||[]),
+          ...(p.tags||[]),
+          ...(p.skills||[])
+        ].join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (activeTools.size && !(p.tools||[]).some(t => activeTools.has(t))) return false;
@@ -288,32 +304,37 @@
       return;
     }
     document.getElementById('packs-grid').innerHTML = packs.map(p => `
-      <div class="pack-card" id="pack-${p.id}">
+      <div class="pack-card" id="pack-${esc(p.id)}">
         <div class="pack-header">
-          <div class="pack-name">${p.name}</div>
+          <div class="pack-name">${esc(p.name)}</div>
           <div class="pack-badges">
             ${p.trust === 'core' ? '<span class="badge badge-core">core</span>' : ''}
             ${p.trust === 'community' ? '<span class="badge badge-community">community</span>' : ''}
-            <span class="badge ${p.stability === 'stable' ? 'badge-stable' : 'badge-experimental'}">${p.stability || 'experimental'}</span>
+            <span class="badge ${p.stability === 'stable' ? 'badge-stable' : 'badge-experimental'}">${esc(p.stability || 'experimental')}</span>
           </div>
         </div>
-        <div class="pack-id">${p.id} &middot; v${p.version}</div>
-        <div class="pack-desc">${p.description}</div>
+        <div class="pack-id">${esc(p.id)} &middot; v${esc(p.version)}</div>
+        <div class="pack-desc">${esc(p.description)}</div>
+        ${(p.useCases||[]).length ? `
+          <div class="pack-usecases">
+            ${(p.useCases||[]).slice(0,2).map(u => `<div class="usecase-item">${esc(u)}</div>`).join('')}
+          </div>` : ''}
+        ${(p.examplePrompts||[])[0] ? `<div class="pack-prompt"><span class="prompt-label">Try it</span>${esc(p.examplePrompts[0])}</div>` : ''}
         ${(p.skills||[]).length ? `
           <div class="pack-skills">
             <div class="skills-label">Skills included</div>
             <div class="skills-list">
-              ${(p.skills||[]).slice(0,7).map(s => `<span class="skill-chip">${s}</span>`).join('')}
+              ${(p.skills||[]).slice(0,7).map(s => `<span class="skill-chip">${esc(s)}</span>`).join('')}
               ${(p.skills||[]).length > 7 ? `<span class="skill-chip">+${(p.skills||[]).length - 7} more</span>` : ''}
             </div>
           </div>` : ''}
         <div class="pack-footer">
-          <div class="pack-tools">${(p.tools||[]).map(t => `<span class="tool-chip">${t}</span>`).join('')}</div>
-          <div class="pack-tags">${(p.tags||[]).slice(0,3).map(t => `<span class="pack-tag">#${t}</span>`).join('')}</div>
+          <div class="pack-tools">${(p.tools||[]).map(t => `<span class="tool-chip">${esc(t)}</span>`).join('')}</div>
+          <div class="pack-tags">${(p.tags||[]).slice(0,3).map(t => `<span class="pack-tag">#${esc(t)}</span>`).join('')}</div>
         </div>
         <div class="pack-install-wrap">
-          <span class="pack-install">agent-packs install ${p.id}</span>
-          <button class="install-copy" title="Copy" onclick="copyCmd('agent-packs install ${p.id}', this)">
+          <span class="pack-install">agent-packs install ${esc(p.id)}</span>
+          <button class="install-copy" title="Copy" onclick="copyCmd('agent-packs install ${esc(p.id)}', this)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </button>
         </div>

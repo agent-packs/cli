@@ -60,6 +60,8 @@ func TestFilteredMatchPacksSupportsDiscoveryFacets(t *testing.T) {
   "description": "Frontend pack.",
   "stability": "experimental",
   "reviewStatus": "reviewed",
+  "useCases": ["Review frontend launch readiness"],
+  "examplePrompts": ["Create a visual regression plan."],
   "tools": ["codex", "claude-code"],
   "scope": ["global", "project"],
   "tags": ["ui"],
@@ -94,6 +96,43 @@ func TestFilteredMatchPacksSupportsDiscoveryFacets(t *testing.T) {
 	}
 	if len(matches) != 1 || matches[0].ID != "frontend" {
 		t.Fatalf("expected codex/global to match frontend, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "visual regression", SearchFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0].ID != "frontend" {
+		t.Fatalf("expected example prompt search to match frontend, got %#v", matches)
+	}
+}
+
+func TestShowIncludesUseCasesAndExamplePrompts(t *testing.T) {
+	dir := t.TempDir()
+	writePack(t, dir, "leader", `{
+  "id": "leader",
+  "name": "Leader",
+  "version": "0.1.0",
+  "description": "Leadership pack.",
+  "tags": ["leadership"],
+  "useCases": ["Review quarterly engineering strategy."],
+  "examplePrompts": ["Review this strategy memo for weak tradeoffs."],
+  "capabilities": []
+}`)
+	var out strings.Builder
+	if err := Show(dir, "leader", &out); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{
+		"Use cases:",
+		"- Review quarterly engineering strategy.",
+		"Example prompts:",
+		"- Review this strategy memo for weak tradeoffs.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("show output missing %q:\n%s", want, got)
+		}
 	}
 }
 

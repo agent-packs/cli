@@ -217,7 +217,10 @@
     .pack-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
     .pack-name { font-weight: 700; color: var(--slate-900); font-size: 1rem; }
     .pack-id { font-family: var(--mono); font-size: .68rem; color: var(--slate-500); background: var(--slate-100); padding: .15rem .45rem; border-radius: 4px; white-space: nowrap; }
-    .pack-desc { font-size: .855rem; color: var(--slate-600); line-height: 1.6; margin-bottom: .9rem; flex: 1; }
+    .pack-desc { font-size: .855rem; color: var(--slate-600); line-height: 1.6; margin-bottom: .8rem; }
+    .pack-usecase { font-size: .78rem; color: var(--slate-700); line-height: 1.5; padding-left: .7rem; border-left: 2px solid var(--indigo-light); margin-bottom: .65rem; }
+    .pack-prompt { font-size: .75rem; color: var(--slate-500); line-height: 1.5; background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 6px; padding: .55rem .65rem; margin-bottom: .85rem; }
+    .pack-prompt-label { font-weight: 700; color: var(--slate-700); display: block; margin-bottom: .2rem; }
     .pack-chips { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .75rem; }
     .chip { font-size: .7rem; font-weight: 600; padding: .2rem .5rem; border-radius: 5px; }
     .chip-skills { background: #ede9fe; color: #6d28d9; }
@@ -652,9 +655,15 @@
   }
 
   const FEATURED_IDS = [
-    'backend-engineer', 'frontend-engineer', 'sre-engineer',
-    'ml-engineer', 'mobile-engineer', 'security-engineer'
+    'eng-leader', 'ai-engineer', 'frontend-engineer',
+    'backend-engineer', 'sre-engineer', 'security-engineer'
   ];
+
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
 
   fetch('https://raw.githubusercontent.com/agent-packs/registry/main/index.json')
     .then(r => r.json())
@@ -675,18 +684,20 @@
       if (!featured.length) featured.push(...packs.slice(0, 6));
 
       document.getElementById('featured-packs').innerHTML = featured.map(p => `
-        <a class="pack-card" href="catalog.html#pack-${p.id}">
+        <a class="pack-card" href="catalog.html#pack-${esc(p.id)}">
           <div class="pack-header">
-            <div class="pack-name">${p.name}</div>
-            <div class="pack-id">${p.id}</div>
+            <div class="pack-name">${esc(p.name)}</div>
+            <div class="pack-id">${esc(p.id)}</div>
           </div>
-          <div class="pack-desc">${p.description}</div>
+          <div class="pack-desc">${esc(p.description)}</div>
+          ${(p.useCases || [])[0] ? `<div class="pack-usecase">${esc(p.useCases[0])}</div>` : ''}
+          ${(p.examplePrompts || [])[0] ? `<div class="pack-prompt"><span class="pack-prompt-label">Try it</span>${esc(p.examplePrompts[0])}</div>` : ''}
           <div class="pack-chips">
             ${p.capabilities ? `<span class="chip chip-skills">${p.capabilities} capabilities</span>` : ''}
-            ${(p.tools || []).slice(0,3).map(t => `<span class="chip chip-tools">${t}</span>`).join('')}
-            ${(p.tags || []).slice(0,2).map(t => `<span class="chip chip-tag">${t}</span>`).join('')}
+            ${(p.tools || []).slice(0,3).map(t => `<span class="chip chip-tools">${esc(t)}</span>`).join('')}
+            ${(p.tags || []).slice(0,2).map(t => `<span class="chip chip-tag">${esc(t)}</span>`).join('')}
           </div>
-          <div class="pack-install">agent-packs install ${p.id}</div>
+          <div class="pack-install">agent-packs install ${esc(p.id)}</div>
         </a>`).join('');
     })
     .catch(() => {

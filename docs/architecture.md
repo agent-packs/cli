@@ -10,7 +10,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
 - Registry reusable capability descriptors: JSON manifests under `registry/commands/`, `registry/hooks/`, `registry/subagents/`, `registry/prompts/`, `registry/templates/`, `registry/tools/`, `registry/memory/`, `registry/settings/`, and `registry/mcp/`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
-- Catalog metadata: maintainers, stability, review status, deprecation, replacement, last verified date, and tool/version requirements.
+- Catalog metadata: maintainers, stability, review status, deprecation, replacement, last verified date, tool/version requirements, use cases, and example prompts.
 - Policy defaults: `registry/policy/default.json`.
 - Receipts: `<target>/receipts/<pack-id>.json`.
 - Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`, including source revision fields when locally resolvable.

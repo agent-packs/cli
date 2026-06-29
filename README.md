@@ -496,8 +496,9 @@ Reusable skills live as Agent Skills at `skills/<id>/SKILL.md` (in the registry 
 Agent Skills follow the Agent Skills specification: a skill directory with required `SKILL.md` frontmatter fields `name` and `description`. Claude Code plugins follow the plugin manifest layout with `.claude-plugin/plugin.json` and a required `name` field. Use `metadata.agentpacks.source` on registry skills and `repository` or `homepage` on registry plugins to point at the remote source.
 
 Registry entries can include catalog metadata such as `maintainers`, `stability`,
-`lastVerified`, `reviewStatus`, `deprecated`, `replacement`, and `requirements`.
-These fields power registry search, publish checks, and the static catalog.
+`lastVerified`, `reviewStatus`, `deprecated`, `replacement`, `requirements`,
+`useCases`, and `examplePrompts`. These fields power registry search, publish
+checks, and the static catalog.
 
 ## Examples
 

@@ -14,6 +14,8 @@ func MetadataCoverage(packs []model.Pack, now time.Time) model.MetadataCoverageR
 		Packs: len(packs),
 		Fields: []model.MetadataFieldCoverage{
 			fieldCoverage(packs, "requirements", hasRequirements),
+			fieldCoverage(packs, "useCases", hasUseCases),
+			fieldCoverage(packs, "examplePrompts", hasExamplePrompts),
 		},
 		Freshness: model.MetadataFreshnessCoverage{ThresholdDays: metadataFreshnessThresholdDays},
 	}
@@ -58,6 +60,14 @@ func fieldCoverage(packs []model.Pack, name string, present func(model.Pack) boo
 
 func hasRequirements(pack model.Pack) bool {
 	return pack.Requirements.AgentPacks != "" || len(pack.Requirements.Tools) > 0
+}
+
+func hasUseCases(pack model.Pack) bool {
+	return len(pack.UseCases) > 0
+}
+
+func hasExamplePrompts(pack model.Pack) bool {
+	return len(pack.ExamplePrompts) > 0
 }
 
 func addFreshness(freshness *model.MetadataFreshnessCoverage, pack model.Pack, now time.Time) {
