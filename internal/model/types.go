@@ -21,6 +21,8 @@ type Pack struct {
 	Trust          string         `json:"trust,omitempty"`
 	Compatibility  Compatibility  `json:"compatibility,omitempty"`
 	Requirements   Requirements   `json:"requirements,omitempty"`
+	UseCases       []string       `json:"useCases,omitempty"`
+	ExamplePrompts []string       `json:"examplePrompts,omitempty"`
 	Tags           []string       `json:"tags,omitempty"`
 	Categories     []string       `json:"categories,omitempty"`
 	Tools          []string       `json:"tools,omitempty"`
@@ -318,6 +320,8 @@ type IndexEntry struct {
 	Replacement     string         `json:"replacement,omitempty"`
 	LastVerified    string         `json:"lastVerified,omitempty"`
 	ReviewStatus    string         `json:"reviewStatus,omitempty"`
+	UseCases        []string       `json:"useCases,omitempty"`
+	ExamplePrompts  []string       `json:"examplePrompts,omitempty"`
 	Tags            []string       `json:"tags,omitempty"`
 	Categories      []string       `json:"categories,omitempty"`
 	Tools           []string       `json:"tools,omitempty"`

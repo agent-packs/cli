@@ -180,6 +180,8 @@ func TestGenerateIndexIncludesCapabilityTypeCountsAndCompatibility(t *testing.T)
   "description": "Alpha pack.",
   "trust": "community",
   "lastVerified": "2026-06-01",
+  "useCases": ["Review an AI feature before launch"],
+  "examplePrompts": ["Review this launch plan for production AI readiness."],
   "compatibility": {
     "codex": {"status":"verified","lastVerified":"2026-06-01"}
   },
@@ -202,6 +204,12 @@ func TestGenerateIndexIncludesCapabilityTypeCountsAndCompatibility(t *testing.T)
 	}
 	if entry.Trust != "community" {
 		t.Fatalf("expected trust to be indexed, got %q", entry.Trust)
+	}
+	if len(entry.UseCases) != 1 || entry.UseCases[0] != "Review an AI feature before launch" {
+		t.Fatalf("expected use cases to be indexed, got %#v", entry.UseCases)
+	}
+	if len(entry.ExamplePrompts) != 1 || entry.ExamplePrompts[0] != "Review this launch plan for production AI readiness." {
+		t.Fatalf("expected example prompts to be indexed, got %#v", entry.ExamplePrompts)
 	}
 	if entry.Compatibility["codex"].Status != "verified" {
 		t.Fatalf("expected codex compatibility evidence, got %#v", entry.Compatibility)
