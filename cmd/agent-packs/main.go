@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/agent-packs/cli/internal/agentpacks"
 	"github.com/agent-packs/cli/internal/output"
@@ -181,6 +182,7 @@ func extractJSONFlag(args []string) (bool, []string) {
 
 func runSearch(registry string, args []string) error {
 	asJSON, args := extractJSONFlag(args)
+	args = normalizeSearchArgs(args)
 	flags := flag.NewFlagSet("search", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	tagFilter := flags.String("tag", "", "filter by tag")
@@ -192,6 +194,10 @@ func runSearch(registry string, args []string) error {
 	trustFilter := flags.String("trust", "", "filter by pack trust (official|verified|community|unknown)")
 	compatibleWithFilter := flags.String("compatible-with", "", "filter by compatibility evidence for an agent/tool")
 	compatStatusFilter := flags.String("compat-status", "", "filter compatibility status (verified|compatible|partial|unsupported|unknown)")
+	freshnessFilter := flags.String("freshness", "", "filter by freshness (fresh|stale|invalid|missing)")
+	limit := flags.Int("limit", 0, "limit number of search results")
+	recommended := flags.Bool("recommended", false, "show the recommended starter path shortlist")
+	why := flags.Bool("why", false, "show the first matching metadata or capability snippet")
 	details := flags.Bool("details", false, "show trust, compatibility, freshness, tools, scope, and install command")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -210,23 +216,71 @@ func runSearch(registry string, args []string) error {
 		Trust:          *trustFilter,
 		CompatibleWith: *compatibleWithFilter,
 		CompatStatus:   *compatStatusFilter,
+		Freshness:      *freshnessFilter,
+		Recommended:    *recommended,
 	}
 	matches, err := agentpacks.FilteredMatchPacks(registry, query, f)
 	if err != nil {
 		return err
 	}
+	if *limit > 0 && len(matches) > *limit {
+		matches = matches[:*limit]
+	}
 	if asJSON {
 		if len(matches) == 0 {
 			return agentpacks.ErrNotFound
 		}
-		return output.Encode(os.Stdout, searchResults(matches, *compatibleWithFilter))
+		return output.Encode(os.Stdout, searchResults(matches, *compatibleWithFilter, query))
 	}
 	if len(matches) == 0 {
 		fmt.Fprintln(os.Stdout, "No packs found.")
 		return agentpacks.ErrNotFound
 	}
-	printSearchResults(os.Stdout, matches, *details, *compatibleWithFilter)
+	printSearchResults(os.Stdout, matches, *details, *compatibleWithFilter, query, *why)
 	return nil
+}
+
+func normalizeSearchArgs(args []string) []string {
+	boolFlags := map[string]bool{
+		"--details": true, "--recommended": true, "--why": true,
+	}
+	valueFlags := map[string]bool{
+		"--tag": true, "--category": true, "--stability": true, "--tool": true,
+		"--review-status": true, "--scope": true, "--trust": true,
+		"--compatible-with": true, "--compat-status": true, "--freshness": true,
+		"--limit": true,
+	}
+	var flagArgs []string
+	var positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			positional = append(positional, args[i+1:]...)
+			break
+		}
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positional = append(positional, arg)
+			continue
+		}
+		name := arg
+		if idx := strings.Index(arg, "="); idx >= 0 {
+			name = arg[:idx]
+		}
+		if boolFlags[name] {
+			flagArgs = append(flagArgs, arg)
+			continue
+		}
+		if valueFlags[name] {
+			flagArgs = append(flagArgs, arg)
+			if !strings.Contains(arg, "=") && i+1 < len(args) {
+				i++
+				flagArgs = append(flagArgs, args[i])
+			}
+			continue
+		}
+		flagArgs = append(flagArgs, arg)
+	}
+	return append(flagArgs, positional...)
 }
 
 type searchResult struct {
@@ -234,9 +288,10 @@ type searchResult struct {
 	Freshness           string `json:"freshness,omitempty"`
 	CompatibilityAgent  string `json:"compatibilityAgent,omitempty"`
 	CompatibilityStatus string `json:"compatibilityStatus,omitempty"`
+	Match               string `json:"match,omitempty"`
 }
 
-func searchResults(matches []agentpacks.Pack, compatibleWith string) []searchResult {
+func searchResults(matches []agentpacks.Pack, compatibleWith, query string) []searchResult {
 	results := make([]searchResult, 0, len(matches))
 	for _, pack := range matches {
 		result := searchResult{Pack: pack, Freshness: packFreshness(pack)}
@@ -244,12 +299,13 @@ func searchResults(matches []agentpacks.Pack, compatibleWith string) []searchRes
 			result.CompatibilityAgent = compatibleWith
 			result.CompatibilityStatus = packCompatibilityStatus(pack, compatibleWith)
 		}
+		result.Match = packMatchSnippet(pack, query)
 		results = append(results, result)
 	}
 	return results
 }
 
-func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith string) {
+func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith, query string, why bool) {
 	for _, pack := range matches {
 		if details {
 			compat := ""
@@ -269,9 +325,19 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 				strings.Join(pack.Scope, ","),
 				pack.ID,
 			)
+			if why {
+				if match := packMatchSnippet(pack, query); match != "" {
+					fmt.Fprintf(out, "  match: %s\n", match)
+				}
+			}
 			continue
 		}
 		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
+		if why {
+			if match := packMatchSnippet(pack, query); match != "" {
+				fmt.Fprintf(out, "  match: %s\n", match)
+			}
+		}
 	}
 }
 
@@ -321,6 +387,58 @@ func packCompatibilityStatus(pack agentpacks.Pack, agent string) string {
 		}
 	}
 	return "unverified"
+}
+
+func packMatchSnippet(pack agentpacks.Pack, query string) string {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return ""
+	}
+	tokens := queryTokens(query)
+	for _, candidate := range packSearchSnippetCandidates(pack) {
+		text := strings.ToLower(candidate)
+		if strings.Contains(text, query) || containsAllTokens(text, tokens) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func queryTokens(query string) []string {
+	return strings.FieldsFunc(strings.ToLower(query), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+}
+
+func containsAllTokens(text string, tokens []string) bool {
+	if len(tokens) == 0 {
+		return false
+	}
+	for _, token := range tokens {
+		if !strings.Contains(text, token) {
+			return false
+		}
+	}
+	return true
+}
+
+func packSearchSnippetCandidates(pack agentpacks.Pack) []string {
+	fields := []string{pack.Name, pack.Description}
+	fields = append(fields, pack.UseCases...)
+	fields = append(fields, pack.ExamplePrompts...)
+	fields = append(fields, pack.Tags...)
+	fields = append(fields, pack.Categories...)
+	fields = append(fields, pack.Tools...)
+	for _, ref := range pack.Skills {
+		fields = append(fields, ref.ID, ref.Name)
+	}
+	for _, ref := range pack.Plugins {
+		fields = append(fields, ref.ID, ref.Name)
+	}
+	for _, capability := range pack.Capabilities {
+		fields = append(fields, capability.Name, capability.Content)
+	}
+	return fields
 }
 
 func runShow(registry string, args []string) error {
@@ -1875,7 +1993,7 @@ func registryCacheDir() string {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--trust t] [--compatible-with agent] [--compat-status s] [--details] [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--trust t] [--freshness f] [--compatible-with agent] [--compat-status s] [--recommended] [--limit n] [--why] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")

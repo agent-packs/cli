@@ -108,6 +108,8 @@ Additional commands:
 bin/agent-packs search frontend --json
 bin/agent-packs search --tool codex --scope project --review-status reviewed --details
 bin/agent-packs search --compatible-with codex --compat-status verified --trust community --details
+bin/agent-packs search --recommended --limit 5 --details
+bin/agent-packs search backend --freshness fresh --why
 bin/agent-packs show frontend-engineer --json
 bin/agent-packs audit frontend-engineer --json
 bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
@@ -220,7 +222,7 @@ Agent Packs supports a basic package-manager lifecycle:
   wins and `--no-detect` skips detection.
 - `new pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings <id>`: scaffolds valid starter manifests.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
-- `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, and verification freshness (`--json` includes the coverage report).
+- `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, verification freshness, and an advisory quality score with top fixes (`--json` includes the coverage and quality reports).
 - `scan [path]`: discovers existing `SKILL.md` files.
 - `import <skills-dir>`: copies discovered skills into `<target>/sources/imported/`.
 - `lint <pack>`: validates pack metadata.

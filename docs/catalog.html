@@ -57,6 +57,22 @@
     #search:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,.15); background: white; }
     .search-meta { color: var(--slate-500); font-size: .875rem; white-space: nowrap; }
     .search-meta strong { color: var(--slate-800); }
+    .quick-filter {
+      border: 1px solid var(--slate-200);
+      background: white;
+      color: var(--slate-700);
+      border-radius: 6px;
+      padding: .55rem .75rem;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .quick-filter.active {
+      border-color: var(--indigo);
+      background: rgba(99,102,241,.08);
+      color: var(--indigo);
+    }
 
     /* ── Layout ── */
     .layout { display: flex; align-items: flex-start; }
@@ -179,6 +195,7 @@
   <div class="search-meta">
     Showing <strong id="result-count">–</strong> of <strong id="total-count">–</strong> packs
   </div>
+  <button id="starter-filter" class="quick-filter" type="button" onclick="toggleStarterPath()">Starter path</button>
 </div>
 
 <div class="layout">
@@ -219,12 +236,21 @@
   const activeTags = new Set();
   const activeTools = new Set();
   const activeStability = new Set();
+  let starterOnly = false;
 
   const POPULAR_TAGS = [
     'backend','frontend','mobile','security','data','ml','testing',
     'database','ci-cd','api','cloud','rust','typescript','sre',
     'documentation','open-source','performance','ai','observability','devex'
   ];
+  const STARTER_IDS = new Set([
+    'popular-agent-starter',
+    'frontend-engineer',
+    'backend-engineer',
+    'pr-review',
+    'reliability-debugging',
+    'security-engineer'
+  ]);
 
   function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -268,6 +294,12 @@
     applyFilters();
   }
 
+  function toggleStarterPath() {
+    starterOnly = !starterOnly;
+    document.getElementById('starter-filter').classList.toggle('active', starterOnly);
+    applyFilters();
+  }
+
   function applyFilters() {
     activeTools.clear();
     activeStability.clear();
@@ -278,6 +310,7 @@
 
     const q = document.getElementById('search').value.toLowerCase().trim();
     const filtered = ALL_PACKS.filter(p => {
+      if (starterOnly && !STARTER_IDS.has(p.id)) return false;
       if (q) {
         const hay = [
           p.name, p.id, p.description,
@@ -351,12 +384,21 @@
       ...[...activeTools].map(t => ({ label: t, group: 'tools', value: t })),
       ...[...activeStability].map(t => ({ label: t, group: 'stability', value: t })),
     ];
+    if (starterOnly) {
+      chips.push({ label: 'starter path', group: 'starter', value: 'starter' });
+    }
     document.getElementById('active-filters').innerHTML = chips.map(c =>
       `<button class="active-chip" onclick="removeChip('${c.group}','${c.value}')">${c.label} ✕</button>`
     ).join('');
   }
 
   function removeChip(group, value) {
+    if (group === 'starter') {
+      starterOnly = false;
+      document.getElementById('starter-filter').classList.remove('active');
+      applyFilters();
+      return;
+    }
     const el = document.querySelector(`[data-group="${group}"][value="${value}"]`);
     if (el) el.checked = false;
     applyFilters();

@@ -57,7 +57,7 @@ func TestPrintSearchResultsDetails(t *testing.T) {
 		},
 	}}
 	var out strings.Builder
-	printSearchResults(&out, packs, true, "codex")
+	printSearchResults(&out, packs, true, "codex", "visual regression", true)
 	got := out.String()
 	for _, want := range []string{
 		"frontend-engineer",
@@ -74,6 +74,31 @@ func TestPrintSearchResultsDetails(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("detailed search output missing %q: %s", want, got)
 		}
+	}
+}
+
+func TestSearchResultsIncludeMatchSnippet(t *testing.T) {
+	packs := []agentpacks.Pack{{
+		ID:             "frontend-engineer",
+		Name:           "Frontend Engineer",
+		Description:    "Frontend pack.",
+		ExamplePrompts: []string{"Create a visual regression plan."},
+	}}
+	results := searchResults(packs, "", "visual regression")
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %#v", results)
+	}
+	if results[0].Match != "Create a visual regression plan." {
+		t.Fatalf("expected example prompt match, got %q", results[0].Match)
+	}
+}
+
+func TestNormalizeSearchArgsAllowsFlagsAfterQuery(t *testing.T) {
+	input := []string{"backend", "--freshness", "fresh", "--why", "--limit=3"}
+	got := normalizeSearchArgs(input)
+	want := []string{"--freshness", "fresh", "--why", "--limit=3", "backend"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("normalizeSearchArgs(%v) = %v; want %v", input, got, want)
 	}
 }
 

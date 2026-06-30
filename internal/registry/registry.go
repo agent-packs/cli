@@ -132,7 +132,26 @@ type SearchFilter struct {
 	Trust          string
 	CompatibleWith string
 	CompatStatus   string
+	Freshness      string
+	Recommended    bool
 }
+
+var recommendedPackIDs = []string{
+	"popular-agent-starter",
+	"frontend-engineer",
+	"backend-engineer",
+	"pr-review",
+	"reliability-debugging",
+	"security-engineer",
+}
+
+var recommendedPackSet = func() map[string]bool {
+	set := map[string]bool{}
+	for _, id := range recommendedPackIDs {
+		set[id] = true
+	}
+	return set
+}()
 
 func MatchPacks(registry, query string) ([]model.Pack, error) {
 	return FilteredMatchPacks(registry, query, SearchFilter{})
@@ -146,6 +165,9 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 	query = strings.ToLower(strings.TrimSpace(query))
 	var matches []model.Pack
 	for _, pack := range packs {
+		if f.Recommended && !recommendedPackSet[pack.ID] {
+			continue
+		}
 		if query != "" && !packMatches(pack, query) {
 			continue
 		}
@@ -178,6 +200,9 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 			if f.CompatStatus != "" && !strings.EqualFold(evidence.Status, f.CompatStatus) {
 				continue
 			}
+		}
+		if f.Freshness != "" && !strings.EqualFold(freshnessStatus(pack.LastVerified, time.Now().UTC()), f.Freshness) {
+			continue
 		}
 		matches = append(matches, pack)
 	}
@@ -239,6 +264,7 @@ func Show(registry, id string, out io.Writer) error {
 	fmt.Fprintf(out, "Version: %s\n", pack.Version)
 	fmt.Fprintf(out, "License: %s\n", license)
 	fmt.Fprintf(out, "Tags: %s\n", strings.Join(pack.Tags, ", "))
+	printTrustSnapshot(out, buildTrustSnapshot(pack))
 	if len(pack.UseCases) > 0 {
 		fmt.Fprintln(out, "Use cases:")
 		for _, useCase := range pack.UseCases {
@@ -607,6 +633,103 @@ func freshnessStatus(lastVerified string, now time.Time) string {
 		return "stale"
 	}
 	return "fresh"
+}
+
+func buildTrustSnapshot(pack model.Pack) TrustSnapshot {
+	return TrustSnapshot{
+		Trust:         trustOrUnknown(pack.Trust),
+		ReviewStatus:  pack.ReviewStatus,
+		LastVerified:  pack.LastVerified,
+		Freshness:     freshnessStatus(pack.LastVerified, time.Now().UTC()),
+		Tools:         pack.Tools,
+		Scope:         pack.Scope,
+		Compatibility: pack.Compatibility,
+		Provenance:    provenanceSummary(pack),
+	}
+}
+
+func trustOrUnknown(trust string) string {
+	if strings.TrimSpace(trust) == "" {
+		return "unknown"
+	}
+	return trust
+}
+
+func provenanceSummary(pack model.Pack) ProvenanceSummary {
+	summary := ProvenanceSummary{
+		SkillRefs:          len(pack.Skills),
+		PluginRefs:         len(pack.Plugins),
+		InlineCapabilities: len(pack.Capabilities),
+	}
+	for _, ref := range pack.Skills {
+		if ref.IsObjectRef() {
+			summary.ObjectSkillRefs++
+		} else {
+			summary.BareSkillRefs++
+		}
+	}
+	for _, ref := range pack.Plugins {
+		if ref.IsObjectRef() {
+			summary.ObjectPluginRefs++
+		} else {
+			summary.BarePluginRefs++
+		}
+	}
+	return summary
+}
+
+func printTrustSnapshot(out io.Writer, snapshot TrustSnapshot) {
+	fmt.Fprintf(out, "Trust: %s\n", snapshot.Trust)
+	if snapshot.ReviewStatus != "" {
+		fmt.Fprintf(out, "Review status: %s\n", snapshot.ReviewStatus)
+	}
+	if snapshot.LastVerified != "" {
+		fmt.Fprintf(out, "Last verified: %s (%s)\n", snapshot.LastVerified, snapshot.Freshness)
+	} else {
+		fmt.Fprintf(out, "Freshness: %s\n", snapshot.Freshness)
+	}
+	if len(snapshot.Tools) > 0 {
+		fmt.Fprintf(out, "Works with: %s\n", strings.Join(snapshot.Tools, ", "))
+	}
+	if len(snapshot.Scope) > 0 {
+		fmt.Fprintf(out, "Scope: %s\n", strings.Join(snapshot.Scope, ", "))
+	}
+	if len(snapshot.Compatibility) > 0 {
+		fmt.Fprintf(out, "Compatibility: %s\n", formatCompatibility(snapshot.Compatibility))
+	}
+	fmt.Fprintf(out, "Provenance: %s\n", formatProvenance(snapshot.Provenance))
+}
+
+func formatCompatibility(compat model.Compatibility) string {
+	if len(compat) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(compat))
+	for key := range compat {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		status := compat[key].Status
+		if strings.TrimSpace(status) == "" {
+			status = "unknown"
+		}
+		parts = append(parts, key+"="+status)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatProvenance(summary ProvenanceSummary) string {
+	return fmt.Sprintf("skills %d (%d object, %d bare), plugins %d (%d object, %d bare), inline %d",
+		summary.SkillRefs,
+		summary.ObjectSkillRefs,
+		summary.BareSkillRefs,
+		summary.PluginRefs,
+		summary.ObjectPluginRefs,
+		summary.BarePluginRefs,
+		summary.InlineCapabilities,
+	)
 }
 
 func indexOutputPath(registry, outputPath string) string {
@@ -1033,10 +1156,32 @@ func capabilityNode(kind, id string, capability model.Capability) model.Dependen
 
 // InfoResult holds the data surfaced by Info.
 type InfoResult struct {
-	Pack           model.Pack `json:"pack"`
-	Installed      bool       `json:"installed"`
-	InstalledAt    string     `json:"installedAt,omitempty"`
-	DiskUsageBytes int64      `json:"diskUsageBytes,omitempty"`
+	Pack           model.Pack    `json:"pack"`
+	TrustSnapshot  TrustSnapshot `json:"trustSnapshot"`
+	Installed      bool          `json:"installed"`
+	InstalledAt    string        `json:"installedAt,omitempty"`
+	DiskUsageBytes int64         `json:"diskUsageBytes,omitempty"`
+}
+
+type TrustSnapshot struct {
+	Trust         string              `json:"trust"`
+	ReviewStatus  string              `json:"reviewStatus,omitempty"`
+	LastVerified  string              `json:"lastVerified,omitempty"`
+	Freshness     string              `json:"freshness"`
+	Tools         []string            `json:"tools,omitempty"`
+	Scope         []string            `json:"scope,omitempty"`
+	Compatibility model.Compatibility `json:"compatibility,omitempty"`
+	Provenance    ProvenanceSummary   `json:"provenance"`
+}
+
+type ProvenanceSummary struct {
+	SkillRefs          int `json:"skillRefs"`
+	ObjectSkillRefs    int `json:"objectSkillRefs"`
+	BareSkillRefs      int `json:"bareSkillRefs"`
+	PluginRefs         int `json:"pluginRefs"`
+	ObjectPluginRefs   int `json:"objectPluginRefs"`
+	BarePluginRefs     int `json:"barePluginRefs"`
+	InlineCapabilities int `json:"inlineCapabilities"`
 }
 
 func Info(registryPath, home, packRef string, out io.Writer) error {
@@ -1049,17 +1194,19 @@ func Info(registryPath, home, packRef string, out io.Writer) error {
 	fmt.Fprintln(out, pack.Description)
 	fmt.Fprintln(out)
 
-	trust := pack.Trust
-	if trust == "" {
-		trust = "unverified"
-	}
+	snapshot := result.TrustSnapshot
 	fmt.Fprintf(out, "Version:       %s\n", pack.Version)
-	fmt.Fprintf(out, "Trust:         %s\n", trust)
+	fmt.Fprintf(out, "Trust:         %s\n", snapshot.Trust)
+	if snapshot.ReviewStatus != "" {
+		fmt.Fprintf(out, "Review status: %s\n", snapshot.ReviewStatus)
+	}
 	if pack.Stability != "" {
 		fmt.Fprintf(out, "Stability:     %s\n", pack.Stability)
 	}
-	if pack.LastVerified != "" {
-		fmt.Fprintf(out, "Last verified: %s\n", pack.LastVerified)
+	if snapshot.LastVerified != "" {
+		fmt.Fprintf(out, "Last verified: %s (%s)\n", snapshot.LastVerified, snapshot.Freshness)
+	} else {
+		fmt.Fprintf(out, "Freshness:     %s\n", snapshot.Freshness)
 	}
 	if pack.License != "" {
 		fmt.Fprintf(out, "License:       %s\n", pack.License)
@@ -1067,6 +1214,13 @@ func Info(registryPath, home, packRef string, out io.Writer) error {
 	if len(pack.Tools) > 0 {
 		fmt.Fprintf(out, "Works with:    %s\n", strings.Join(pack.Tools, ", "))
 	}
+	if len(pack.Scope) > 0 {
+		fmt.Fprintf(out, "Scope:         %s\n", strings.Join(pack.Scope, ", "))
+	}
+	if len(snapshot.Compatibility) > 0 {
+		fmt.Fprintf(out, "Compatibility: %s\n", formatCompatibility(snapshot.Compatibility))
+	}
+	fmt.Fprintf(out, "Provenance:    %s\n", formatProvenance(snapshot.Provenance))
 	if len(pack.Tags) > 0 {
 		fmt.Fprintf(out, "Tags:          %s\n", strings.Join(pack.Tags, ", "))
 	}
@@ -1140,7 +1294,7 @@ func buildInfoResult(registryPath, home, packRef string) (InfoResult, error) {
 	if err != nil {
 		return InfoResult{}, err
 	}
-	result := InfoResult{Pack: pack}
+	result := InfoResult{Pack: pack, TrustSnapshot: buildTrustSnapshot(pack)}
 	receiptsDir := filepath.Join(util.ExpandHome(home), "receipts")
 	receiptPath := filepath.Join(receiptsDir, pack.ID+".json")
 	if data, err := os.ReadFile(receiptPath); err == nil {

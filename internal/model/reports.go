@@ -51,6 +51,17 @@ type PublishReport struct {
 	OK       bool                    `json:"ok"`
 	Checks   []CheckEntry            `json:"checks"`
 	Metadata *MetadataCoverageReport `json:"metadata,omitempty"`
+	Quality  *QualityScore           `json:"qualityScore,omitempty"`
+}
+
+type QualityScore struct {
+	Score          int      `json:"score"`
+	Metadata       int      `json:"metadata"`
+	Freshness      int      `json:"freshness"`
+	Provenance     int      `json:"provenance"`
+	Compatibility  int      `json:"compatibility"`
+	IndexReadiness int      `json:"indexReadiness"`
+	TopFixes       []string `json:"topFixes,omitempty"`
 }
 
 type CheckEntry struct {

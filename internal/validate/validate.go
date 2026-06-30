@@ -698,6 +698,13 @@ func PublishCheck(registryPath, policyPath string, out io.Writer) error {
 		}
 		fmt.Fprintln(out)
 	}
+	if report.Quality != nil {
+		fmt.Fprintf(out, "INFO\tquality\tscore\t%d/100", report.Quality.Score)
+		if len(report.Quality.TopFixes) > 0 {
+			fmt.Fprintf(out, "\tTop fixes: %s", strings.Join(report.Quality.TopFixes, "; "))
+		}
+		fmt.Fprintln(out)
+	}
 	if !report.OK {
 		return model.ErrInstallFailed
 	}
@@ -766,7 +773,93 @@ func PublishReport(registryPath, policyPath string) (model.PublishReport, error)
 			add("validate", dir, "OK", "")
 		}
 	}
+	var indexSink strings.Builder
+	indexOK := registry.CheckIndex(registryPath, "", &indexSink) == nil
+	report.Quality = publishQualityScore(report, packs, indexOK)
 	return report, nil
+}
+
+func publishQualityScore(report model.PublishReport, packs []model.Pack, indexOK bool) *model.QualityScore {
+	if len(packs) == 0 || report.Metadata == nil {
+		return &model.QualityScore{Score: 0, TopFixes: []string{"add at least one pack manifest"}}
+	}
+	metadataScore := metadataQualityScore(*report.Metadata)
+	freshnessScore := freshnessQualityScore(report.Metadata.Freshness, len(packs))
+	provenanceScore := provenanceQualityScore(report.Metadata.Refs, len(packs))
+	compatScore := compatibilityQualityScore(packs)
+	indexScore := 0
+	if indexOK {
+		indexScore = 100
+	}
+	score := (metadataScore + freshnessScore + provenanceScore + compatScore + indexScore) / 5
+	return &model.QualityScore{
+		Score:          score,
+		Metadata:       metadataScore,
+		Freshness:      freshnessScore,
+		Provenance:     provenanceScore,
+		Compatibility:  compatScore,
+		IndexReadiness: indexScore,
+		TopFixes:       qualityTopFixes(metadataScore, freshnessScore, provenanceScore, compatScore, indexScore),
+	}
+}
+
+func metadataQualityScore(report model.MetadataCoverageReport) int {
+	if len(report.Fields) == 0 {
+		return 0
+	}
+	total := 0
+	for _, field := range report.Fields {
+		total += percent(field.Present, field.Total)
+	}
+	return total / len(report.Fields)
+}
+
+func freshnessQualityScore(freshness model.MetadataFreshnessCoverage, total int) int {
+	return percent(freshness.Fresh, total)
+}
+
+func provenanceQualityScore(refs model.MetadataRefCoverage, total int) int {
+	return 100 - percent(refs.PacksWithBareRefs, total)
+}
+
+func compatibilityQualityScore(packs []model.Pack) int {
+	withEvidence := 0
+	for _, pack := range packs {
+		if len(pack.Compatibility) > 0 {
+			withEvidence++
+		}
+	}
+	return percent(withEvidence, len(packs))
+}
+
+func percent(value, total int) int {
+	if total <= 0 {
+		return 0
+	}
+	return value * 100 / total
+}
+
+func qualityTopFixes(metadata, freshness, provenance, compatibility, index int) []string {
+	candidates := []struct {
+		score int
+		fix   string
+	}{
+		{metadata, "fill missing useCases, examplePrompts, requirements, trust, and compatibility metadata"},
+		{freshness, "refresh stale or missing lastVerified dates"},
+		{provenance, "replace bare skill/plugin refs with trusted object refs"},
+		{compatibility, "add compatibility evidence for Codex and Claude Code"},
+		{index, "regenerate index.json with agent-packs index --output index.json"},
+	}
+	var fixes []string
+	for _, candidate := range candidates {
+		if candidate.score < 100 {
+			fixes = append(fixes, candidate.fix)
+		}
+		if len(fixes) == 3 {
+			break
+		}
+	}
+	return fixes
 }
 
 func Verify(registryPath, packRef string, out io.Writer) error {

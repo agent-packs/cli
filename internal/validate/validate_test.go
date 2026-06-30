@@ -456,6 +456,15 @@ func TestPublishReportIncludesNonBlockingMetadataCoverage(t *testing.T) {
 	if report.Metadata.Fields[0].Present != 0 || report.Metadata.Fields[0].Total != 1 {
 		t.Fatalf("unexpected metadata field coverage: %#v", report.Metadata.Fields[0])
 	}
+	if report.Quality == nil {
+		t.Fatal("expected publish quality score")
+	}
+	if report.Quality.Score <= 0 {
+		t.Fatalf("expected non-zero publish quality score, got %#v", report.Quality)
+	}
+	if len(report.Quality.TopFixes) == 0 {
+		t.Fatalf("expected advisory top fixes, got %#v", report.Quality)
+	}
 	if !hasCheck(report.Checks, "metadata", "requirements", "WARN") {
 		t.Fatalf("expected non-blocking requirements warning in checks: %#v", report.Checks)
 	}
