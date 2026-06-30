@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/agent-packs/cli/internal/agentpacks"
 	"github.com/agent-packs/cli/internal/output"
@@ -188,18 +189,27 @@ func runSearch(registry string, args []string) error {
 	toolFilter := flags.String("tool", "", "filter by supported tool/agent")
 	reviewStatusFilter := flags.String("review-status", "", "filter by review status (draft|reviewed|verified)")
 	scopeFilter := flags.String("scope", "", "filter by scope (global|project)")
-	details := flags.Bool("details", false, "show stability, review status, freshness, tools, scope, and install command")
+	trustFilter := flags.String("trust", "", "filter by pack trust (official|verified|community|unknown)")
+	compatibleWithFilter := flags.String("compatible-with", "", "filter by compatibility evidence for an agent/tool")
+	compatStatusFilter := flags.String("compat-status", "", "filter compatibility status (verified|compatible|partial|unsupported|unknown)")
+	details := flags.Bool("details", false, "show trust, compatibility, freshness, tools, scope, and install command")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	if *compatStatusFilter != "" && *compatibleWithFilter == "" {
+		return fmt.Errorf("--compat-status requires --compatible-with")
+	}
 	query := strings.Join(flags.Args(), " ")
 	f := agentpacks.SearchFilter{
-		Tag:          *tagFilter,
-		Category:     *categoryFilter,
-		Stability:    *stabilityFilter,
-		Tool:         *toolFilter,
-		ReviewStatus: *reviewStatusFilter,
-		Scope:        *scopeFilter,
+		Tag:            *tagFilter,
+		Category:       *categoryFilter,
+		Stability:      *stabilityFilter,
+		Tool:           *toolFilter,
+		ReviewStatus:   *reviewStatusFilter,
+		Scope:          *scopeFilter,
+		Trust:          *trustFilter,
+		CompatibleWith: *compatibleWithFilter,
+		CompatStatus:   *compatStatusFilter,
 	}
 	matches, err := agentpacks.FilteredMatchPacks(registry, query, f)
 	if err != nil {
@@ -209,25 +219,52 @@ func runSearch(registry string, args []string) error {
 		if len(matches) == 0 {
 			return agentpacks.ErrNotFound
 		}
-		return output.Encode(os.Stdout, matches)
+		return output.Encode(os.Stdout, searchResults(matches, *compatibleWithFilter))
 	}
 	if len(matches) == 0 {
 		fmt.Fprintln(os.Stdout, "No packs found.")
 		return agentpacks.ErrNotFound
 	}
-	printSearchResults(os.Stdout, matches, *details)
+	printSearchResults(os.Stdout, matches, *details, *compatibleWithFilter)
 	return nil
 }
 
-func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool) {
+type searchResult struct {
+	agentpacks.Pack
+	Freshness           string `json:"freshness,omitempty"`
+	CompatibilityAgent  string `json:"compatibilityAgent,omitempty"`
+	CompatibilityStatus string `json:"compatibilityStatus,omitempty"`
+}
+
+func searchResults(matches []agentpacks.Pack, compatibleWith string) []searchResult {
+	results := make([]searchResult, 0, len(matches))
+	for _, pack := range matches {
+		result := searchResult{Pack: pack, Freshness: packFreshness(pack)}
+		if compatibleWith != "" {
+			result.CompatibilityAgent = compatibleWith
+			result.CompatibilityStatus = packCompatibilityStatus(pack, compatibleWith)
+		}
+		results = append(results, result)
+	}
+	return results
+}
+
+func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith string) {
 	for _, pack := range matches {
 		if details {
-			fmt.Fprintf(out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
+			compat := ""
+			if compatibleWith != "" {
+				compat = fmt.Sprintf("%s:%s", compatibleWith, packCompatibilityStatus(pack, compatibleWith))
+			}
+			fmt.Fprintf(out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
 				pack.ID,
 				pack.Name,
 				pack.Stability,
 				pack.ReviewStatus,
 				pack.LastVerified,
+				packTrust(pack),
+				packFreshness(pack),
+				compat,
 				strings.Join(pack.Tools, ","),
 				strings.Join(pack.Scope, ","),
 				pack.ID,
@@ -236,6 +273,54 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool) 
 		}
 		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
 	}
+}
+
+func packTrust(pack agentpacks.Pack) string {
+	if strings.TrimSpace(pack.Trust) == "" {
+		return "unknown"
+	}
+	return pack.Trust
+}
+
+func packFreshness(pack agentpacks.Pack) string {
+	if pack.LastVerified == "" {
+		return "missing"
+	}
+	verifiedAt, err := time.Parse("2006-01-02", pack.LastVerified)
+	if err != nil {
+		return "invalid"
+	}
+	if time.Since(verifiedAt) > 90*24*time.Hour {
+		return "stale"
+	}
+	return "fresh"
+}
+
+func packCompatibilityStatus(pack agentpacks.Pack, agent string) string {
+	if len(pack.Compatibility) == 0 {
+		return "unverified"
+	}
+	candidates := []string{
+		strings.ToLower(strings.TrimSpace(agent)),
+		agentpacks.NormalizeAgent(agent),
+	}
+	if strings.EqualFold(agent, "claude") {
+		candidates = append(candidates, "claude-code")
+	}
+	if strings.EqualFold(agent, "claude-code") {
+		candidates = append(candidates, "claude")
+	}
+	for _, candidate := range candidates {
+		for key, evidence := range pack.Compatibility {
+			if strings.EqualFold(key, candidate) {
+				if strings.TrimSpace(evidence.Status) == "" {
+					return "unknown"
+				}
+				return evidence.Status
+			}
+		}
+	}
+	return "unverified"
 }
 
 func runShow(registry string, args []string) error {
@@ -1790,7 +1875,7 @@ func registryCacheDir() string {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--details] [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--trust t] [--compatible-with agent] [--compat-status s] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")

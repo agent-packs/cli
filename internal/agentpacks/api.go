@@ -18,37 +18,38 @@ import (
 )
 
 type (
-	Pack                = model.Pack
-	Capability          = model.Capability
-	CapabilityRef       = model.CapabilityRef
-	CapabilityRefs      = model.CapabilityRefs
-	Integrity           = model.Integrity
-	SkillManifest       = model.SkillManifest
-	PluginManifest      = model.PluginManifest
-	InstallOptions      = model.InstallOptions
-	Plan                = model.Plan
-	PlanItem            = model.PlanItem
-	Receipt             = model.Receipt
-	Lockfile            = model.Lockfile
-	LockEntry           = model.LockEntry
-	SourceResolution    = model.SourceResolution
-	TrustPolicy         = model.TrustPolicy
-	RegistryIndex       = model.RegistryIndex
-	IndexEntry          = model.IndexEntry
-	RegistryConfig      = model.RegistryConfig
-	TargetSpec          = model.TargetSpec
-	AuditReport         = model.AuditReport
-	ProjectConfig       = config.ProjectConfig
-	InitOptions         = config.InitOptions
-	OutdatedReport      = model.OutdatedReport
-	InstalledSummary    = model.InstalledSummary
-	CompatibilityResult = model.CompatibilityResult
-	DependencyTree      = model.DependencyTree
-	DependencyNode      = model.DependencyNode
-	PublishReport       = model.PublishReport
-	CheckEntry          = model.CheckEntry
-	DoctorCheck         = model.DoctorCheck
-	NewOptions          = author.NewOptions
+	Pack                  = model.Pack
+	Capability            = model.Capability
+	CapabilityRef         = model.CapabilityRef
+	CapabilityRefs        = model.CapabilityRefs
+	Integrity             = model.Integrity
+	SkillManifest         = model.SkillManifest
+	PluginManifest        = model.PluginManifest
+	InstallOptions        = model.InstallOptions
+	Plan                  = model.Plan
+	PlanItem              = model.PlanItem
+	Receipt               = model.Receipt
+	Lockfile              = model.Lockfile
+	LockEntry             = model.LockEntry
+	SourceResolution      = model.SourceResolution
+	TrustPolicy           = model.TrustPolicy
+	RegistryIndex         = model.RegistryIndex
+	IndexEntry            = model.IndexEntry
+	RegistryConfig        = model.RegistryConfig
+	TargetSpec            = model.TargetSpec
+	AuditReport           = model.AuditReport
+	ProjectConfig         = config.ProjectConfig
+	InitOptions           = config.InitOptions
+	OutdatedReport        = model.OutdatedReport
+	InstalledSummary      = model.InstalledSummary
+	CompatibilityEvidence = model.CompatibilityEvidence
+	CompatibilityResult   = model.CompatibilityResult
+	DependencyTree        = model.DependencyTree
+	DependencyNode        = model.DependencyNode
+	PublishReport         = model.PublishReport
+	CheckEntry            = model.CheckEntry
+	DoctorCheck           = model.DoctorCheck
+	NewOptions            = author.NewOptions
 )
 
 var (

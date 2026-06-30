@@ -107,6 +107,7 @@ Additional commands:
 ```sh
 bin/agent-packs search frontend --json
 bin/agent-packs search --tool codex --scope project --review-status reviewed --details
+bin/agent-packs search --compatible-with codex --compat-status verified --trust community --details
 bin/agent-packs show frontend-engineer --json
 bin/agent-packs audit frontend-engineer --json
 bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox

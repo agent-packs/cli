@@ -60,13 +60,23 @@ func TestFilteredMatchPacksSupportsDiscoveryFacets(t *testing.T) {
   "description": "Frontend pack.",
   "stability": "experimental",
   "reviewStatus": "reviewed",
+  "trust": "community",
+  "compatibility": {
+    "codex": {
+      "status": "verified",
+      "lastVerified": "2026-06-29"
+    }
+  },
   "useCases": ["Review frontend launch readiness"],
   "examplePrompts": ["Create a visual regression plan."],
   "tools": ["codex", "claude-code"],
   "scope": ["global", "project"],
   "tags": ["ui"],
   "categories": ["frontend"],
-  "capabilities": [{"type":"skill","name":"Frontend","source":"/tmp/frontend","format":"agent-skill","entry":"SKILL.md"}]
+  "capabilities": [
+    {"type":"skill","name":"Frontend","source":"/tmp/frontend","format":"agent-skill","entry":"SKILL.md"},
+    {"type":"prompt","name":"Accessibility readiness","content":"Check focus contrast responsive behavior.","format":"markdown"}
+  ]
 }`)
 	writePack(t, dir, "backend", `{
   "id": "backend",
@@ -104,6 +114,46 @@ func TestFilteredMatchPacksSupportsDiscoveryFacets(t *testing.T) {
 	}
 	if len(matches) != 1 || matches[0].ID != "frontend" {
 		t.Fatalf("expected example prompt search to match frontend, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "visual plan frontend", SearchFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0].ID != "frontend" {
+		t.Fatalf("expected tokenized metadata search to match frontend, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "responsive focus contrast", SearchFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0].ID != "frontend" {
+		t.Fatalf("expected capability content search to match frontend, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "visual backend", SearchFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected tokenized search to require every term, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "", SearchFilter{Trust: "community", CompatibleWith: "codex", CompatStatus: "verified"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0].ID != "frontend" {
+		t.Fatalf("expected trusted compatible frontend match, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "", SearchFilter{CompatibleWith: "claude-code", CompatStatus: "verified"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("expected no claude-code verified compatibility evidence, got %#v", matches)
 	}
 }
 

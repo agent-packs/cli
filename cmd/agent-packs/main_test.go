@@ -47,19 +47,26 @@ func TestPrintSearchResultsDetails(t *testing.T) {
 		Name:         "Frontend Engineer",
 		Stability:    "experimental",
 		ReviewStatus: "reviewed",
+		Trust:        "community",
 		LastVerified: "2026-06-16",
 		Tools:        []string{"codex", "claude-code"},
 		Scope:        []string{"global", "project"},
 		Tags:         []string{"frontend"},
+		Compatibility: map[string]agentpacks.CompatibilityEvidence{
+			"codex": {Status: "verified", LastVerified: "2026-06-16"},
+		},
 	}}
 	var out strings.Builder
-	printSearchResults(&out, packs, true)
+	printSearchResults(&out, packs, true, "codex")
 	got := out.String()
 	for _, want := range []string{
 		"frontend-engineer",
 		"experimental",
 		"reviewed",
 		"2026-06-16",
+		"community",
+		"fresh",
+		"codex:verified",
 		"codex,claude-code",
 		"global,project",
 		"agent-packs install frontend-engineer",

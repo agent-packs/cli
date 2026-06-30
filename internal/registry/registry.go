@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/agent-packs/cli/internal/model"
 	"github.com/agent-packs/cli/internal/targets"
@@ -122,12 +123,15 @@ func Search(registry, query string, out io.Writer) error {
 
 // SearchFilter holds optional facet filters for MatchPacks.
 type SearchFilter struct {
-	Tag          string
-	Category     string
-	Stability    string
-	Tool         string
-	ReviewStatus string
-	Scope        string
+	Tag            string
+	Category       string
+	Stability      string
+	Tool           string
+	ReviewStatus   string
+	Scope          string
+	Trust          string
+	CompatibleWith string
+	CompatStatus   string
 }
 
 func MatchPacks(registry, query string) ([]model.Pack, error) {
@@ -163,6 +167,18 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 		if f.Scope != "" && !containsString(pack.Scope, f.Scope) {
 			continue
 		}
+		if f.Trust != "" && !strings.EqualFold(pack.Trust, f.Trust) {
+			continue
+		}
+		if f.CompatibleWith != "" {
+			evidence, ok := compatibilityForAgent(pack.Compatibility, f.CompatibleWith)
+			if !ok {
+				continue
+			}
+			if f.CompatStatus != "" && !strings.EqualFold(evidence.Status, f.CompatStatus) {
+				continue
+			}
+		}
 		matches = append(matches, pack)
 	}
 	return matches, nil
@@ -176,6 +192,30 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func compatibilityForAgent(compat model.Compatibility, agent string) (model.CompatibilityEvidence, bool) {
+	if len(compat) == 0 {
+		return model.CompatibilityEvidence{}, false
+	}
+	candidates := []string{
+		strings.ToLower(strings.TrimSpace(agent)),
+		targets.NormalizeAgent(agent),
+	}
+	if strings.EqualFold(agent, "claude") {
+		candidates = append(candidates, "claude-code")
+	}
+	if strings.EqualFold(agent, "claude-code") {
+		candidates = append(candidates, "claude")
+	}
+	for _, candidate := range candidates {
+		for key, evidence := range compat {
+			if strings.EqualFold(key, candidate) {
+				return evidence, true
+			}
+		}
+	}
+	return model.CompatibilityEvidence{}, false
 }
 
 func Show(registry, id string, out io.Writer) error {
@@ -889,12 +929,47 @@ func packMatches(pack model.Pack, query string) bool {
 	fields = append(fields, pack.Categories...)
 	fields = append(fields, pack.Tools...)
 	fields = append(fields, pack.Scope...)
-	for _, field := range fields {
-		if strings.Contains(strings.ToLower(field), query) {
-			return true
+	fields = appendCapabilityRefFields(fields, pack.Skills)
+	fields = appendCapabilityRefFields(fields, pack.Plugins)
+	fields = appendCapabilityRefFields(fields, pack.Commands)
+	fields = appendCapabilityRefFields(fields, pack.Hooks)
+	fields = appendCapabilityRefFields(fields, pack.Subagents)
+	fields = appendCapabilityRefFields(fields, pack.Prompts)
+	fields = appendCapabilityRefFields(fields, pack.Templates)
+	fields = appendCapabilityRefFields(fields, pack.ToolRefs)
+	fields = appendCapabilityRefFields(fields, pack.Memory)
+	fields = appendCapabilityRefFields(fields, pack.Settings)
+	fields = appendCapabilityRefFields(fields, pack.MCP)
+	for _, capability := range pack.Capabilities {
+		fields = append(fields, capability.Type, capability.Name, capability.Content, capability.Format)
+	}
+	haystack := strings.ToLower(strings.Join(fields, " "))
+	if strings.Contains(haystack, query) {
+		return true
+	}
+	tokens := searchTokens(query)
+	if len(tokens) == 0 {
+		return false
+	}
+	for _, token := range tokens {
+		if !strings.Contains(haystack, token) {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+func appendCapabilityRefFields(fields []string, refs model.CapabilityRefs) []string {
+	for _, ref := range refs {
+		fields = append(fields, ref.ID, ref.Name, ref.Format)
+	}
+	return fields
+}
+
+func searchTokens(query string) []string {
+	return strings.FieldsFunc(strings.ToLower(query), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
 }
 
 func DependencyTree(registryPath, packRef string) (model.DependencyTree, error) {
