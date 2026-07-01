@@ -57,7 +57,7 @@ func TestPrintSearchResultsDetails(t *testing.T) {
 		},
 	}}
 	var out strings.Builder
-	printSearchResults(&out, packs, true, "codex", "visual regression", true)
+	printSearchResults(&out, packs, true, "codex", "visual regression", true, true)
 	got := out.String()
 	for _, want := range []string{
 		"frontend-engineer",
@@ -70,6 +70,7 @@ func TestPrintSearchResultsDetails(t *testing.T) {
 		"codex,claude-code",
 		"global,project",
 		"agent-packs install frontend-engineer",
+		"guidance: verified for codex; install with: agent-packs install frontend-engineer --agent codex",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("detailed search output missing %q: %s", want, got)
@@ -84,7 +85,7 @@ func TestSearchResultsIncludeMatchSnippet(t *testing.T) {
 		Description:    "Frontend pack.",
 		ExamplePrompts: []string{"Create a visual regression plan."},
 	}}
-	results := searchResults(packs, "", "visual regression")
+	results := searchResults(packs, "", "visual regression", false)
 	if len(results) != 1 {
 		t.Fatalf("expected one result, got %#v", results)
 	}
@@ -93,10 +94,29 @@ func TestSearchResultsIncludeMatchSnippet(t *testing.T) {
 	}
 }
 
+func TestSearchResultsIncludeGuidanceWhenRequested(t *testing.T) {
+	packs := []agentpacks.Pack{{
+		ID:    "backend-engineer",
+		Name:  "Backend Engineer",
+		Tools: []string{"codex"},
+		Compatibility: map[string]agentpacks.CompatibilityEvidence{
+			"codex": {Status: "compatible", LastVerified: "2026-06-16"},
+		},
+	}}
+	results := searchResults(packs, "codex", "", true)
+	if len(results) != 1 {
+		t.Fatalf("expected one result, got %#v", results)
+	}
+	want := "compatible for codex; install with: agent-packs install backend-engineer --agent codex"
+	if results[0].Guidance != want {
+		t.Fatalf("guidance = %q, want %q", results[0].Guidance, want)
+	}
+}
+
 func TestNormalizeSearchArgsAllowsFlagsAfterQuery(t *testing.T) {
-	input := []string{"backend", "--freshness", "fresh", "--why", "--limit=3"}
+	input := []string{"backend", "--freshness", "fresh", "--why", "--guidance", "--limit=3"}
 	got := normalizeSearchArgs(input)
-	want := []string{"--freshness", "fresh", "--why", "--limit=3", "backend"}
+	want := []string{"--freshness", "fresh", "--why", "--guidance", "--limit=3", "backend"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("normalizeSearchArgs(%v) = %v; want %v", input, got, want)
 	}

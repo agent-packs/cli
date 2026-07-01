@@ -168,7 +168,14 @@ func TestFilteredMatchPacksSupportsDiscoveryFacets(t *testing.T) {
 
 func TestFilteredMatchPacksRecommendedStarterPath(t *testing.T) {
 	dir := t.TempDir()
-	writeMinimalPack(t, dir, "backend-engineer")
+	writePack(t, dir, "backend-engineer", `{
+  "id": "backend-engineer",
+  "name": "Backend Engineer",
+  "version": "0.1.0",
+  "description": "Backend pack.",
+  "recommendation": {"path":"starter","order":20,"reason":"Common backend service workflow."},
+  "capabilities": []
+}`)
 	writeMinimalPack(t, dir, "random-helper")
 
 	matches, err := FilteredMatchPacks(dir, "", SearchFilter{Recommended: true})
@@ -377,6 +384,40 @@ func TestGenerateIndexIncludesCapabilityTypeCountsAndCompatibility(t *testing.T)
 	}
 	if entry.Freshness != "fresh" {
 		t.Fatalf("expected fresh status, got %q", entry.Freshness)
+	}
+	if entry.Recommended {
+		t.Fatalf("non-starter pack should not be marked recommended")
+	}
+}
+
+func TestGenerateIndexMarksRecommendedStarterPacks(t *testing.T) {
+	dir := t.TempDir()
+	writePack(t, dir, "backend-engineer", `{
+  "id": "backend-engineer",
+  "name": "Backend Engineer",
+  "version": "0.1.0",
+  "description": "Backend pack.",
+  "recommendation": {"path":"starter","order":20,"reason":"Common backend service workflow."},
+  "capabilities": []
+}`)
+	writeMinimalPack(t, dir, "random-helper")
+	out := filepath.Join(t.TempDir(), "index.json")
+	if err := GenerateIndex(dir, out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	index, err := loadIndex(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, entry := range index.Packs {
+		got[entry.ID] = entry.Recommended
+	}
+	if !got["backend-engineer"] {
+		t.Fatalf("backend-engineer should be marked recommended: %#v", got)
+	}
+	if got["random-helper"] {
+		t.Fatalf("random-helper should not be marked recommended: %#v", got)
 	}
 }
 

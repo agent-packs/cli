@@ -64,10 +64,27 @@ func newPack(opts NewOptions) (string, error) {
 		License:      "Apache-2.0",
 		Stability:    "experimental",
 		ReviewStatus: "draft",
-		Tools:        []string{"codex", "claude-code"},
-		Scope:        []string{"global", "project"},
-		Tags:         []string{"starter"},
-		Skills:       model.CapabilityRefs{{ID: opts.ID + "-skill"}},
+		Trust:        "community",
+		Requirements: model.Requirements{
+			AgentPacks: ">=0.1.0",
+			Tools: map[string]string{
+				"codex":       "latest",
+				"claude-code": "latest",
+			},
+		},
+		UseCases: []string{
+			"Describe the primary job-to-be-done this pack helps a local coding agent complete.",
+			"Describe a review, debugging, implementation, or planning workflow this pack improves.",
+		},
+		ExamplePrompts: []string{
+			"Use this pack to review my current task and propose the safest next implementation step.",
+			"Use this pack to inspect this codebase area and produce a source-grounded action plan.",
+		},
+		Tools:      []string{"codex", "claude-code"},
+		Scope:      []string{"global", "project"},
+		Tags:       []string{"starter"},
+		Categories: []string{"engineering"},
+		Skills:     model.CapabilityRefs{{ID: opts.ID + "-skill", Trust: "community"}},
 	}
 	path := filepath.Join(opts.Dir, opts.ID+".json")
 	return path, writeJSON(path, pack, opts.Force)

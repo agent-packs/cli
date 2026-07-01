@@ -10,7 +10,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 - Registry plugins: Claude Code plugin source references under `registry/plugins/<id>/.claude-plugin/plugin.json`.
 - Registry reusable capability descriptors: JSON manifests under `registry/commands/`, `registry/hooks/`, `registry/subagents/`, `registry/prompts/`, `registry/templates/`, `registry/tools/`, `registry/memory/`, `registry/settings/`, and `registry/mcp/`.
 - Schema: `registry/schemas/agent-pack.schema.json`.
-- Catalog metadata: maintainers, stability, review status, deprecation, replacement, last verified date, tool/version requirements, use cases, and example prompts.
+- Catalog metadata: maintainers, stability, review status, deprecation, replacement, last verified date, tool/version requirements, recommendation path/order/reason, use cases, and example prompts.
 - Policy defaults: `registry/policy/default.json`.
 - Receipts: `<target>/receipts/<pack-id>.json`.
 - Lockfiles: `<target>/packs/<pack-id>/agent-pack.lock`, including source revision fields when locally resolvable.
@@ -20,7 +20,7 @@ Agent Packs should feel like Homebrew for agent capabilities while keeping the C
 
 Implemented commands:
 
-- `agent-packs search [query] [--json]`
+- `agent-packs search [query] [--json] [--guidance]`
 - `agent-packs show <pack> [--json]`
 - `agent-packs install <pack|registry/pack>`
 - `agent-packs skills install <skill-id|path>`
@@ -91,9 +91,42 @@ tap workflow reads the latest `agent-packs/cli` release, downloads
 when the formula version changes. The tap workflow can still be run manually for
 operator repair, but release tags are the normal automation path.
 
+## Discovery And Authoring Flow
+
+```mermaid
+flowchart LR
+  signals["Project or user intent"] --> search["search --recommended --guidance"]
+  registry["Registry manifests"] --> index["index.json with recommendation metadata"]
+  index --> catalog["Static catalog starter path"]
+  index --> search
+  search --> command["agent-packs install <pack> --agent <tool>"]
+
+  scaffold["new pack scaffold"] --> validate["validate + publish --check"]
+  validate --> registry
+```
+
+`search --guidance` is intentionally opt-in so existing tabular search consumers
+stay stable. Guidance distinguishes advertised target tools from explicit
+compatibility evidence and suggests a dry-run or compatibility inspection when
+evidence is missing, partial, unknown, or unsupported.
+
+`recommendation` lives in registry manifests and is projected into `index.json`
+as both the structured object and a simple `recommended` boolean. The catalog
+uses that index metadata for the starter path, with only a compatibility
+fallback for older indexes.
+
+`new pack` emits richer draft metadata (`requirements`, `useCases`,
+`examplePrompts`, categories, tools, scope, and trust-bearing refs), but it does
+not generate `lastVerified` or verified compatibility evidence. Those fields
+should only be added after real validation.
+
 ## Catalog And CI
 
-CI (`.github/workflows/ci.yml`) runs Go and Python tests, JSON Schema validation, registry validation, pack verification, audit, policy checks, index generation, index staleness checks, and GitHub Pages deployment for the static catalog.
+CLI CI (`.github/workflows/ci.yml`) runs Go tests, builds the CLI, runs Python
+integration/docs tests, prepares the static catalog, and deploys GitHub Pages.
+Registry CI runs registry schema/index tests; release/publish readiness also
+uses CLI-backed `validate`, `index --check`, and `publish --check` gates before
+pushing registry changes.
 
 `docs/catalog.html` renders `registry/index.json` as a lightweight catalog.
 

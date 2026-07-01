@@ -136,23 +136,6 @@ type SearchFilter struct {
 	Recommended    bool
 }
 
-var recommendedPackIDs = []string{
-	"popular-agent-starter",
-	"frontend-engineer",
-	"backend-engineer",
-	"pr-review",
-	"reliability-debugging",
-	"security-engineer",
-}
-
-var recommendedPackSet = func() map[string]bool {
-	set := map[string]bool{}
-	for _, id := range recommendedPackIDs {
-		set[id] = true
-	}
-	return set
-}()
-
 func MatchPacks(registry, query string) ([]model.Pack, error) {
 	return FilteredMatchPacks(registry, query, SearchFilter{})
 }
@@ -165,7 +148,7 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 	query = strings.ToLower(strings.TrimSpace(query))
 	var matches []model.Pack
 	for _, pack := range packs {
-		if f.Recommended && !recommendedPackSet[pack.ID] {
+		if f.Recommended && !packRecommended(pack) {
 			continue
 		}
 		if query != "" && !packMatches(pack, query) {
@@ -599,6 +582,7 @@ func buildIndex(registry string) (model.RegistryIndex, error) {
 			ID: pack.ID, Name: pack.Name, Version: pack.Version, Description: pack.Description,
 			Maintainers: pack.Maintainers, Stability: pack.Stability, Deprecated: pack.Deprecated,
 			Replacement: pack.Replacement, LastVerified: pack.LastVerified, ReviewStatus: pack.ReviewStatus,
+			Recommended: packRecommended(pack), Recommendation: pack.Recommendation,
 			UseCases: pack.UseCases, ExamplePrompts: pack.ExamplePrompts,
 			Tags: pack.Tags, Categories: pack.Categories, Tools: pack.Tools, Scope: pack.Scope,
 			Skills: pack.Skills.IDs(), Plugins: pack.Plugins.IDs(), Capabilities: len(expanded.Capabilities),
@@ -608,6 +592,10 @@ func buildIndex(registry string) (model.RegistryIndex, error) {
 		index.Packs = append(index.Packs, entry)
 	}
 	return index, nil
+}
+
+func packRecommended(pack model.Pack) bool {
+	return pack.Recommendation != nil && strings.TrimSpace(pack.Recommendation.Path) != ""
 }
 
 func capabilityTypeCounts(capabilities []model.Capability) map[string]int {
@@ -847,6 +835,8 @@ func changedIndexFields(a, b model.IndexEntry) []string {
 		"replacement":     {a.Replacement, b.Replacement},
 		"lastVerified":    {a.LastVerified, b.LastVerified},
 		"reviewStatus":    {a.ReviewStatus, b.ReviewStatus},
+		"recommended":     {a.Recommended, b.Recommended},
+		"recommendation":  {a.Recommendation, b.Recommendation},
 		"useCases":        {a.UseCases, b.UseCases},
 		"examplePrompts":  {a.ExamplePrompts, b.ExamplePrompts},
 		"tags":            {a.Tags, b.Tags},

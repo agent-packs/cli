@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -198,6 +199,7 @@ func runSearch(registry string, args []string) error {
 	limit := flags.Int("limit", 0, "limit number of search results")
 	recommended := flags.Bool("recommended", false, "show the recommended starter path shortlist")
 	why := flags.Bool("why", false, "show the first matching metadata or capability snippet")
+	guidance := flags.Bool("guidance", false, "show compatibility-aware install guidance")
 	details := flags.Bool("details", false, "show trust, compatibility, freshness, tools, scope, and install command")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -230,19 +232,19 @@ func runSearch(registry string, args []string) error {
 		if len(matches) == 0 {
 			return agentpacks.ErrNotFound
 		}
-		return output.Encode(os.Stdout, searchResults(matches, *compatibleWithFilter, query))
+		return output.Encode(os.Stdout, searchResults(matches, *compatibleWithFilter, query, *guidance))
 	}
 	if len(matches) == 0 {
 		fmt.Fprintln(os.Stdout, "No packs found.")
 		return agentpacks.ErrNotFound
 	}
-	printSearchResults(os.Stdout, matches, *details, *compatibleWithFilter, query, *why)
+	printSearchResults(os.Stdout, matches, *details, *compatibleWithFilter, query, *why, *guidance)
 	return nil
 }
 
 func normalizeSearchArgs(args []string) []string {
 	boolFlags := map[string]bool{
-		"--details": true, "--recommended": true, "--why": true,
+		"--details": true, "--recommended": true, "--why": true, "--guidance": true,
 	}
 	valueFlags := map[string]bool{
 		"--tag": true, "--category": true, "--stability": true, "--tool": true,
@@ -289,9 +291,10 @@ type searchResult struct {
 	CompatibilityAgent  string `json:"compatibilityAgent,omitempty"`
 	CompatibilityStatus string `json:"compatibilityStatus,omitempty"`
 	Match               string `json:"match,omitempty"`
+	Guidance            string `json:"guidance,omitempty"`
 }
 
-func searchResults(matches []agentpacks.Pack, compatibleWith, query string) []searchResult {
+func searchResults(matches []agentpacks.Pack, compatibleWith, query string, guidance bool) []searchResult {
 	results := make([]searchResult, 0, len(matches))
 	for _, pack := range matches {
 		result := searchResult{Pack: pack, Freshness: packFreshness(pack)}
@@ -300,12 +303,15 @@ func searchResults(matches []agentpacks.Pack, compatibleWith, query string) []se
 			result.CompatibilityStatus = packCompatibilityStatus(pack, compatibleWith)
 		}
 		result.Match = packMatchSnippet(pack, query)
+		if guidance {
+			result.Guidance = installGuidance(pack, compatibleWith)
+		}
 		results = append(results, result)
 	}
 	return results
 }
 
-func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith, query string, why bool) {
+func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith, query string, why, guidance bool) {
 	for _, pack := range matches {
 		if details {
 			compat := ""
@@ -330,6 +336,9 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 					fmt.Fprintf(out, "  match: %s\n", match)
 				}
 			}
+			if guidance {
+				fmt.Fprintf(out, "  guidance: %s\n", installGuidance(pack, compatibleWith))
+			}
 			continue
 		}
 		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
@@ -337,6 +346,9 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 			if match := packMatchSnippet(pack, query); match != "" {
 				fmt.Fprintf(out, "  match: %s\n", match)
 			}
+		}
+		if guidance {
+			fmt.Fprintf(out, "  guidance: %s\n", installGuidance(pack, compatibleWith))
 		}
 	}
 }
@@ -387,6 +399,69 @@ func packCompatibilityStatus(pack agentpacks.Pack, agent string) string {
 		}
 	}
 	return "unverified"
+}
+
+func installGuidance(pack agentpacks.Pack, agent string) string {
+	agent = strings.TrimSpace(agent)
+	if agent == "" {
+		if verified := firstCompatibilityAgent(pack, "verified", "compatible"); verified != "" {
+			return fmt.Sprintf("best evidence: %s=%s; install with: agent-packs install %s --agent %s",
+				verified, packCompatibilityStatus(pack, verified), pack.ID, verified)
+		}
+		if len(pack.Tools) > 0 {
+			return fmt.Sprintf("advertised for %s; install with: agent-packs install %s --agent %s",
+				strings.Join(pack.Tools, ","), pack.ID, pack.Tools[0])
+		}
+		return fmt.Sprintf("no agent compatibility metadata; review with: agent-packs show %s", pack.ID)
+	}
+	normalized := agentpacks.NormalizeAgent(agent)
+	status := packCompatibilityStatus(pack, normalized)
+	switch status {
+	case "verified", "compatible":
+		return fmt.Sprintf("%s for %s; install with: agent-packs install %s --agent %s", status, normalized, pack.ID, normalized)
+	case "partial":
+		return fmt.Sprintf("partial compatibility for %s; inspect first: agent-packs compat %s --agent %s", normalized, pack.ID, normalized)
+	case "unsupported":
+		return fmt.Sprintf("unsupported for %s; choose another pack or agent", normalized)
+	case "unknown":
+		return fmt.Sprintf("unknown compatibility for %s; inspect first: agent-packs compat %s --agent %s", normalized, pack.ID, normalized)
+	}
+	if packAdvertisesTool(pack, normalized) {
+		return fmt.Sprintf("advertised for %s but no compatibility evidence; dry-run first: agent-packs install %s --agent %s --dry-run",
+			normalized, pack.ID, normalized)
+	}
+	return fmt.Sprintf("not advertised for %s; inspect first: agent-packs show %s", normalized, pack.ID)
+}
+
+func firstCompatibilityAgent(pack agentpacks.Pack, statuses ...string) string {
+	if len(pack.Compatibility) == 0 {
+		return ""
+	}
+	allowed := map[string]bool{}
+	for _, status := range statuses {
+		allowed[strings.ToLower(status)] = true
+	}
+	agents := make([]string, 0, len(pack.Compatibility))
+	for agent, evidence := range pack.Compatibility {
+		if allowed[strings.ToLower(evidence.Status)] {
+			agents = append(agents, agent)
+		}
+	}
+	if len(agents) == 0 {
+		return ""
+	}
+	sort.Strings(agents)
+	return agents[0]
+}
+
+func packAdvertisesTool(pack agentpacks.Pack, agent string) bool {
+	agent = strings.ToLower(strings.TrimSpace(agent))
+	for _, tool := range pack.Tools {
+		if strings.EqualFold(tool, agent) || strings.EqualFold(agentpacks.NormalizeAgent(tool), agent) {
+			return true
+		}
+	}
+	return false
 }
 
 func packMatchSnippet(pack agentpacks.Pack, query string) string {
@@ -1993,7 +2068,7 @@ func registryCacheDir() string {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--trust t] [--freshness f] [--compatible-with agent] [--compat-status s] [--recommended] [--limit n] [--why] [--details] [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--trust t] [--freshness f] [--compatible-with agent] [--compat-status s] [--recommended] [--limit n] [--why] [--guidance] [--details] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
 	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
   <title id="title">Agent Packs high-level architecture</title>
-  <desc id="desc">Agent Packs aggregates skills, plugins, tool descriptors, MCP servers, prompts, templates, commands, hooks, memory/settings fragments, reusable JSON refs, and remote registries into curated packs. The Go CLI resolves packs, creates install plans, writes receipts and lockfiles, tracks compatibility evidence, and syncs capabilities to coding agents.</desc>
+  <desc id="desc">Agent Packs aggregates skills, plugins, tool descriptors, MCP servers, prompts, templates, commands, hooks, memory/settings fragments, reusable JSON refs, and recommendation metadata into curated packs. The Go CLI resolves packs, explains compatibility-aware install guidance, creates install plans, writes receipts and lockfiles, tracks compatibility evidence, and syncs capabilities to coding agents.</desc>
   <defs>
     <style>
       .bg { fill: #f8fafc; }
@@ -31,7 +31,7 @@
 
   <rect class="bg" width="1200" height="820" />
   <text x="60" y="56" class="title">Agent Packs Architecture</text>
-  <text x="60" y="82" class="small">Curated packs with portable install modes, managed state, and compatibility evidence.</text>
+  <text x="60" y="82" class="small">Curated packs with starter paths, install guidance, managed state, and compatibility evidence.</text>
 
   <rect x="40" y="118" width="270" height="470" class="panel" />
   <text x="70" y="154" class="label">Capability Sources</text>
@@ -70,12 +70,12 @@
   <rect x="390" y="548" width="130" height="34" class="registry" />
   <text x="412" y="570" class="tiny">JSON refs</text>
   <rect x="390" y="588" width="130" height="34" class="registry" />
-  <text x="401" y="610" class="tiny">schema + index</text>
+  <text x="394" y="610" class="tiny">schema + index + recs</text>
 
   <rect x="605" y="154" width="220" height="132" class="cli" />
   <text x="668" y="205" class="whiteTitle">Go CLI</text>
   <text x="655" y="232" class="whiteSmall">agent-packs</text>
-  <text x="627" y="258" class="whiteSmall">search, install, verify</text>
+  <text x="618" y="258" class="whiteSmall">search guidance, install, verify</text>
 
   <rect x="590" y="340" width="275" height="248" class="panel" />
   <text x="625" y="378" class="label">Core Modules</text>

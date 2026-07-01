@@ -237,13 +237,14 @@
   const activeTools = new Set();
   const activeStability = new Set();
   let starterOnly = false;
+  let hasRecommendedMetadata = false;
 
   const POPULAR_TAGS = [
     'backend','frontend','mobile','security','data','ml','testing',
     'database','ci-cd','api','cloud','rust','typescript','sre',
     'documentation','open-source','performance','ai','observability','devex'
   ];
-  const STARTER_IDS = new Set([
+  const FALLBACK_STARTER_IDS = new Set([
     'popular-agent-starter',
     'frontend-engineer',
     'backend-engineer',
@@ -262,6 +263,7 @@
     .then(r => r.json())
     .then(data => {
       ALL_PACKS = data.packs || [];
+      hasRecommendedMetadata = ALL_PACKS.some(p => p.recommended || p.recommendation);
       document.getElementById('total-count').textContent = ALL_PACKS.length;
       buildSidebar();
       applyFilters();
@@ -310,7 +312,7 @@
 
     const q = document.getElementById('search').value.toLowerCase().trim();
     const filtered = ALL_PACKS.filter(p => {
-      if (starterOnly && !STARTER_IDS.has(p.id)) return false;
+      if (starterOnly && !isStarterPack(p)) return false;
       if (q) {
         const hay = [
           p.name, p.id, p.description,
@@ -330,6 +332,13 @@
     document.getElementById('result-count').textContent = filtered.length;
     renderPacks(filtered);
     renderChips();
+  }
+
+  function isStarterPack(pack) {
+    if (hasRecommendedMetadata) {
+      return Boolean(pack.recommended || (pack.recommendation && pack.recommendation.path));
+    }
+    return FALLBACK_STARTER_IDS.has(pack.id);
   }
 
   function renderPacks(packs) {

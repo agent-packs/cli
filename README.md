@@ -109,6 +109,7 @@ bin/agent-packs search frontend --json
 bin/agent-packs search --tool codex --scope project --review-status reviewed --details
 bin/agent-packs search --compatible-with codex --compat-status verified --trust community --details
 bin/agent-packs search --recommended --limit 5 --details
+bin/agent-packs search --recommended --guidance --compatible-with codex --limit 5 --details
 bin/agent-packs search backend --freshness fresh --why
 bin/agent-packs show frontend-engineer --json
 bin/agent-packs audit frontend-engineer --json
@@ -220,7 +221,7 @@ Agent Packs supports a basic package-manager lifecycle:
   in use (project-local signals) and the stack (`go.mod`, `package.json`,
   `Cargo.toml`, `pyproject.toml`, …) to recommend packs; an explicit `--agent`
   wins and `--no-detect` skips detection.
-- `new pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings <id>`: scaffolds valid starter manifests.
+- `new pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings <id>`: scaffolds valid starter manifests. Pack scaffolds include draft contributor metadata (`requirements`, `useCases`, `examplePrompts`, categories, tools, scope, and trust-bearing refs) without inventing verification evidence.
 - `tree <pack>` / `deps <pack>`: shows composed packs, referenced capabilities, sources, and trust.
 - `publish --check`: runs contributor checks before opening a registry PR, including non-blocking metadata coverage warnings for requirements, provenance refs, verification freshness, and an advisory quality score with top fixes (`--json` includes the coverage and quality reports).
 - `scan [path]`: discovers existing `SKILL.md` files.
@@ -500,8 +501,9 @@ Agent Skills follow the Agent Skills specification: a skill directory with requi
 
 Registry entries can include catalog metadata such as `maintainers`, `stability`,
 `lastVerified`, `reviewStatus`, `deprecated`, `replacement`, `requirements`,
-`useCases`, and `examplePrompts`. These fields power registry search, publish
-checks, and the static catalog.
+`recommendation`, `useCases`, and `examplePrompts`. These fields power registry
+search, install guidance, publish checks, starter-path grouping, and the static
+catalog.
 
 ## Examples
 

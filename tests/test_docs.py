@@ -57,6 +57,12 @@ class DocumentationExamplesTest(unittest.TestCase):
         self.assertIn("github.com/agent-packs/registry", readme)
         self.assertNotIn("sandeshh/agent-packs", readme)
 
+    def test_catalog_uses_index_recommendation_metadata(self):
+        catalog = (ROOT / "docs" / "catalog.html").read_text(encoding="utf-8")
+        self.assertIn("pack.recommended", catalog)
+        self.assertIn("pack.recommendation", catalog)
+        self.assertIn("FALLBACK_STARTER_IDS", catalog)
+
 
 if __name__ == "__main__":
     unittest.main()
