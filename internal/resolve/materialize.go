@@ -94,7 +94,9 @@ func materializeGitSource(source, cache string) (string, func(), error) {
 	tmp := cache + ".tmp"
 	_ = os.RemoveAll(tmp)
 	var cloneErr error
-	if kind == "github-commit" {
+	// A tree URL whose ref is a commit SHA (a pinned source) cannot be cloned
+	// with --branch; fetch the commit directly like github-commit sources.
+	if kind == "github-commit" || isCommitSHA(ref) {
 		cloneErr = cloneCommit(repo, ref, tmp)
 	} else {
 		cloneErr = cloneRef(repo, ref, tmp)
