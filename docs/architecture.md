@@ -56,6 +56,7 @@ Implemented commands:
 - `agent-packs index [--output path]`
 - `agent-packs diff <pack>`
 - `agent-packs pin <pack> [--check]`
+- `agent-packs check [--policy policy.json|preset] [--json]`
 - `agent-packs compat <pack> [--json]`
 - `agent-packs cache prune|clean`
 

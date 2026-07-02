@@ -41,6 +41,27 @@ class DocumentationExamplesTest(unittest.TestCase):
         self.assertIn("pin <pack>", readme)
         self.assertIn("agent-packs pin <pack>", architecture)
 
+    def test_check_ci_gate_is_documented(self):
+        # The CI gate is the headline differentiator: README and architecture
+        # docs must document `agent-packs check` and its policy preset form.
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+        self.assertIn("agent-packs check --policy ci", readme)
+        self.assertIn("agent-packs check [--policy", architecture)
+
+    def test_readme_leads_with_supply_chain_positioning(self):
+        # The intro must pitch the trust/team story (receipts, pinning, drift,
+        # CI gate) before the pack catalog.
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        intro = " ".join(readme[: readme.index("## Repository Layout")].split())
+        for phrase in ("supply chain", "lockfile", "pin", "drift", "CI"):
+            self.assertIn(phrase, intro, phrase)
+
+    def test_landing_page_leads_with_ci_gate(self):
+        html = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("One-Command CI Gate", html)
+        self.assertIn("agent-packs check --policy ci", html)
+
     def test_landing_page_diagram_uses_real_plugins(self):
         # The architecture diagram must reference real registry plugins (which
         # live in the agent-packs/registry repo), not invented names.

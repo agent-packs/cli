@@ -1,10 +1,30 @@
 # Agent Packs
 
-Curated, installable capability bundles for AI coding agents.
+The package manager that treats agent capabilities like a software supply
+chain. Install, pin, audit, and verify curated bundles of skills, plugins,
+commands, hooks, prompts, templates, tool descriptors, MCP servers, and
+memory/settings fragments across Claude Code, Codex, Cursor, Gemini CLI,
+GitHub Copilot, Goose, and OpenCode.
 
-Agent Packs bundles public Skills, Plugins, commands, hooks, prompts, templates,
-tool descriptors, memory/settings fragments, MCP servers, and composed packs
-into ready-to-use workflow packs.
+Plenty of tools can copy a skill into an agent directory. Agent Packs is built
+for the part that comes after — knowing what your agents are running, proving
+it hasn't changed, and standardizing it across a team:
+
+- **Receipts and lockfiles** record exactly what was installed, from which
+  source, at which commit — for every install.
+- **Pinning** (`agent-packs pin`) resolves moving refs to concrete commits and
+  content checksums; `pin --check` fails when a live source drifts.
+- **Drift detection** (`agent-packs status`) catches hand-edits to managed
+  files, memory blocks, and merged settings keys.
+- **One CI gate** (`agent-packs check`) verifies pins, drift, and an optional
+  trust policy for every installed pack in a single command with a nonzero
+  exit on failure.
+- **Supply-chain reports** (`agent-packs audit`, `licenses`, `attribution`)
+  produce an SBOM with provenance, and `policy check` enforces allow/deny
+  source rules, pinned-ref requirements, and native-command gates.
+- **Reversible memory/settings merges** install CLAUDE.md/AGENTS.md fragments
+  and settings keys add-only and user-wins, and retract them cleanly on
+  uninstall.
 
 ![Agent Packs high-level architecture](docs/architecture.svg)
 
@@ -140,6 +160,37 @@ bin/agent-packs list --target ./sandbox
 bin/agent-packs uninstall frontend-engineer pr-review --target ./sandbox
 bin/agent-packs doctor
 bin/agent-packs doctor targets
+bin/agent-packs check --policy ci
+```
+
+## Team Standardization And CI
+
+Agent Packs is designed so a team can commit its agent setup and verify it on
+every pull request, the same way lockfiles gate dependency drift:
+
+1. `agent-packs init` writes `.agent-packs.yaml` project defaults; installs
+   write receipts and lockfiles under `.agent-packs/` — commit them.
+2. `agent-packs pin <pack>` resolves each capability's moving ref to a
+   concrete commit and content checksum in the lockfile.
+3. `agent-packs check` verifies everything in one command: recorded pins still
+   match the live sources, no managed file or merged fragment was hand-edited,
+   and (with `--policy`) every installed pack satisfies a trust policy. It
+   exits nonzero on any failure, so it works directly as a CI gate. Unpinned
+   capabilities and reference-mode installs are reported as warnings.
+
+```sh
+agent-packs check                     # pins + drift for every installed pack
+agent-packs check --policy ci        # also enforce the registry `ci` policy preset
+agent-packs check --json             # machine-readable report
+```
+
+GitHub Actions example:
+
+```yaml
+- name: Verify agent capabilities
+  run: |
+    curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | AGENT_PACKS_INSTALL_SKILL=0 sh
+    agent-packs check --policy ci
 ```
 
 ## Included Packs
@@ -234,6 +285,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `index [--output path]`: generates a searchable registry index.
 - `diff <pack>`: compares the installed lockfile with the current registry pack.
 - `pin <pack> [--check]`: resolves each installed capability's moving ref to a concrete commit and content checksum and records them in the lockfile; `--check` re-resolves the live sources and fails if any drifted from the recorded pins.
+- `check [--policy policy.json|preset] [--json]`: the CI gate — verifies pins, managed-file drift, and an optional trust policy for every installed pack at the target, exiting nonzero on any failure.
 - `compat <pack> --agent <tool>`: checks tool compatibility metadata.
 - `cache prune|clean`: removes cached state; `clean` also removes imported sources.
 

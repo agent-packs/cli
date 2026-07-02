@@ -40,6 +40,7 @@ AGENT_PACKS_REGISTRY=/path/to/registry/packs agent-packs validate packs
 - Inspect provenance: `agent-packs attribution <pack>` and `agent-packs licenses <pack>`
 - Check safety: `agent-packs audit <pack>`, `agent-packs verify <pack>`, and `agent-packs policy check <pack> default`
 - Compare installed state: `agent-packs diff <pack>` and `agent-packs outdated`
+- Pin and verify: `agent-packs pin <pack>` records commit/checksum pins; `agent-packs check [--policy <preset>] [--json]` is the CI gate that verifies pins, drift, and policy for all installed packs (nonzero exit on failure)
 - Maintain installs: `agent-packs upgrade <pack>`, `agent-packs rollback <pack>`, `agent-packs uninstall <pack>`
 
 ## Registry Model

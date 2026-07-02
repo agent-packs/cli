@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Agent Packs — Portable Capability Packs for AI Agents</title>
-  <meta name="description" content="Install curated bundles of skills, plugins, tool descriptors, MCP servers, commands, hooks, memory, and settings into Claude Code, Codex, Cursor, Gemini CLI, and more.">
+  <meta name="description" content="Install, pin, audit, and verify curated bundles of skills, plugins, tool descriptors, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more — with receipts, lockfiles, and a one-command CI gate.">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -345,9 +345,9 @@
     </div>
     <div class="scene-panel scene-status">
       <div class="scene-body">
-        <div class="scene-line"><strong>compat codex</strong> <span class="ok">verified</span></div>
-        <div class="scene-line"><strong>drift</strong> none</div>
-        <div class="scene-line"><strong>rollback</strong> previous receipt ready</div>
+        <div class="scene-line"><span class="muted">$</span> <strong>agent-packs check --policy ci</strong></div>
+        <div class="scene-line"><strong>pins</strong> <span class="ok">match</span> · <strong>drift</strong> none</div>
+        <div class="scene-line"><span class="ok">check passed</span> <span class="muted">3 packs</span></div>
       </div>
     </div>
     <div class="scene-flow">
@@ -358,8 +358,8 @@
   </div>
   <div class="hero-content">
     <div class="hero-badge">Open source · portable · evidence-based</div>
-    <h1>Agent Packs<span>Capability bundles for AI coding agents</span></h1>
-    <p>Install, audit, update, and roll back skills, plugins, managed tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more.</p>
+    <h1>Agent Packs<span>The supply chain for AI agent capabilities</span></h1>
+    <p>Install, pin, audit, and verify skills, plugins, managed tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more — with receipts, lockfiles, and a one-command CI gate.</p>
 
     <div class="install-tabs">
       <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
@@ -379,6 +379,7 @@
     <div class="hero-proof">
       <span class="proof-pill">No default execution</span>
       <span class="proof-pill">Receipts and lockfiles</span>
+      <span class="proof-pill">One-command CI gate</span>
       <span class="proof-pill">Verified compatibility metadata</span>
     </div>
   </div>
@@ -410,44 +411,44 @@
 <div class="section-alt">
   <div class="container">
     <p class="section-tag">Why Agent Packs</p>
-    <h2 class="section-title">One registry model,<br>many agent surfaces</h2>
-    <p class="section-sub">A coherent capability model for reusable skills, plugins, tools, MCP servers, prompts, commands, memory, and settings with clear install behavior for every type.</p>
+    <h2 class="section-title">Know what your agents run.<br>Prove it hasn't changed.</h2>
+    <p class="section-sub">Skills and plugins are code your agents act on. Agent Packs manages them like a software supply chain: recorded provenance, pinned revisions, drift detection, and a CI gate.</p>
     <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">CI</div>
+        <div class="feature-title">One-Command CI Gate</div>
+        <div class="feature-desc">Verify pins, managed-file drift, and a trust policy for every installed pack in one command with a nonzero exit on failure — made for pull-request checks.</div>
+        <div class="feature-cmd">agent-packs check --policy ci</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">PN</div>
+        <div class="feature-title">Pinned Provenance</div>
+        <div class="feature-desc">Resolve moving refs to concrete commits and content checksums in the lockfile, then fail fast when a live source no longer matches its recorded pin.</div>
+        <div class="feature-cmd">agent-packs pin frontend-engineer --check</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">DF</div>
+        <div class="feature-title">Drift Detection</div>
+        <div class="feature-desc">Catch hand-edits to installed skills, managed files, memory blocks, and merged settings keys since install — before upgrading or rolling back.</div>
+        <div class="feature-cmd">agent-packs status</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">MG</div>
+        <div class="feature-title">Reversible Memory &amp; Settings</div>
+        <div class="feature-desc">Merge CLAUDE.md/AGENTS.md fragments and settings keys add-only and user-wins, tracked in receipts and cleanly retracted on uninstall.</div>
+        <div class="feature-cmd">agent-packs install my-pack --only memory --mode copy</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">RB</div>
+        <div class="feature-title">Receipts &amp; Rollback</div>
+        <div class="feature-desc">Every install writes a receipt and lockfile, so upgrades, managed descriptors, and merged fragments can be audited, traced, and reverted.</div>
+        <div class="feature-cmd">agent-packs rollback backend-engineer</div>
+      </div>
       <div class="feature-card">
         <div class="feature-icon">AI</div>
         <div class="feature-title">One Tool, All Agents</div>
         <div class="feature-desc">Manage skills, plugins, tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more from a single CLI.</div>
         <div class="feature-cmd">agent-packs install backend-engineer --agent claude</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">TL</div>
-        <div class="feature-title">Portable Tool Descriptors</div>
-        <div class="feature-desc">Tool capabilities install as managed descriptor files by default. Agent Packs records, copies, drifts, and uninstalls them without executing arbitrary code.</div>
-        <div class="feature-cmd">agent-packs install my-pack --only tools --mode copy</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">OK</div>
-        <div class="feature-title">Compatibility Evidence</div>
-        <div class="feature-desc">Packs can advertise intended agents and separately report verified, compatible, partial, unsupported, or unknown evidence for each target.</div>
-        <div class="feature-cmd">agent-packs compat eng-leader --agent codex</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">DF</div>
-        <div class="feature-title">Drift Detection</div>
-        <div class="feature-desc">See exactly what changed in managed files and merged settings since install, before pulling updates or rolling back.</div>
-        <div class="feature-cmd">agent-packs diff backend-engineer</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">RB</div>
-        <div class="feature-title">Rollback</div>
-        <div class="feature-desc">Every install writes receipts and lockfiles so pack upgrades, managed descriptors, and merged fragments can be traced and reverted.</div>
-        <div class="feature-cmd">agent-packs rollback backend-engineer</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">RG</div>
-        <div class="feature-title">Reusable Registry Refs</div>
-        <div class="feature-desc">Packs can compose other packs and reference reusable JSON capabilities from registry directories without duplicating manifests.</div>
-        <div class="feature-cmd">agent-packs show rust-engineer</div>
       </div>
     </div>
   </div>
@@ -585,6 +586,14 @@
           <h3>Keep up to date</h3>
           <p>Update all installed packs, or just one. Diff before you upgrade.</p>
           <div class="code-block">agent-packs outdated<br>agent-packs diff backend-engineer<br>agent-packs upgrade backend-engineer</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div>
+          <h3>Pin it and gate CI</h3>
+          <p>Record commit and checksum pins in the lockfile, commit it, and let one command verify pins, drift, and policy on every pull request.</p>
+          <div class="code-block">agent-packs pin backend-engineer<br>agent-packs check --policy ci<br><span class="cm"># exits nonzero when anything drifted</span></div>
         </div>
       </div>
     </div>
