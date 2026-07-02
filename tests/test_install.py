@@ -85,6 +85,65 @@ class InstallCommandTest(unittest.TestCase):
             self.assertEqual(receipt["plan"]["agent"], "codex")
             self.assertEqual(receipt["plan"]["capabilities"][0]["status"], "installed")
 
+    def test_check_gates_pins_and_drift(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            skill = temp / "skill"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text("# Example Skill\n", encoding="utf-8")
+            registry = temp / "registry"
+            target = temp / "install"
+            registry.mkdir()
+            self.write_pack(
+                registry,
+                {
+                    "id": "check-pack",
+                    "name": "Check Pack",
+                    "version": "0.1.0",
+                    "description": "A check gate pack.",
+                    "capabilities": [
+                        {
+                            "type": "skill",
+                            "name": "check-skill",
+                            "source": str(skill),
+                            "format": "agent-skill",
+                            "entry": "SKILL.md",
+                        }
+                    ],
+                },
+            )
+            install = self.run_cli(
+                "install", "check-pack", "--agent", "codex", "--only", "skills", "--mode", "copy",
+                registry=registry, target=target,
+            )
+            self.assertEqual(install.returncode, 0, install.stderr)
+
+            # Unpinned installs pass with a warning.
+            unpinned = self.run_cli("check", registry=registry, target=target)
+            self.assertEqual(unpinned.returncode, 0, unpinned.stderr)
+            self.assertIn("UNPINNED", unpinned.stdout)
+            self.assertIn("check passed", unpinned.stdout)
+
+            pin = self.run_cli("pin", "check-pack", registry=registry, target=target)
+            self.assertEqual(pin.returncode, 0, pin.stderr)
+            pinned = self.run_cli("check", registry=registry, target=target)
+            self.assertEqual(pinned.returncode, 0, pinned.stderr)
+            self.assertNotIn("UNPINNED", pinned.stdout)
+
+            # Hand-editing the installed skill fails the gate with a nonzero exit.
+            installed_skill = target / ".codex" / "skills" / "check-skill" / "SKILL.md"
+            installed_skill.write_text("tampered\n", encoding="utf-8")
+            tampered = self.run_cli("check", registry=registry, target=target)
+            self.assertNotEqual(tampered.returncode, 0)
+            self.assertIn("DRIFTED", tampered.stdout)
+            self.assertIn("check failed", tampered.stdout)
+
+            tampered_json = self.run_cli("check", "--json", registry=registry, target=target)
+            self.assertNotEqual(tampered_json.returncode, 0)
+            report = json.loads(tampered_json.stdout)
+            self.assertFalse(report["ok"])
+            self.assertEqual(report["packs"][0]["id"], "check-pack")
+
     def test_installs_multiple_packs_and_writes_individual_receipts(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp = Path(temp_dir)

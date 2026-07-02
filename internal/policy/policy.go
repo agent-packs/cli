@@ -15,50 +15,58 @@ import (
 )
 
 func PolicyCheck(registryPath, packRef, policyPath string, out io.Writer) error {
-	policy, err := LoadTrustPolicy(policyPath)
+	packID, violations, err := PolicyViolations(registryPath, packRef, policyPath)
 	if err != nil {
 		return err
+	}
+	for _, violation := range violations {
+		fmt.Fprintf(out, "FAIL  %s\n", violation)
+	}
+	if len(violations) > 0 {
+		return model.ErrInstallFailed
+	}
+	fmt.Fprintf(out, "OK    %s satisfies policy\n", packID)
+	return nil
+}
+
+// PolicyViolations evaluates a pack against a trust policy and returns the
+// expanded pack ID plus one message per violated rule, without printing.
+func PolicyViolations(registryPath, packRef, policyPath string) (string, []string, error) {
+	policy, err := LoadTrustPolicy(policyPath)
+	if err != nil {
+		return "", nil, err
 	}
 	pack, err := registry.FindPack(registryPath, packRef)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 	expanded, err := registry.ExpandPack(registryPath, pack, map[string]bool{})
 	if err != nil {
-		return err
+		return "", nil, err
 	}
-	failed := false
+	var violations []string
 	for _, capability := range expanded.Capabilities {
 		if capability.Source != "" {
 			if matchesAny(capability.Source, policy.DenySources) {
-				fmt.Fprintf(out, "FAIL  denied source: %s\n", capability.Source)
-				failed = true
+				violations = append(violations, "denied source: "+capability.Source)
 			}
 			if len(policy.AllowSources) > 0 && !matchesAny(capability.Source, policy.AllowSources) {
-				fmt.Fprintf(out, "FAIL  source not allowed: %s\n", capability.Source)
-				failed = true
+				violations = append(violations, "source not allowed: "+capability.Source)
 			}
 			resolution := resolve.ResolveSource(capability.Source)
 			if policy.RequirePinnedRefs {
 				if resolution.Kind == "remote" {
-					fmt.Fprintf(out, "FAIL  source revision unresolved: %s\n", capability.Source)
-					failed = true
+					violations = append(violations, "source revision unresolved: "+capability.Source)
 				} else if !resolution.Pinned && !util.IsLocalSource(capability.Source) {
-					fmt.Fprintf(out, "FAIL  source is not pinned: %s\n", capability.Source)
-					failed = true
+					violations = append(violations, "source is not pinned: "+capability.Source)
 				}
 			}
 		}
 		if capability.Type == "plugin" && capability.Install != nil && capability.Install["command"] != "" && !policy.AllowNativeCommands {
-			fmt.Fprintf(out, "FAIL  native command blocked by policy: %s\n", capability.Name)
-			failed = true
+			violations = append(violations, "native command blocked by policy: "+capability.Name)
 		}
 	}
-	if failed {
-		return model.ErrInstallFailed
-	}
-	fmt.Fprintf(out, "OK    %s satisfies policy\n", expanded.ID)
-	return nil
+	return expanded.ID, violations, nil
 }
 
 func Audit(registryPath, packRef string, out io.Writer) error {

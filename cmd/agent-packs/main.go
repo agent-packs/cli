@@ -126,6 +126,8 @@ func main() {
 		err = runNew(os.Args[2:])
 	case "status":
 		err = runStatus(defaultTarget, os.Args[2:])
+	case "check":
+		err = runCheck(registry, defaultTarget, os.Args[2:])
 	case "completion":
 		err = runCompletion(os.Args[2:])
 	case "sync":
@@ -1535,6 +1537,26 @@ func runStatus(defaultTarget string, args []string) error {
 	return agentpacks.DriftCheck(*target, os.Stdout)
 }
 
+func runCheck(registry, defaultTarget string, args []string) error {
+	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	flags := flag.NewFlagSet("check", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	target := flags.String("target", defaultTarget, "installation target directory")
+	policyArg := flags.String("policy", "", "trust policy file or registry preset to enforce on every installed pack")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if len(flags.Args()) != 0 {
+		return fmt.Errorf("usage: agent-packs check [--target dir] [--policy policy.json|preset] [--json]")
+	}
+	resolvedPolicy := *policyArg
+	// Resolve named presets from registry/policy/<name>.json, like `policy check`.
+	if resolvedPolicy != "" && !strings.Contains(resolvedPolicy, string(filepath.Separator)) && !strings.HasSuffix(resolvedPolicy, ".json") {
+		resolvedPolicy = filepath.Join(filepath.Dir(registry), "policy", resolvedPolicy+".json")
+	}
+	return agentpacks.Check(registry, *target, resolvedPolicy, asJSON, os.Stdout)
+}
+
 func runCompletion(args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: agent-packs completion <bash|zsh|fish>")
@@ -1564,7 +1586,7 @@ _agent_packs() {
         cword=$COMP_CWORD
     }
 
-    local subcommands="search show install info home sync freeze export skills plugins commands hooks subagents prompts templates tools memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
+    local subcommands="search show install info home sync freeze export skills plugins commands hooks subagents prompts templates tools memory settings mcp list outdated upgrade rollback uninstall why status check audit verify lint diff tree deps compat scan import validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help"
 
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
@@ -1652,6 +1674,7 @@ _agent_packs() {
                 'uninstall:remove an installed pack'
                 'why:show which pack provides a skill'
                 'status:check installed skills for drift or tampering'
+                'check:verify pins, drift, and policy for CI (nonzero exit on failure)'
                 'audit:generate a supply-chain SBOM for a pack'
                 'verify:verify pack source references (--all for all)'
                 'lint:lint a pack manifest (--all for all)'
@@ -1718,7 +1741,7 @@ _agent_packs "$@"
 const fishCompletion = `# agent-packs fish completion
 # Place in ~/.config/fish/completions/agent-packs.fish
 
-set -l __ap_subcommands search show install info home sync freeze export skills plugins commands hooks subagents prompts templates tools memory settings mcp list outdated upgrade rollback uninstall why status audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
+set -l __ap_subcommands search show install info home sync freeze export skills plugins commands hooks subagents prompts templates tools memory settings mcp list outdated upgrade rollback uninstall why status check audit verify lint diff tree deps compat validate index registry tap untap target doctor new init publish policy licenses attribution resolve analytics version completion help
 
 # Subcommand completions
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a search     -d 'Search the registry for packs'
@@ -1745,6 +1768,7 @@ complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a uninstall  -d 'Remove an installed pack'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a why        -d 'Show which pack provides a skill'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a status     -d 'Check installed skills for drift'
+complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a check      -d 'Verify pins, drift, and policy for CI'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a audit      -d 'Generate a supply-chain SBOM'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a verify     -d 'Verify pack source references (--all for all)'
 complete -f -c agent-packs -n "not __fish_seen_subcommand_from $__ap_subcommands" -a lint       -d 'Lint a pack manifest (--all for all)'
@@ -2101,6 +2125,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs doctor [targets]")
 	fmt.Fprintln(os.Stderr, "  agent-packs validate <file-or-directory>")
 	fmt.Fprintln(os.Stderr, "  agent-packs status [--target dir] [--json]")
+	fmt.Fprintln(os.Stderr, "  agent-packs check [--target dir] [--policy policy.json|preset] [--json]")
 	fmt.Fprintln(os.Stderr, "  agent-packs target add|list|remove ...")
 	fmt.Fprintln(os.Stderr, "  agent-packs completion <bash|zsh|fish>")
 	fmt.Fprintln(os.Stderr, "  agent-packs registry add|list|remove ...")

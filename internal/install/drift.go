@@ -24,7 +24,9 @@ type DriftItem struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-func collectDriftItems(target string) ([]DriftItem, error) {
+// CollectDriftItems inspects every pack receipt at the target and reports the
+// drift state of each capability: "ok", "referenced", "missing", or "drifted".
+func CollectDriftItems(target string) ([]DriftItem, error) {
 	absTarget, err := filepath.Abs(util.ExpandHome(target))
 	if err != nil {
 		return nil, err
@@ -72,7 +74,7 @@ func collectDriftItems(target string) ([]DriftItem, error) {
 }
 
 func DriftCheck(target string, out io.Writer) error {
-	items, err := collectDriftItems(target)
+	items, err := CollectDriftItems(target)
 	if err != nil {
 		return err
 	}
@@ -118,7 +120,7 @@ func DriftCheck(target string, out io.Writer) error {
 }
 
 func DriftCheckJSON(target string, out io.Writer) error {
-	items, err := collectDriftItems(target)
+	items, err := CollectDriftItems(target)
 	if err != nil {
 		return err
 	}

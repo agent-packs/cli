@@ -576,63 +576,109 @@ func PackDiff(registryPath, target, packRef string, out io.Writer) error {
 	return nil
 }
 
-// PinPack resolves each installed capability's source to a concrete revision
-// and content checksum, recording them in the pack lockfile so future operations
-// can detect drift or tampering. With check=true it re-resolves the live source
-// and verifies it still matches the recorded pins instead of rewriting them.
-func PinPack(registryPath, target, packRef string, check bool, out io.Writer) error {
-	pack, err := registry.FindPack(registryPath, packRef)
+// PinStatus is the pin verification state of one locked capability: "ok" when
+// the live source still matches the recorded pin, "unpinned" when no pin was
+// ever recorded, and "changed" when the live revision or checksum drifted.
+type PinStatus struct {
+	Name   string `json:"name"`
+	State  string `json:"state"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// PinCheckResults re-resolves each locked capability's live source and reports
+// whether it still matches the pins recorded in the pack lockfile.
+func PinCheckResults(registryPath, target, packRef string) ([]PinStatus, error) {
+	expanded, lock, _, err := loadPackLock(registryPath, target, packRef)
 	if err != nil {
-		return err
-	}
-	expanded, err := registry.ExpandPack(registryPath, pack, map[string]bool{})
-	if err != nil {
-		return err
-	}
-	lockPath := filepath.Join(util.ExpandHome(target), "packs", expanded.ID, "agent-pack.lock")
-	lock, err := LoadLockfile(lockPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("pack %q is not installed — run `agent-packs install %s` first", expanded.ID, expanded.ID)
-		}
-		return err
+		return nil, err
 	}
 	capByKey := map[string]model.Capability{}
 	for _, capability := range expanded.Capabilities {
 		capByKey[capability.Type+":"+capability.Name] = capability
 	}
+	results := []PinStatus{}
+	for i := range lock.Capabilities {
+		entry := &lock.Capabilities[i]
+		if entry.Revision == "" && entry.Integrity.Checksum == "" {
+			results = append(results, PinStatus{Name: entry.Name, State: "unpinned",
+				Detail: fmt.Sprintf("run `agent-packs pin %s` to record a pin", expanded.ID)})
+			continue
+		}
+		revision, checksum := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
+		var details []string
+		if entry.Revision != "" && revision != "" && revision != entry.Revision {
+			details = append(details, fmt.Sprintf("revision %s → %s", shortHash(entry.Revision), shortHash(revision)))
+		}
+		if entry.Integrity.Checksum != "" && checksum != "" && checksum != entry.Integrity.Checksum {
+			details = append(details, fmt.Sprintf("checksum %s → %s", shortHash(entry.Integrity.Checksum), shortHash(checksum)))
+		}
+		if len(details) > 0 {
+			results = append(results, PinStatus{Name: entry.Name, State: "changed", Detail: strings.Join(details, "; ")})
+		} else {
+			results = append(results, PinStatus{Name: entry.Name, State: "ok"})
+		}
+	}
+	return results, nil
+}
 
+func loadPackLock(registryPath, target, packRef string) (model.Pack, model.Lockfile, string, error) {
+	pack, err := registry.FindPack(registryPath, packRef)
+	if err != nil {
+		return model.Pack{}, model.Lockfile{}, "", err
+	}
+	expanded, err := registry.ExpandPack(registryPath, pack, map[string]bool{})
+	if err != nil {
+		return model.Pack{}, model.Lockfile{}, "", err
+	}
+	lockPath := filepath.Join(util.ExpandHome(target), "packs", expanded.ID, "agent-pack.lock")
+	lock, err := LoadLockfile(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return model.Pack{}, model.Lockfile{}, "", fmt.Errorf("pack %q is not installed — run `agent-packs install %s` first", expanded.ID, expanded.ID)
+		}
+		return model.Pack{}, model.Lockfile{}, "", err
+	}
+	return expanded, lock, lockPath, nil
+}
+
+// PinPack resolves each installed capability's source to a concrete revision
+// and content checksum, recording them in the pack lockfile so future operations
+// can detect drift or tampering. With check=true it re-resolves the live source
+// and verifies it still matches the recorded pins instead of rewriting them.
+func PinPack(registryPath, target, packRef string, check bool, out io.Writer) error {
 	if check {
+		results, err := PinCheckResults(registryPath, target, packRef)
+		if err != nil {
+			return err
+		}
 		drifted := 0
-		for i := range lock.Capabilities {
-			entry := &lock.Capabilities[i]
-			if entry.Revision == "" && entry.Integrity.Checksum == "" {
-				fmt.Fprintf(out, "UNPINNED %s — run `agent-packs pin %s` to record a pin\n", entry.Name, expanded.ID)
-				continue
-			}
-			revision, checksum := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
-			drift := false
-			if entry.Revision != "" && revision != "" && revision != entry.Revision {
-				fmt.Fprintf(out, "CHANGED  %s — revision %s → %s\n", entry.Name, shortHash(entry.Revision), shortHash(revision))
-				drift = true
-			}
-			if entry.Integrity.Checksum != "" && checksum != "" && checksum != entry.Integrity.Checksum {
-				fmt.Fprintf(out, "CHANGED  %s — checksum %s → %s\n", entry.Name, shortHash(entry.Integrity.Checksum), shortHash(checksum))
-				drift = true
-			}
-			if drift {
+		for _, result := range results {
+			switch result.State {
+			case "unpinned":
+				fmt.Fprintf(out, "UNPINNED %s — %s\n", result.Name, result.Detail)
+			case "changed":
+				fmt.Fprintf(out, "CHANGED  %s — %s\n", result.Name, result.Detail)
 				drifted++
-			} else {
-				fmt.Fprintf(out, "OK       %s\n", entry.Name)
+			default:
+				fmt.Fprintf(out, "OK       %s\n", result.Name)
 			}
 		}
 		fmt.Fprintln(out)
 		if drifted > 0 {
-			fmt.Fprintf(out, "%d/%d capabilities drifted from their pins\n", drifted, len(lock.Capabilities))
+			fmt.Fprintf(out, "%d/%d capabilities drifted from their pins\n", drifted, len(results))
 			return model.ErrInstallFailed
 		}
-		fmt.Fprintf(out, "All %d capabilities match their pins\n", len(lock.Capabilities))
+		fmt.Fprintf(out, "All %d capabilities match their pins\n", len(results))
 		return nil
+	}
+
+	expanded, lock, lockPath, err := loadPackLock(registryPath, target, packRef)
+	if err != nil {
+		return err
+	}
+	capByKey := map[string]model.Capability{}
+	for _, capability := range expanded.Capabilities {
+		capByKey[capability.Type+":"+capability.Name] = capability
 	}
 
 	pinned := 0
