@@ -265,6 +265,40 @@
     .footer-copy { font-size: .8rem; color: var(--slate-600); }
     .footer-badge { font-size: .75rem; color: var(--slate-600); background: rgba(255,255,255,.06); padding: .25rem .65rem; border-radius: 5px; }
 
+    /* ── How it works flow ── */
+    .hiw-flow {
+      display: grid; grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 1rem; align-items: stretch; margin-top: 3rem;
+    }
+    .hiw-step {
+      background: var(--surface); border: 1px solid var(--slate-200); border-radius: 10px;
+      padding: 1.5rem 1.4rem; position: relative;
+    }
+    .hiw-step-num {
+      width: 28px; height: 28px; background: var(--indigo); color: white; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: .8rem; margin-bottom: .8rem;
+    }
+    .hiw-step h3 { font-size: .975rem; font-weight: 700; color: var(--slate-900); margin-bottom: .35rem; }
+    .hiw-step p { font-size: .82rem; color: var(--slate-600); line-height: 1.55; margin-bottom: .75rem; }
+    .hiw-cmd {
+      font-family: var(--mono); font-size: .72rem; color: var(--indigo);
+      background: var(--indigo-light); padding: .35rem .6rem; border-radius: 6px;
+      display: inline-block; overflow-wrap: anywhere;
+    }
+    .hiw-arrow {
+      display: flex; align-items: center; color: var(--slate-400);
+      font-size: 1.4rem; font-weight: 300; user-select: none;
+    }
+    .hiw-outcome {
+      margin-top: 1.25rem; text-align: center; font-size: .85rem; color: var(--slate-600);
+    }
+    .hiw-outcome strong { color: var(--slate-900); }
+    @media (max-width: 780px) {
+      .hiw-flow { grid-template-columns: 1fr; }
+      .hiw-arrow { justify-content: center; transform: rotate(90deg); height: 1.6rem; }
+    }
+
     /* ── Pack diagram ── */
     .diagram-wrap { margin-top: 3rem; overflow-x: auto; }
     .pack-svg {
@@ -306,6 +340,7 @@
     Agent Packs
   </a>
   <div class="nav-links">
+    <a href="#how-it-works">How it works</a>
     <a href="catalog.html">Catalog</a>
     <a href="https://github.com/agent-packs/cli/blob/main/README.md">Docs</a>
     <a class="nav-gh" href="https://github.com/agent-packs/cli">
@@ -407,57 +442,43 @@
   </div>
 </div>
 
-<!-- ── Features ── -->
-<div class="section-alt">
+<!-- ── How It Works ── -->
+<div class="section-alt" id="how-it-works">
   <div class="container">
-    <p class="section-tag">Why Agent Packs</p>
-    <h2 class="section-title">Know what your agents run.<br>Prove it hasn't changed.</h2>
-    <p class="section-sub">Skills and plugins are code your agents act on. Agent Packs manages them like a software supply chain: recorded provenance, pinned revisions, drift detection, and a CI gate.</p>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">CI</div>
-        <div class="feature-title">One-Command CI Gate</div>
-        <div class="feature-desc">Verify pins, managed-file drift, and a trust policy for every installed pack in one command with a nonzero exit on failure — made for pull-request checks.</div>
-        <div class="feature-cmd">agent-packs check --policy ci</div>
+    <p class="section-tag">How it works</p>
+    <h2 class="section-title">Three steps from registry to agent</h2>
+    <p class="section-sub">Pick a curated pack, install it with one command, and pin it so CI can prove nothing changed behind your back.</p>
+
+    <div class="hiw-flow">
+      <div class="hiw-step">
+        <div class="hiw-step-num">1</div>
+        <h3>Pick a pack</h3>
+        <p>Browse the registry for a curated bundle of skills, plugins, tools, and settings tuned for a role.</p>
+        <span class="hiw-cmd">agent-packs search backend</span>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">PN</div>
-        <div class="feature-title">Pinned Provenance</div>
-        <div class="feature-desc">Resolve moving refs to concrete commits and content checksums in the lockfile, then fail fast when a live source no longer matches its recorded pin.</div>
-        <div class="feature-cmd">agent-packs pin frontend-engineer --check</div>
+      <div class="hiw-arrow" aria-hidden="true">→</div>
+      <div class="hiw-step">
+        <div class="hiw-step-num">2</div>
+        <h3>Install with one command</h3>
+        <p>Capabilities land in the right directories for your agent — Claude Code, Codex, Cursor, and more.</p>
+        <span class="hiw-cmd">agent-packs install backend-engineer --agent claude</span>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">DF</div>
-        <div class="feature-title">Drift Detection</div>
-        <div class="feature-desc">Catch hand-edits to installed skills, managed files, memory blocks, and merged settings keys since install — before upgrading or rolling back.</div>
-        <div class="feature-cmd">agent-packs status</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">MG</div>
-        <div class="feature-title">Reversible Memory &amp; Settings</div>
-        <div class="feature-desc">Merge CLAUDE.md/AGENTS.md fragments and settings keys add-only and user-wins, tracked in receipts and cleanly retracted on uninstall.</div>
-        <div class="feature-cmd">agent-packs install my-pack --only memory --mode copy</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">RB</div>
-        <div class="feature-title">Receipts &amp; Rollback</div>
-        <div class="feature-desc">Every install writes a receipt and lockfile, so upgrades, managed descriptors, and merged fragments can be audited, traced, and reverted.</div>
-        <div class="feature-cmd">agent-packs rollback backend-engineer</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">AI</div>
-        <div class="feature-title">One Tool, All Agents</div>
-        <div class="feature-desc">Manage skills, plugins, tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more from a single CLI.</div>
-        <div class="feature-cmd">agent-packs install backend-engineer --agent claude</div>
+      <div class="hiw-arrow" aria-hidden="true">→</div>
+      <div class="hiw-step">
+        <div class="hiw-step-num">3</div>
+        <h3>Pin it, verify it</h3>
+        <p>Every install writes a receipt and lockfile. One command gates CI on pins, drift, and policy.</p>
+        <span class="hiw-cmd">agent-packs check --policy ci</span>
       </div>
     </div>
+    <p class="hiw-outcome">That's it — <strong>installed, pinned, and provable</strong>. Everything below is the detail.</p>
   </div>
 </div>
 
 <!-- ── Packs Architecture ── -->
 <div class="section">
   <div class="container">
-    <p class="section-tag">How it works</p>
+    <p class="section-tag">Inside a pack</p>
     <h2 class="section-title">Packs: one bundle,<br>every capability</h2>
     <p class="section-sub">A Pack is a named collection of capabilities — skills, plugins, managed tools, MCP servers, commands, hooks, prompts, templates, memory, and settings — tuned for a role like <em>backend engineer</em>, <em>ML engineer</em>, or <em>SRE</em>. One install command resolves each capability to the right behavior: record, copy, merge, or gated native setup.</p>
 
@@ -533,6 +554,53 @@
         <text x="565" y="450" text-anchor="middle" fill="#0e7490" font-size="10" font-weight="600">OpenCode</text>
         <text x="630" y="450" fill="#94a3b8" font-size="10">+2 more<title>GitHub Copilot, Goose</title></text>
       </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ── -->
+<div class="section-alt">
+  <div class="container">
+    <p class="section-tag">Why Agent Packs</p>
+    <h2 class="section-title">Know what your agents run.<br>Prove it hasn't changed.</h2>
+    <p class="section-sub">Skills and plugins are code your agents act on. Agent Packs manages them like a software supply chain: recorded provenance, pinned revisions, drift detection, and a CI gate.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">CI</div>
+        <div class="feature-title">One-Command CI Gate</div>
+        <div class="feature-desc">Verify pins, managed-file drift, and a trust policy for every installed pack in one command with a nonzero exit on failure — made for pull-request checks.</div>
+        <div class="feature-cmd">agent-packs check --policy ci</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">PN</div>
+        <div class="feature-title">Pinned Provenance</div>
+        <div class="feature-desc">Resolve moving refs to concrete commits and content checksums in the lockfile, then fail fast when a live source no longer matches its recorded pin.</div>
+        <div class="feature-cmd">agent-packs pin frontend-engineer --check</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">DF</div>
+        <div class="feature-title">Drift Detection</div>
+        <div class="feature-desc">Catch hand-edits to installed skills, managed files, memory blocks, and merged settings keys since install — before upgrading or rolling back.</div>
+        <div class="feature-cmd">agent-packs status</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">MG</div>
+        <div class="feature-title">Reversible Memory &amp; Settings</div>
+        <div class="feature-desc">Merge CLAUDE.md/AGENTS.md fragments and settings keys add-only and user-wins, tracked in receipts and cleanly retracted on uninstall.</div>
+        <div class="feature-cmd">agent-packs install my-pack --only memory --mode copy</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">RB</div>
+        <div class="feature-title">Receipts &amp; Rollback</div>
+        <div class="feature-desc">Every install writes a receipt and lockfile, so upgrades, managed descriptors, and merged fragments can be audited, traced, and reverted.</div>
+        <div class="feature-cmd">agent-packs rollback backend-engineer</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">AI</div>
+        <div class="feature-title">One Tool, All Agents</div>
+        <div class="feature-desc">Manage skills, plugins, tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more from a single CLI.</div>
+        <div class="feature-cmd">agent-packs install backend-engineer --agent claude</div>
+      </div>
     </div>
   </div>
 </div>
