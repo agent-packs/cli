@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/agent-packs/cli/internal/model"
@@ -74,46 +75,85 @@ func MaterializeSkillSource(source, target string) (string, func(), error) {
 		abs, err := filepath.Abs(util.ExpandHome(source))
 		return abs, nil, err
 	}
-	cache := filepath.Join(target, "cache", "sources", util.Slugify(source))
-	if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
-		return "", nil, err
-	}
 	if isArchiveSource(source) {
+		cache := filepath.Join(target, "cache", "sources", util.Slugify(source))
+		if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
+			return "", nil, err
+		}
 		return materializeArchiveSource(source, cache)
 	}
-	return materializeGitSource(source, cache)
-}
-
-func materializeGitSource(source, cache string) (string, func(), error) {
 	repo, ref, subpath, kind := ParseGitSource(source)
 	if repo == "" {
 		return "", nil, fmt.Errorf("unsupported remote source: %s", source)
+	}
+	// The cache is keyed by repo+ref, not the full source URL: capabilities
+	// that live in different subpaths of one upstream repository share a
+	// single checkout instead of cloning the repo once per capability.
+	cache := filepath.Join(target, "cache", "sources", util.Slugify(repo+"@"+ref))
+	if err := os.MkdirAll(filepath.Dir(cache), 0o755); err != nil {
+		return "", nil, err
+	}
+	dir, err := ensureGitCache(repo, ref, kind, cache)
+	if err != nil {
+		return "", nil, err
+	}
+	if subpath != "" {
+		return filepath.Join(dir, subpath), nil, nil
+	}
+	return dir, nil, nil
+}
+
+var (
+	gitCacheMu    sync.Mutex
+	gitCacheFresh = map[string]bool{}
+)
+
+// ensureGitCache returns a checkout of repo at ref under cache, cloning at
+// most once per process for a given cache dir. Pinned commits additionally
+// reuse an existing on-disk checkout without any network access, since the
+// content at a SHA is immutable; moving refs are re-fetched once per run.
+func ensureGitCache(repo, ref, kind, cache string) (string, error) {
+	gitCacheMu.Lock()
+	defer gitCacheMu.Unlock()
+	if gitCacheFresh[cache] {
+		return cache, nil
+	}
+	// A tree URL whose ref is a commit SHA (a pinned source) cannot be cloned
+	// with --branch; fetch the commit directly like github-commit sources.
+	pinned := kind == "github-commit" || isCommitSHA(ref)
+	if pinned && cachedCommitMatches(cache, ref) {
+		gitCacheFresh[cache] = true
+		return cache, nil
 	}
 	// Clone into a temp dir first; replace the cache only on success so a
 	// failed clone doesn't destroy a previously usable cached copy.
 	tmp := cache + ".tmp"
 	_ = os.RemoveAll(tmp)
 	var cloneErr error
-	// A tree URL whose ref is a commit SHA (a pinned source) cannot be cloned
-	// with --branch; fetch the commit directly like github-commit sources.
-	if kind == "github-commit" || isCommitSHA(ref) {
+	if pinned {
 		cloneErr = cloneCommit(repo, ref, tmp)
 	} else {
 		cloneErr = cloneRef(repo, ref, tmp)
 	}
 	if cloneErr != nil {
 		_ = os.RemoveAll(tmp)
-		return "", nil, cloneErr
+		return "", cloneErr
 	}
 	_ = os.RemoveAll(cache)
 	if err := os.Rename(tmp, cache); err != nil {
 		_ = os.RemoveAll(tmp)
-		return "", nil, fmt.Errorf("failed to update source cache: %w", err)
+		return "", fmt.Errorf("failed to update source cache: %w", err)
 	}
-	if subpath != "" {
-		return filepath.Join(cache, subpath), nil, nil
+	gitCacheFresh[cache] = true
+	return cache, nil
+}
+
+func cachedCommitMatches(cache, sha string) bool {
+	out, err := exec.Command("git", "-C", cache, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return false
 	}
-	return cache, nil, nil
+	return strings.EqualFold(strings.TrimSpace(string(out)), sha)
 }
 
 // cloneCommit fetches a single commit by SHA without cloning the full history,
