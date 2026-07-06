@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Agent Packs — Portable Capability Packs for AI Agents</title>
   <meta name="description" content="Install, pin, audit, and verify curated bundles of skills, plugins, tool descriptors, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more — with receipts, lockfiles, and a one-command CI gate.">
+  <link rel="canonical" href="https://agent-packs.github.io/cli/">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://agent-packs.github.io/cli/">
+  <meta property="og:title" content="Agent Packs — The supply chain for AI agent capabilities">
+  <meta property="og:description" content="Install curated skill bundles into any AI coding tool with one command — with receipts, lockfiles, and a one-command CI gate.">
+  <meta property="og:image" content="https://agent-packs.github.io/cli/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Agent Packs — The supply chain for AI agent capabilities">
+  <meta name="twitter:description" content="Install curated skill bundles into any AI coding tool with one command — with receipts, lockfiles, and a one-command CI gate.">
+  <meta name="twitter:image" content="https://agent-packs.github.io/cli/og.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -75,7 +88,7 @@
     .scene-panel {
       position: absolute; background: rgba(15,23,42,.88); border: 1px solid rgba(148,163,184,.22);
       border-radius: 8px; box-shadow: 0 24px 70px rgba(0,0,0,.32);
-      text-align: left; overflow: hidden; opacity: .74;
+      text-align: left; overflow: hidden; opacity: .58;
     }
     .scene-terminal { left: max(1rem, 4vw); top: 4.5rem; width: min(430px, 33vw); }
     .scene-registry { right: max(1rem, 4vw); top: 5.2rem; width: min(370px, 29vw); }
@@ -259,7 +272,7 @@
     .footer-logo { display: flex; align-items: center; gap: .55rem; text-decoration: none; color: white; font-weight: 800; font-size: 1rem; margin-bottom: .6rem; }
     .footer-tagline { font-size: .85rem; color: var(--slate-500); max-width: 240px; line-height: 1.55; }
     .footer-links-group h4 { color: var(--slate-400); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0; margin-bottom: .85rem; }
-    .footer-links-group a { display: block; color: var(--slate-500); text-decoration: none; font-size: .875rem; margin-bottom: .5rem; transition: color .15s; }
+    .footer-links-group a { display: block; color: #94a3b8; text-decoration: none; font-size: .875rem; margin-bottom: .5rem; transition: color .15s; }
     .footer-links-group a:hover { color: white; }
     .footer-bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 1.75rem; flex-wrap: wrap; gap: 1rem; }
     .footer-copy { font-size: .8rem; color: var(--slate-600); }
@@ -281,11 +294,19 @@
     }
     .hiw-step h3 { font-size: .975rem; font-weight: 700; color: var(--slate-900); margin-bottom: .35rem; }
     .hiw-step p { font-size: .82rem; color: var(--slate-600); line-height: 1.55; margin-bottom: .75rem; }
+    .hiw-cmd-row { display: flex; align-items: flex-start; gap: .45rem; }
     .hiw-cmd {
       font-family: var(--mono); font-size: .72rem; color: var(--indigo);
       background: var(--indigo-light); padding: .35rem .6rem; border-radius: 6px;
       display: inline-block; overflow-wrap: anywhere;
     }
+    .hiw-copy {
+      background: none; border: 1px solid var(--slate-200); color: var(--slate-500);
+      padding: .3rem .55rem; border-radius: 6px; font-size: .68rem; font-weight: 600;
+      cursor: pointer; font-family: var(--font); white-space: nowrap; transition: all .15s;
+    }
+    .hiw-copy:hover { border-color: var(--indigo); color: var(--indigo); }
+    .hiw-copy.copied { background: var(--indigo); border-color: var(--indigo); color: white; }
     .hiw-arrow {
       display: flex; align-items: center; color: var(--slate-400);
       font-size: 1.4rem; font-weight: 300; user-select: none;
@@ -394,18 +415,19 @@
   <div class="hero-content">
     <div class="hero-badge">Open source · portable · evidence-based</div>
     <h1>Agent Packs<span>The supply chain for AI agent capabilities</span></h1>
-    <p>Install, pin, audit, and verify skills, plugins, managed tools, MCP servers, commands, hooks, memory, and settings across Claude Code, Codex, Cursor, Gemini CLI, and more — with receipts, lockfiles, and a one-command CI gate.</p>
+    <p>Homebrew for agent capabilities — one command installs curated skill bundles into any AI coding tool, with receipts and lockfiles your CI can verify.</p>
 
-    <div class="install-tabs">
-      <button class="tab-btn active" onclick="setTab('brew', this)">Homebrew</button>
-      <button class="tab-btn" onclick="setTab('curl', this)">curl</button>
-      <button class="tab-btn" onclick="setTab('docker', this)">Docker</button>
-      <button class="tab-btn" onclick="setTab('go', this)">Go install</button>
+    <div class="install-tabs" role="tablist" aria-label="Install method">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="install-box" onclick="setTab('brew', this)">Homebrew</button>
+      <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="install-box" onclick="setTab('curl', this)">curl</button>
+      <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="install-box" onclick="setTab('docker', this)">Docker</button>
+      <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="install-box" onclick="setTab('go', this)">Go install</button>
     </div>
-    <div class="install-box">
+    <div class="install-box" id="install-box" role="tabpanel">
       <code id="install-cmd">brew install agent-packs/tap/agent-packs</code>
       <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
     </div>
+    <div id="copy-live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
     <a class="install-docs" href="https://github.com/agent-packs/cli#install">New here? Read the install guide →</a>
     <div class="hero-cta">
       <a href="catalog.html" class="btn-primary">Browse Catalog</a>
@@ -422,9 +444,9 @@
 
 <!-- ── Stats ── -->
 <div class="stats" id="stats-bar">
-  <div class="stat"><span class="stat-num" id="s-packs">34</span><span class="stat-label">Packs</span></div>
-  <div class="stat"><span class="stat-num" id="s-caps">—</span><span class="stat-label">Capabilities</span></div>
-  <div class="stat"><span class="stat-num" id="s-types">11</span><span class="stat-label">Capability Types</span></div>
+  <div class="stat"><span class="stat-num" id="s-packs">44</span><span class="stat-label">Packs</span></div>
+  <div class="stat"><span class="stat-num" id="s-caps">380</span><span class="stat-label">Capabilities</span></div>
+  <div class="stat"><span class="stat-num" id="s-types">8</span><span class="stat-label">Capability Types</span></div>
   <div class="stat"><span class="stat-num">7</span><span class="stat-label">Editors Supported</span></div>
 </div>
 
@@ -454,21 +476,21 @@
         <div class="hiw-step-num">1</div>
         <h3>Pick a pack</h3>
         <p>Browse the registry for a curated bundle of skills, plugins, tools, and settings tuned for a role.</p>
-        <span class="hiw-cmd">agent-packs search backend</span>
+        <div class="hiw-cmd-row"><code class="hiw-cmd">agent-packs search backend</code><button class="hiw-copy" onclick="copyCmd(this)" aria-label="Copy command">Copy</button></div>
       </div>
       <div class="hiw-arrow" aria-hidden="true">→</div>
       <div class="hiw-step">
         <div class="hiw-step-num">2</div>
         <h3>Install with one command</h3>
         <p>Capabilities land in the right directories for your agent — Claude Code, Codex, Cursor, and more.</p>
-        <span class="hiw-cmd">agent-packs install backend-engineer --agent claude</span>
+        <div class="hiw-cmd-row"><code class="hiw-cmd">agent-packs install backend-engineer --agent claude</code><button class="hiw-copy" onclick="copyCmd(this)" aria-label="Copy command">Copy</button></div>
       </div>
       <div class="hiw-arrow" aria-hidden="true">→</div>
       <div class="hiw-step">
         <div class="hiw-step-num">3</div>
         <h3>Pin it, verify it</h3>
         <p>Every install writes a receipt and lockfile. One command gates CI on pins, drift, and policy.</p>
-        <span class="hiw-cmd">agent-packs check --policy ci</span>
+        <div class="hiw-cmd-row"><code class="hiw-cmd">agent-packs check --policy ci</code><button class="hiw-copy" onclick="copyCmd(this)" aria-label="Copy command">Copy</button></div>
       </div>
     </div>
     <p class="hiw-outcome">That's it — <strong>installed, pinned, and provable</strong>. Everything below is the detail.</p>
@@ -612,7 +634,95 @@
     <h2 class="section-title">Popular Packs</h2>
     <p class="section-sub">Curated capability bundles for common engineering roles. One command to install.</p>
     <div class="packs-grid" id="featured-packs">
-      <!-- populated by JS -->
+      <!-- Static snapshot of the registry index; refreshed in place by JS when the live index loads. -->
+      <a class="pack-card" href="catalog.html#pack-eng-leader">
+        <div class="pack-header">
+          <div class="pack-name">Engineering Leader Pack</div>
+          <div class="pack-id">eng-leader</div>
+        </div>
+        <div class="pack-desc">A leadership-focused Agent Pack for engineering strategy, planning, quality gates, architecture decisions, delivery health, launch readiness, security risk, and performance health.</div>
+        <div class="pack-usecase">Create and review engineering strategy for a team, platform, migration, or multi-quarter investment.</div>
+        <div class="pack-prompt"><span class="pack-prompt-label">Try it</span>Review this quarterly engineering strategy and tell me where the diagnosis, tradeoffs, or operating cadence are weak.</div>
+        <div class="pack-chips">
+          <span class="chip chip-skills">30 capabilities</span>
+          <span class="chip chip-tools">codex</span><span class="chip chip-tools">claude-code</span>
+          <span class="chip chip-tag">engineering-leadership</span><span class="chip chip-tag">strategy</span>
+        </div>
+        <div class="pack-install">agent-packs install eng-leader</div>
+      </a>
+      <a class="pack-card" href="catalog.html#pack-ai-engineer">
+        <div class="pack-header">
+          <div class="pack-name">AI Engineer Pack</div>
+          <div class="pack-id">ai-engineer</div>
+        </div>
+        <div class="pack-desc">Workflows for coding agents building AI-powered features: prompt engineering, LLM integration, evaluation harnesses, AI-aware observability, and safe output handling.</div>
+        <div class="pack-usecase">Turn an AI feature idea into a production-ready requirements, evaluation, and rollout plan.</div>
+        <div class="pack-prompt"><span class="pack-prompt-label">Try it</span>Review this AI feature proposal and produce a PRD, evaluation plan, failure modes, and launch gates.</div>
+        <div class="pack-chips">
+          <span class="chip chip-skills">16 capabilities</span>
+          <span class="chip chip-tools">codex</span><span class="chip chip-tools">claude-code</span><span class="chip chip-tools">cursor</span>
+          <span class="chip chip-tag">ai</span><span class="chip chip-tag">llm</span>
+        </div>
+        <div class="pack-install">agent-packs install ai-engineer</div>
+      </a>
+      <a class="pack-card" href="catalog.html#pack-frontend-engineer">
+        <div class="pack-header">
+          <div class="pack-name">Frontend Engineer Pack</div>
+          <div class="pack-id">frontend-engineer</div>
+        </div>
+        <div class="pack-desc">A starter pack for coding agents building polished, accessible frontend applications with strong TypeScript foundations.</div>
+        <div class="pack-usecase">Plan and implement polished frontend user flows with clear components, state models, and responsive behavior.</div>
+        <div class="pack-prompt"><span class="pack-prompt-label">Try it</span>Create a UI implementation plan for this feature, including component boundaries, state handling, responsive behavior, accessibility, and tests.</div>
+        <div class="pack-chips">
+          <span class="chip chip-skills">15 capabilities</span>
+          <span class="chip chip-tools">codex</span><span class="chip chip-tools">claude-code</span>
+          <span class="chip chip-tag">frontend</span><span class="chip chip-tag">ui</span>
+        </div>
+        <div class="pack-install">agent-packs install frontend-engineer</div>
+      </a>
+      <a class="pack-card" href="catalog.html#pack-backend-engineer">
+        <div class="pack-header">
+          <div class="pack-name">Backend Engineer Pack</div>
+          <div class="pack-id">backend-engineer</div>
+        </div>
+        <div class="pack-desc">Workflows for coding agents building reliable backend services: API design, database schemas, observability, security hardening, and test-driven development.</div>
+        <div class="pack-usecase">Implement backend service features with clear API contracts, data models, tests, and observability.</div>
+        <div class="pack-prompt"><span class="pack-prompt-label">Try it</span>Implement this backend feature with API contract updates, persistence changes, tests, and observability.</div>
+        <div class="pack-chips">
+          <span class="chip chip-skills">7 capabilities</span>
+          <span class="chip chip-tools">codex</span><span class="chip chip-tools">claude-code</span><span class="chip chip-tools">cursor</span>
+          <span class="chip chip-tag">backend</span><span class="chip chip-tag">api</span>
+        </div>
+        <div class="pack-install">agent-packs install backend-engineer</div>
+      </a>
+      <a class="pack-card" href="catalog.html#pack-sre-engineer">
+        <div class="pack-header">
+          <div class="pack-name">SRE Engineer Pack</div>
+          <div class="pack-id">sre-engineer</div>
+        </div>
+        <div class="pack-desc">Workflows for site reliability engineers: containerized workloads, infrastructure as code, observability, incident response, and reliability engineering at scale.</div>
+        <div class="pack-chips">
+          <span class="chip chip-skills">8 capabilities</span>
+          <span class="chip chip-tools">codex</span><span class="chip chip-tools">claude-code</span><span class="chip chip-tools">cursor</span>
+          <span class="chip chip-tag">sre</span><span class="chip chip-tag">reliability</span>
+        </div>
+        <div class="pack-install">agent-packs install sre-engineer</div>
+      </a>
+      <a class="pack-card" href="catalog.html#pack-security-engineer">
+        <div class="pack-header">
+          <div class="pack-name">Security Engineer Pack</div>
+          <div class="pack-id">security-engineer</div>
+        </div>
+        <div class="pack-desc">Workflows for application security engineers: threat modeling, OWASP vulnerability review, secrets scanning, dependency auditing, secure design patterns, and security incident response.</div>
+        <div class="pack-usecase">Review application changes for threat-model gaps, unsafe input handling, secrets exposure, and dependency risk.</div>
+        <div class="pack-prompt"><span class="pack-prompt-label">Try it</span>Review this code change for application security risks, OWASP issues, secrets exposure, and missing tests.</div>
+        <div class="pack-chips">
+          <span class="chip chip-skills">10 capabilities</span>
+          <span class="chip chip-tools">codex</span><span class="chip chip-tools">claude-code</span><span class="chip chip-tools">cursor</span>
+          <span class="chip chip-tag">security</span><span class="chip chip-tag">appsec</span>
+        </div>
+        <div class="pack-install">agent-packs install security-engineer</div>
+      </a>
     </div>
     <a class="view-all-link" href="catalog.html">View all packs in the catalog →</a>
   </div>
@@ -627,37 +737,21 @@
       <div class="step">
         <div class="step-num">1</div>
         <div>
-          <h3>Install the CLI</h3>
-          <p>Install via Homebrew, curl, Docker, or Go.</p>
-          <div class="code-block"><span class="cm"># Homebrew (recommended)</span><br>brew install agent-packs/tap/agent-packs<br><br><span class="cm"># curl (macOS / Linux)</span><br>curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh<br><br><span class="cm"># Docker</span><br>docker run --rm -it ghcr.io/agent-packs/cli:latest</div>
+          <h3>Install and try it</h3>
+          <p>One copy-paste from zero to a pack inside your agent. The default <code>reference</code> mode records sources; <code>--mode copy</code> writes managed files and merges supported settings.</p>
+          <div class="code-block">brew install agent-packs/tap/agent-packs<br>agent-packs search backend<br>agent-packs install backend-engineer --agent claude --mode copy<br><span class="cm"># no Homebrew? curl -fsSL https://raw.githubusercontent.com/agent-packs/cli/main/install.sh | sh</span></div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <div>
-          <h3>Search the registry</h3>
-          <p>Find packs by role, language, or tag.</p>
-          <div class="code-block">agent-packs search backend<br><span class="cm"># → backend-engineer, rust-engineer …</span></div>
+          <h3>Upgrade on your terms</h3>
+          <p>See what changed before you take it — and roll back cleanly if you don't like it.</p>
+          <div class="code-block">agent-packs outdated<br>agent-packs diff backend-engineer<br>agent-packs upgrade backend-engineer<br>agent-packs rollback backend-engineer</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <div>
-          <h3>Install into your agent</h3>
-          <p>Pick a target agent and install. The default <code>reference</code> mode records sources; <code>--mode copy</code> writes managed files and merges supported settings.</p>
-          <div class="code-block">agent-packs install backend-engineer --agent claude --mode copy<br>agent-packs install sre-engineer --agent codex --only tools --mode copy<br><span class="cm"># Receipts track every managed capability</span></div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div>
-          <h3>Keep up to date</h3>
-          <p>Update all installed packs, or just one. Diff before you upgrade.</p>
-          <div class="code-block">agent-packs outdated<br>agent-packs diff backend-engineer<br>agent-packs upgrade backend-engineer</div>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">5</div>
         <div>
           <h3>Pin it and gate CI</h3>
           <p>Record commit and checksum pins in the lockfile, commit it, and let one command verify pins, drift, and policy on every pull request.</p>
@@ -700,7 +794,7 @@
     </div>
     <div class="footer-bottom">
       <span class="footer-copy">© 2026 Agent Packs. Apache-2.0 License.</span>
-      <span class="footer-badge">v0.9.0</span>
+      <span class="footer-badge" id="version-badge">v0.9.0</span>
     </div>
   </div>
 </footer>
@@ -714,22 +808,58 @@
   };
 
   function setTab(key, btn) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+      b.setAttribute('tabindex', '-1');
+    });
     btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    btn.removeAttribute('tabindex');
     document.getElementById('install-cmd').textContent = installCmds[key];
     document.getElementById('copy-btn').textContent = 'Copy';
     document.getElementById('copy-btn').classList.remove('copied');
   }
 
+  document.querySelector('.install-tabs').addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const tabs = [...document.querySelectorAll('.tab-btn')];
+    const current = tabs.indexOf(document.activeElement);
+    if (current === -1) return;
+    e.preventDefault();
+    const next = (current + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+    tabs[next].focus();
+    tabs[next].click();
+  });
+
+  function announceCopy() {
+    document.getElementById('copy-live').textContent = 'Copied to clipboard';
+    setTimeout(() => { document.getElementById('copy-live').textContent = ''; }, 2000);
+  }
+
+  function flashCopied(btn) {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    announceCopy();
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }
+
   function copyInstall() {
     const text = document.getElementById('install-cmd').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      const btn = document.getElementById('copy-btn');
-      btn.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-    });
+    navigator.clipboard.writeText(text).then(() => flashCopied(document.getElementById('copy-btn')));
   }
+
+  function copyCmd(btn) {
+    const cmd = btn.parentElement.querySelector('.hiw-cmd').textContent;
+    navigator.clipboard.writeText(cmd).then(() => flashCopied(btn));
+  }
+
+  fetch('https://api.github.com/repos/agent-packs/cli/releases/latest')
+    .then(r => r.ok ? r.json() : null)
+    .then(rel => {
+      if (rel && rel.tag_name) document.getElementById('version-badge').textContent = rel.tag_name;
+    })
+    .catch(() => {});
 
   const FEATURED_IDS = [
     'eng-leader', 'ai-engineer', 'frontend-engineer',
@@ -746,9 +876,10 @@
     .then(r => r.json())
     .then(data => {
       const packs = data.packs || [];
+      if (!packs.length) return; // keep the static snapshot
       document.getElementById('s-packs').textContent = packs.length;
       const caps = packs.reduce((sum, p) => sum + (Number(p.capabilities) || 0), 0);
-      document.getElementById('s-caps').textContent = caps || '—';
+      if (caps) document.getElementById('s-caps').textContent = caps;
       const typeNames = new Set();
       packs.forEach(p => {
         Object.keys(p.capabilityTypes || {}).forEach(type => typeNames.add(type));
@@ -770,17 +901,14 @@
           ${(p.useCases || [])[0] ? `<div class="pack-usecase">${esc(p.useCases[0])}</div>` : ''}
           ${(p.examplePrompts || [])[0] ? `<div class="pack-prompt"><span class="pack-prompt-label">Try it</span>${esc(p.examplePrompts[0])}</div>` : ''}
           <div class="pack-chips">
-            ${p.capabilities ? `<span class="chip chip-skills">${p.capabilities} capabilities</span>` : ''}
+            ${Number(p.capabilities) ? `<span class="chip chip-skills">${Number(p.capabilities)} capabilities</span>` : ''}
             ${(p.tools || []).slice(0,3).map(t => `<span class="chip chip-tools">${esc(t)}</span>`).join('')}
             ${(p.tags || []).slice(0,2).map(t => `<span class="chip chip-tag">${esc(t)}</span>`).join('')}
           </div>
           <div class="pack-install">agent-packs install ${esc(p.id)}</div>
         </a>`).join('');
     })
-    .catch(() => {
-      document.getElementById('featured-packs').innerHTML =
-        '<p style="color:var(--slate-500);font-size:.875rem">Pack data unavailable — run <code>agent-packs index</code> to generate it.</p>';
-    });
+    .catch(() => { /* static snapshot in the HTML remains */ });
 </script>
 </body>
 </html>
