@@ -223,7 +223,7 @@ func TestShowIncludesUseCasesAndExamplePrompts(t *testing.T) {
 		"Works with: codex",
 		"Scope: project",
 		"Compatibility: codex=verified",
-		"Provenance: skills 0 (0 object, 0 bare), plugins 0 (0 object, 0 bare), inline 0",
+		"Provenance: no remote sources (registry-owned); skills 0 (0 object, 0 bare), plugins 0 (0 object, 0 bare), inline 0",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("show output missing %q:\n%s", want, got)
@@ -257,7 +257,7 @@ func TestInfoIncludesTrustSnapshot(t *testing.T) {
 		"Review status: reviewed",
 		"Last verified: 2026-06-29 (fresh)",
 		"Scope:         project",
-		"Provenance:    skills 1 (1 object, 0 bare), plugins 1 (0 object, 1 bare), inline 1",
+		"Provenance:    no remote sources (registry-owned); skills 1 (1 object, 0 bare), plugins 1 (0 object, 1 bare), inline 1",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("info output missing %q:\n%s", want, got)
