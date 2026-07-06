@@ -110,9 +110,21 @@ AGENT_PACKS_REGISTRY=./packs agent-packs index --output index.json
 
 ## CLI Usage
 
+Find a pack and install it into your agent's skill directory:
+
 ```sh
 bin/agent-packs search
 bin/agent-packs show frontend-engineer
+bin/agent-packs install frontend-engineer --agent claude --mode copy
+```
+
+`--mode copy` materializes skill files where the agent loads them (e.g.
+`.claude/skills/`). The default `--mode reference` records provenance —
+sources, commits, receipts — without copying anything, which is useful for
+auditing an existing setup but does not add capabilities to an agent by
+itself.
+
+```sh
 bin/agent-packs install frontend-engineer --target ./sandbox
 bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
 bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
