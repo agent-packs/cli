@@ -313,6 +313,16 @@ func searchResults(matches []agentpacks.Pack, compatibleWith, query string, guid
 	return results
 }
 
+func deprecationMarker(pack agentpacks.Pack) string {
+	if !pack.Deprecated && pack.Stability != "deprecated" {
+		return ""
+	}
+	if pack.Replacement != "" {
+		return " [DEPRECATED → " + pack.Replacement + "]"
+	}
+	return " [DEPRECATED]"
+}
+
 func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith, query string, why, guidance bool) {
 	for _, pack := range matches {
 		if details {
@@ -320,8 +330,9 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 			if compatibleWith != "" {
 				compat = fmt.Sprintf("%s:%s", compatibleWith, packCompatibilityStatus(pack, compatibleWith))
 			}
-			fmt.Fprintf(out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
+			fmt.Fprintf(out, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
 				pack.ID,
+				deprecationMarker(pack),
 				pack.Name,
 				pack.Stability,
 				pack.ReviewStatus,
@@ -343,7 +354,7 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 			}
 			continue
 		}
-		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
+		fmt.Fprintf(out, "%s%s\t%s\t%s\n", pack.ID, deprecationMarker(pack), pack.Name, strings.Join(pack.Tags, ", "))
 		if why {
 			if match := packMatchSnippet(pack, query); match != "" {
 				fmt.Fprintf(out, "  match: %s\n", match)

@@ -117,7 +117,15 @@ func Search(registry, query string, out io.Writer) error {
 		return model.ErrNotFound
 	}
 	for _, pack := range matches {
-		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
+		marker := ""
+		if pack.Deprecated || pack.Stability == "deprecated" {
+			marker = " [DEPRECATED"
+			if pack.Replacement != "" {
+				marker += " → " + pack.Replacement
+			}
+			marker += "]"
+		}
+		fmt.Fprintf(out, "%s%s\t%s\t%s\n", pack.ID, marker, pack.Name, strings.Join(pack.Tags, ", "))
 	}
 	return nil
 }
