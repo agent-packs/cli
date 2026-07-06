@@ -554,6 +554,19 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	agentExplicit := os.Getenv("AGENT_PACKS_AGENT") != ""
+	modeExplicit := os.Getenv("AGENT_PACKS_MODE") != ""
+	targetExplicit := false
+	flags.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "agent", "target-tool":
+			agentExplicit = true
+		case "mode":
+			modeExplicit = true
+		case "target", "global":
+			targetExplicit = true
+		}
+	})
 	remaining := flags.Args()
 	if *from != "" {
 		extra, err := readPacksFromFile(*from)
@@ -590,6 +603,28 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if *global {
 		installTarget = *target
 		scope = "global"
+	}
+	// Zero-config path: `agent-packs install <pack>` inside a project that
+	// already has an agent configured (.claude/, .cursor/, AGENTS.md, ...)
+	// installs into that project, materialized where the agent loads it.
+	// Detection never runs when --agent, --target-tool, --target, --global,
+	// or their env vars are given, so scripted invocations are unaffected.
+	if !agentExplicit && !targetExplicit && *agent == "generic" {
+		projectDir := "."
+		if *project != "" {
+			projectDir = *project
+		}
+		if detected := agentpacks.DetectAgent(projectDir); detected != "" {
+			*agent = detected
+			if *project == "" {
+				installTarget = projectDir
+				scope = "project"
+			}
+			if !modeExplicit && *mode == "reference" {
+				*mode = "copy"
+			}
+			fmt.Printf("Detected agent %q in %s — installing with --agent %s --mode %s (override with --agent, --mode, or --target)\n\n", detected, projectDir, *agent, *mode)
+		}
 	}
 	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks, ExecuteMCPs: *executeMCPs}
 	for index, packRef := range remaining {

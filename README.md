@@ -115,14 +115,21 @@ Find a pack and install it into your agent's skill directory:
 ```sh
 bin/agent-packs search
 bin/agent-packs show frontend-engineer
-bin/agent-packs install frontend-engineer --agent claude --mode copy
+bin/agent-packs install frontend-engineer
 ```
 
-`--mode copy` materializes skill files where the agent loads them (e.g.
-`.claude/skills/`). The default `--mode reference` records provenance —
-sources, commits, receipts — without copying anything, which is useful for
-auditing an existing setup but does not add capabilities to an agent by
-itself.
+Run inside a project that already has an agent configured (`.claude/`,
+`.cursor/`, `AGENTS.md`, ...), `install` detects the agent and copies
+capabilities where that agent loads them (e.g. `.claude/skills/`). Outside a
+detected project — or whenever you pass `--agent`, `--target`, or `--mode`
+yourself — nothing is guessed: `--mode copy` materializes files, while the
+default `--mode reference` records provenance (sources, commits, receipts)
+without copying anything, which is useful for auditing an existing setup but
+does not add capabilities to an agent by itself.
+
+```sh
+bin/agent-packs install frontend-engineer --agent claude --mode copy
+```
 
 ```sh
 bin/agent-packs install frontend-engineer --target ./sandbox

@@ -482,6 +482,78 @@ class InstallCommandTest(unittest.TestCase):
             self.assertFalse((target / ".agent-packs" / "commands" / "review-pr.md").exists())
 
 
+class AgentDetectionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(
+            ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
+    def test_zero_config_install_detects_agent_and_materializes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            skill = temp / "skill"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text("# Example Skill\n", encoding="utf-8")
+            registry = temp / "registry"
+            registry.mkdir()
+            pack = example_pack(skill)
+            (registry / "example.json").write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
+            project = temp / "project"
+            (project / ".claude").mkdir(parents=True)
+
+            env = os.environ.copy()
+            env["AGENT_PACKS_REGISTRY"] = str(registry)
+            env.pop("AGENT_PACKS_AGENT", None)
+            env.pop("AGENT_PACKS_MODE", None)
+            result = subprocess.run(
+                [str(CLI), "install", "example", "--only", "skills"],
+                cwd=project,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Detected agent "claude"', result.stdout)
+            installed = project / ".claude" / "skills" / "example-skill" / "SKILL.md"
+            self.assertTrue(installed.exists(), result.stdout)
+            self.assertNotIn("nothing was copied", result.stdout)
+
+    def test_explicit_target_keeps_reference_default(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            skill = temp / "skill"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text("# Example Skill\n", encoding="utf-8")
+            registry = temp / "registry"
+            registry.mkdir()
+            pack = example_pack(skill)
+            (registry / "example.json").write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
+            project = temp / "project"
+            (project / ".claude").mkdir(parents=True)
+            target = temp / "install"
+
+            env = os.environ.copy()
+            env["AGENT_PACKS_REGISTRY"] = str(registry)
+            result = subprocess.run(
+                [str(CLI), "install", "example", "--only", "skills", "--target", str(target)],
+                cwd=project,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("Detected agent", result.stdout)
+            self.assertIn("nothing was copied", result.stdout)
+            self.assertFalse((project / ".claude" / "skills").exists())
+
+
 def example_pack(skill_source):
     return {
         "id": "example",
