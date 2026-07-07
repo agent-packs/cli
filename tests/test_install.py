@@ -482,6 +482,184 @@ class InstallCommandTest(unittest.TestCase):
             self.assertFalse((target / ".agent-packs" / "commands" / "review-pr.md").exists())
 
 
+class AgentDetectionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(
+            ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
+    def test_zero_config_install_detects_agent_and_materializes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            skill = temp / "skill"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text("# Example Skill\n", encoding="utf-8")
+            registry = temp / "registry"
+            registry.mkdir()
+            pack = example_pack(skill)
+            (registry / "example.json").write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
+            project = temp / "project"
+            (project / ".claude").mkdir(parents=True)
+
+            env = os.environ.copy()
+            env["AGENT_PACKS_REGISTRY"] = str(registry)
+            env.pop("AGENT_PACKS_AGENT", None)
+            env.pop("AGENT_PACKS_MODE", None)
+            result = subprocess.run(
+                [str(CLI), "install", "example", "--only", "skills"],
+                cwd=project,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Detected agent "claude"', result.stdout)
+            installed = project / ".claude" / "skills" / "example-skill" / "SKILL.md"
+            self.assertTrue(installed.exists(), result.stdout)
+            self.assertNotIn("nothing was copied", result.stdout)
+
+    def test_explicit_target_keeps_reference_default(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            skill = temp / "skill"
+            skill.mkdir()
+            (skill / "SKILL.md").write_text("# Example Skill\n", encoding="utf-8")
+            registry = temp / "registry"
+            registry.mkdir()
+            pack = example_pack(skill)
+            (registry / "example.json").write_text(json.dumps(pack, indent=2) + "\n", encoding="utf-8")
+            project = temp / "project"
+            (project / ".claude").mkdir(parents=True)
+            target = temp / "install"
+
+            env = os.environ.copy()
+            env["AGENT_PACKS_REGISTRY"] = str(registry)
+            result = subprocess.run(
+                [str(CLI), "install", "example", "--only", "skills", "--target", str(target)],
+                cwd=project,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("Detected agent", result.stdout)
+            self.assertIn("nothing was copied", result.stdout)
+            self.assertFalse((project / ".claude" / "skills").exists())
+
+
+class SnapshotTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        subprocess.run(
+            ["go", "build", "-o", "bin/agent-packs", "./cmd/agent-packs"],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
+    def make_project(self, temp):
+        project = temp / "project"
+        skill = project / ".claude" / "skills" / "my-skill"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text(
+            "---\nname: my-skill\ndescription: A local team skill.\n---\n# my-skill\n",
+            encoding="utf-8",
+        )
+        commands = project / ".claude" / "commands"
+        commands.mkdir(parents=True)
+        (commands / "review.md").write_text("Review the diff.\n", encoding="utf-8")
+        return project
+
+    def test_snapshot_then_install_manifest_elsewhere(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            project = self.make_project(temp)
+
+            result = subprocess.run(
+                [str(CLI), "snapshot", "--project", str(project), "--id", "team-pack", "--pin=false"],
+                cwd=project,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest_path = project / "agent-pack.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["id"], "team-pack")
+            caps = {(c["type"], c["name"]): c for c in manifest["capabilities"]}
+            self.assertIn(("skill", "my-skill"), caps)
+            self.assertIn(("command", "review"), caps)
+            skill_cap = caps[("skill", "my-skill")]
+            self.assertEqual(skill_cap["source"], ".claude/skills/my-skill")
+            self.assertTrue(skill_cap["integrity"]["checksum"].startswith("sha256:"))
+
+            target = temp / "teammate"
+            install = subprocess.run(
+                [str(CLI), "install", "./agent-pack.json", "--agent", "codex", "--mode", "copy",
+                 "--only", "skills", "--target", str(target)],
+                cwd=project,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(install.returncode, 0, install.stderr + install.stdout)
+            installed = target / ".codex" / "skills" / "my-skill" / "SKILL.md"
+            self.assertTrue(installed.exists(), install.stdout)
+
+    def test_snapshot_checksum_catches_tampered_skill(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            project = self.make_project(temp)
+            subprocess.run(
+                [str(CLI), "snapshot", "--project", str(project), "--id", "team-pack", "--pin=false"],
+                cwd=project, check=True, text=True, capture_output=True,
+            )
+            skill_md = project / ".claude" / "skills" / "my-skill" / "SKILL.md"
+            skill_md.write_text(skill_md.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
+
+            target = temp / "teammate"
+            install = subprocess.run(
+                [str(CLI), "install", "./agent-pack.json", "--agent", "codex", "--mode", "copy",
+                 "--only", "skills", "--target", str(target)],
+                cwd=project,
+                text=True,
+                capture_output=True,
+            )
+            self.assertNotEqual(install.returncode, 0, install.stdout)
+            self.assertIn("checksum mismatch", install.stdout + install.stderr)
+
+    def test_self_install_does_not_truncate_skills(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            project = self.make_project(temp)
+            subprocess.run(
+                [str(CLI), "snapshot", "--project", str(project), "--id", "team-pack", "--pin=false"],
+                cwd=project, check=True, text=True, capture_output=True,
+            )
+            skill_md = project / ".claude" / "skills" / "my-skill" / "SKILL.md"
+            original = skill_md.read_text(encoding="utf-8")
+
+            env = os.environ.copy()
+            env.pop("AGENT_PACKS_AGENT", None)
+            env.pop("AGENT_PACKS_MODE", None)
+            install = subprocess.run(
+                [str(CLI), "install", "./agent-pack.json", "--only", "skills"],
+                cwd=project,
+                env=env,
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(install.returncode, 0, install.stderr + install.stdout)
+            self.assertIn("source already at destination", install.stdout)
+            self.assertEqual(skill_md.read_text(encoding="utf-8"), original)
+
+
 def example_pack(skill_source):
     return {
         "id": "example",

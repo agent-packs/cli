@@ -90,12 +90,30 @@ func InstallWithOptionsAndMinTrust(registryPath, home, packRef, target, agent, o
 	plan.PrintPlan(result, out)
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "Receipt: %s\n", receiptPath)
+	printMaterializationHint(result, "install "+expanded.ID, out)
 	for _, item := range result.Capabilities {
 		if item.Status == "failed" {
 			return model.ErrInstallFailed
 		}
 	}
 	return nil
+}
+
+// printMaterializationHint warns when an install wrote receipts and lockfiles
+// but placed nothing where an agent loads capabilities, so users don't walk
+// away assuming their agent gained the pack's skills.
+func printMaterializationHint(result model.Plan, rerun string, out io.Writer) {
+	for _, item := range result.Capabilities {
+		if item.Status != "installed" {
+			continue
+		}
+		if item.Destination != "" || item.Type == "plugin" || item.Type == "mcp" {
+			return
+		}
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Note: nothing was copied into an agent directory — this install recorded provenance only (reference mode).")
+	fmt.Fprintf(out, "To place capabilities where your agent loads them, run: agent-packs %s --agent <tool> --mode copy\n", rerun)
 }
 
 func Upgrade(registryPath, home, packRef, target string, executePlugins, executeMCPs bool, out io.Writer) error {
@@ -1075,6 +1093,14 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 	if err != nil {
 		item.Status = "failed"
 		item.Reason = err.Error()
+		return item
+	}
+	// A capability whose local source already sits at the destination (e.g.
+	// installing a snapshot manifest from inside the project it describes)
+	// must not be copied onto itself — that would truncate the source files.
+	if absSource, err := filepath.Abs(util.ExpandHome(source)); err == nil && absSource == destination {
+		item.Status = "installed"
+		item.Reason = "source already at destination"
 		return item
 	}
 	info, err := os.Stat(source)

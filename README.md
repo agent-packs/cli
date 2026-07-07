@@ -110,9 +110,45 @@ AGENT_PACKS_REGISTRY=./packs agent-packs index --output index.json
 
 ## CLI Usage
 
+Find a pack and install it into your agent's skill directory:
+
 ```sh
 bin/agent-packs search
 bin/agent-packs show frontend-engineer
+bin/agent-packs install frontend-engineer
+```
+
+Run inside a project that already has an agent configured (`.claude/`,
+`.cursor/`, `AGENTS.md`, ...), `install` detects the agent and copies
+capabilities where that agent loads them (e.g. `.claude/skills/`). Outside a
+detected project — or whenever you pass `--agent`, `--target`, or `--mode`
+yourself — nothing is guessed: `--mode copy` materializes files, while the
+default `--mode reference` records provenance (sources, commits, receipts)
+without copying anything, which is useful for auditing an existing setup but
+does not add capabilities to an agent by itself.
+
+```sh
+bin/agent-packs install frontend-engineer --agent claude --mode copy
+```
+
+### Team packs from an existing setup
+
+`snapshot` turns the agent setup a project already has into a pack manifest
+the whole team can install and enforce:
+
+```sh
+agent-packs snapshot                      # writes ./agent-pack.json
+agent-packs install ./agent-pack.json    # teammates, from the project root
+agent-packs check                         # CI gate: pins, checksums, drift
+```
+
+Skills that came from a registry keep their upstream source, pinned to the
+commit SHA current at snapshot time (`--pin=false` to skip the network
+lookup). Local-only skills and commands are recorded as project-relative
+sources with content checksums, so tampered files fail installation and
+hand-edits show up in `agent-packs status`.
+
+```sh
 bin/agent-packs install frontend-engineer --target ./sandbox
 bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
 bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run

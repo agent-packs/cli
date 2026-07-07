@@ -57,6 +57,7 @@ func InstallStandaloneWithOverrides(registryPath, ref, kind, target, agent strin
 	plan.PrintPlan(result, out)
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "Receipt: %s\n", receiptPath)
+	printMaterializationHint(result, kind+"s install "+id, out)
 	for _, item := range result.Capabilities {
 		if item.Status == "failed" {
 			return model.ErrInstallFailed

@@ -102,6 +102,8 @@ func main() {
 		err = runCompat(registry, os.Args[2:])
 	case "scan":
 		err = runScan(os.Args[2:])
+	case "snapshot":
+		err = runSnapshot(os.Args[2:])
 	case "import":
 		err = runImport(defaultTarget, os.Args[2:])
 	case "lint":
@@ -313,6 +315,16 @@ func searchResults(matches []agentpacks.Pack, compatibleWith, query string, guid
 	return results
 }
 
+func deprecationMarker(pack agentpacks.Pack) string {
+	if !pack.Deprecated && pack.Stability != "deprecated" {
+		return ""
+	}
+	if pack.Replacement != "" {
+		return " [DEPRECATED → " + pack.Replacement + "]"
+	}
+	return " [DEPRECATED]"
+}
+
 func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, compatibleWith, query string, why, guidance bool) {
 	for _, pack := range matches {
 		if details {
@@ -320,8 +332,9 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 			if compatibleWith != "" {
 				compat = fmt.Sprintf("%s:%s", compatibleWith, packCompatibilityStatus(pack, compatibleWith))
 			}
-			fmt.Fprintf(out, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
+			fmt.Fprintf(out, "%s%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tagent-packs install %s\n",
 				pack.ID,
+				deprecationMarker(pack),
 				pack.Name,
 				pack.Stability,
 				pack.ReviewStatus,
@@ -343,7 +356,7 @@ func printSearchResults(out io.Writer, matches []agentpacks.Pack, details bool, 
 			}
 			continue
 		}
-		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
+		fmt.Fprintf(out, "%s%s\t%s\t%s\n", pack.ID, deprecationMarker(pack), pack.Name, strings.Join(pack.Tags, ", "))
 		if why {
 			if match := packMatchSnippet(pack, query); match != "" {
 				fmt.Fprintf(out, "  match: %s\n", match)
@@ -554,6 +567,19 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	agentExplicit := os.Getenv("AGENT_PACKS_AGENT") != ""
+	modeExplicit := os.Getenv("AGENT_PACKS_MODE") != ""
+	targetExplicit := false
+	flags.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "agent", "target-tool":
+			agentExplicit = true
+		case "mode":
+			modeExplicit = true
+		case "target", "global":
+			targetExplicit = true
+		}
+	})
 	remaining := flags.Args()
 	if *from != "" {
 		extra, err := readPacksFromFile(*from)
@@ -590,6 +616,28 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	if *global {
 		installTarget = *target
 		scope = "global"
+	}
+	// Zero-config path: `agent-packs install <pack>` inside a project that
+	// already has an agent configured (.claude/, .cursor/, AGENTS.md, ...)
+	// installs into that project, materialized where the agent loads it.
+	// Detection never runs when --agent, --target-tool, --target, --global,
+	// or their env vars are given, so scripted invocations are unaffected.
+	if !agentExplicit && !targetExplicit && *agent == "generic" {
+		projectDir := "."
+		if *project != "" {
+			projectDir = *project
+		}
+		if detected := agentpacks.DetectAgent(projectDir); detected != "" {
+			*agent = detected
+			if *project == "" {
+				installTarget = projectDir
+				scope = "project"
+			}
+			if !modeExplicit && *mode == "reference" {
+				*mode = "copy"
+			}
+			fmt.Printf("Detected agent %q in %s — installing with --agent %s --mode %s (override with --agent, --mode, or --target)\n\n", detected, projectDir, *agent, *mode)
+		}
 	}
 	options := agentpacks.InstallOptions{Mode: *mode, OnConflict: *onConflict, Scope: scope, AllowHooks: *allowHooks, ExecuteMCPs: *executeMCPs}
 	for index, packRef := range remaining {
@@ -1302,6 +1350,26 @@ func runImport(defaultTarget string, args []string) error {
 		return fmt.Errorf("usage: agent-packs import <skills-dir> [--target dir]")
 	}
 	return agentpacks.ImportSkills(remaining[0], *target, os.Stdout)
+}
+
+func runSnapshot(args []string) error {
+	flags := flag.NewFlagSet("snapshot", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	project := flags.String("project", ".", "project directory to snapshot")
+	agent := flags.String("agent", "", "agent whose directories to snapshot (default: detected from the project)")
+	id := flags.String("id", "", "pack id for the manifest (default: <project-dir>-pack)")
+	output := flags.String("output", "", "manifest output path (default: <project>/agent-pack.json)")
+	pin := flags.Bool("pin", true, "resolve moving upstream refs to commit SHAs (requires network)")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if len(flags.Args()) != 0 {
+		return fmt.Errorf("usage: agent-packs snapshot [--project dir] [--agent name] [--id pack-id] [--output file] [--pin=false]")
+	}
+	_, err := agentpacks.Snapshot(agentpacks.SnapshotOptions{
+		Project: *project, Agent: *agent, ID: *id, Output: *output, Pin: *pin,
+	}, os.Stdout)
+	return err
 }
 
 func runLint(registry string, args []string) error {
@@ -2119,6 +2187,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs pin <pack-id> [--check] [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs compat <pack-id> [--agent tool]")
 	fmt.Fprintln(os.Stderr, "  agent-packs scan [path]")
+	fmt.Fprintln(os.Stderr, "  agent-packs snapshot [--project dir] [--agent name] [--id pack-id] [--output file] [--pin=false]")
 	fmt.Fprintln(os.Stderr, "  agent-packs import <skills-dir> [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs lint|verify|resolve <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs uninstall <pack-id>... [--target dir]")
