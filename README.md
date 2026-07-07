@@ -131,6 +131,23 @@ does not add capabilities to an agent by itself.
 bin/agent-packs install frontend-engineer --agent claude --mode copy
 ```
 
+### Team packs from an existing setup
+
+`snapshot` turns the agent setup a project already has into a pack manifest
+the whole team can install and enforce:
+
+```sh
+agent-packs snapshot                      # writes ./agent-pack.json
+agent-packs install ./agent-pack.json    # teammates, from the project root
+agent-packs check                         # CI gate: pins, checksums, drift
+```
+
+Skills that came from a registry keep their upstream source, pinned to the
+commit SHA current at snapshot time (`--pin=false` to skip the network
+lookup). Local-only skills and commands are recorded as project-relative
+sources with content checksums, so tampered files fail installation and
+hand-edits show up in `agent-packs status`.
+
 ```sh
 bin/agent-packs install frontend-engineer --target ./sandbox
 bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox

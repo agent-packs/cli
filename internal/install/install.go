@@ -1095,6 +1095,14 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 		item.Reason = err.Error()
 		return item
 	}
+	// A capability whose local source already sits at the destination (e.g.
+	// installing a snapshot manifest from inside the project it describes)
+	// must not be copied onto itself — that would truncate the source files.
+	if absSource, err := filepath.Abs(util.ExpandHome(source)); err == nil && absSource == destination {
+		item.Status = "installed"
+		item.Reason = "source already at destination"
+		return item
+	}
 	info, err := os.Stat(source)
 	if err != nil {
 		item.Status = "pending"

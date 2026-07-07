@@ -102,6 +102,8 @@ func main() {
 		err = runCompat(registry, os.Args[2:])
 	case "scan":
 		err = runScan(os.Args[2:])
+	case "snapshot":
+		err = runSnapshot(os.Args[2:])
 	case "import":
 		err = runImport(defaultTarget, os.Args[2:])
 	case "lint":
@@ -1350,6 +1352,26 @@ func runImport(defaultTarget string, args []string) error {
 	return agentpacks.ImportSkills(remaining[0], *target, os.Stdout)
 }
 
+func runSnapshot(args []string) error {
+	flags := flag.NewFlagSet("snapshot", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	project := flags.String("project", ".", "project directory to snapshot")
+	agent := flags.String("agent", "", "agent whose directories to snapshot (default: detected from the project)")
+	id := flags.String("id", "", "pack id for the manifest (default: <project-dir>-pack)")
+	output := flags.String("output", "", "manifest output path (default: <project>/agent-pack.json)")
+	pin := flags.Bool("pin", true, "resolve moving upstream refs to commit SHAs (requires network)")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if len(flags.Args()) != 0 {
+		return fmt.Errorf("usage: agent-packs snapshot [--project dir] [--agent name] [--id pack-id] [--output file] [--pin=false]")
+	}
+	_, err := agentpacks.Snapshot(agentpacks.SnapshotOptions{
+		Project: *project, Agent: *agent, ID: *id, Output: *output, Pin: *pin,
+	}, os.Stdout)
+	return err
+}
+
 func runLint(registry string, args []string) error {
 	if len(args) == 1 && args[0] == "--all" {
 		return agentpacks.LintAll(registry, os.Stdout)
@@ -2165,6 +2187,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  agent-packs pin <pack-id> [--check] [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs compat <pack-id> [--agent tool]")
 	fmt.Fprintln(os.Stderr, "  agent-packs scan [path]")
+	fmt.Fprintln(os.Stderr, "  agent-packs snapshot [--project dir] [--agent name] [--id pack-id] [--output file] [--pin=false]")
 	fmt.Fprintln(os.Stderr, "  agent-packs import <skills-dir> [--target dir]")
 	fmt.Fprintln(os.Stderr, "  agent-packs lint|verify|resolve <pack-id>")
 	fmt.Fprintln(os.Stderr, "  agent-packs uninstall <pack-id>... [--target dir]")

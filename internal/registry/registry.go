@@ -74,6 +74,20 @@ func FindPack(registry, id string) (model.Pack, error) {
 }
 
 func ResolvePack(defaultRegistry, home, ref string) (model.Pack, string, error) {
+	// A ref that names a manifest file on disk (e.g. ./agent-pack.json from
+	// `agent-packs snapshot`) installs that pack directly; bare refs inside it
+	// resolve against the manifest's directory.
+	if strings.HasSuffix(ref, ".json") {
+		if abs, err := filepath.Abs(util.ExpandHome(ref)); err == nil {
+			if info, statErr := os.Stat(abs); statErr == nil && !info.IsDir() {
+				pack, err := LoadPack(abs)
+				if err != nil {
+					return model.Pack{}, "", err
+				}
+				return pack, filepath.Dir(abs), nil
+			}
+		}
+	}
 	packID, versionPin := splitVersionPin(ref)
 	if !strings.Contains(packID, "/") {
 		pack, err := FindPack(defaultRegistry, packID)
