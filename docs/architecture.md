@@ -139,7 +139,7 @@ Standalone capability commands write receipts under `<target>/receipts/<kind>/`,
 
 Plugin capabilities with install or uninstall commands should set `requiresExecution: true` and should include trust metadata such as `trust: "official"` or `trust: "community"`.
 
-Integrity metadata uses `integrity.checksum` (`sha256:`) and optional `integrity.signature` (`sha256:` or `hmac-sha256:` with `AGENT_PACKS_TRUST_KEY`). Checksums are verified after skill materialization.
+Integrity metadata uses `integrity.checksum` (`sha256:` for a single entry file, `dirsha256:` for a whole skill directory tree) and optional `integrity.signature` (`sha256:`). Checksums are verified against the materialized source *before* any file is placed in the agent's live skill directory, so a mismatch never exposes tampered content. Fresh `agent-packs pin` runs record `dirsha256:` tree digests covering every file in the skill, and `pin --check`/`check` fail closed: a recorded pin whose source can no longer be resolved (deleted repo, network failure) reports `UNVERIFIABLE` and fails the gate instead of silently passing.
 
 The target matrix maps supported tools to global and project skill directories, with aliases such as `claude-code` → `claude`. Registry skills and plugins are referenced from their upstream source and are not copied into the selected agent target by default (`--mode reference`).
 

@@ -90,6 +90,10 @@ The pack, skill, plugin, and reusable capability registry lives in a separate re
 [`agent-packs/registry`](https://github.com/agent-packs/registry). The CLI fetches
 it on first use and caches it under your user cache dir (e.g.
 `~/.cache/agent-packs/registry`); `agent-packs update` refreshes that cache.
+When the registry repo has release tags, the CLI fetches the latest release
+tag rather than the moving default branch, and every install records the
+registry commit it resolved packs from in the receipt and lockfile
+(`registryCommit`), so installs are traceable to exact registry state.
 
 Override registry resolution with environment variables:
 
@@ -110,41 +114,56 @@ AGENT_PACKS_REGISTRY=./packs agent-packs index --output index.json
 
 ## CLI Usage
 
+The core workflow is **search → install → pin → check**:
+
 ```sh
-bin/agent-packs search
+bin/agent-packs search frontend --details
 bin/agent-packs show frontend-engineer
-bin/agent-packs install frontend-engineer --target ./sandbox
+bin/agent-packs install frontend-engineer --agent codex --mode copy --target ./sandbox
+bin/agent-packs pin frontend-engineer --target ./sandbox
+bin/agent-packs check --target ./sandbox
+```
+
+Lifecycle and discovery:
+
+```sh
+bin/agent-packs search --tool codex --scope project --review-status reviewed --details
+bin/agent-packs search --compatible-with codex --compat-status verified --trust community --details
+bin/agent-packs search --recommended --guidance --compatible-with codex --limit 5 --details
+bin/agent-packs search backend --freshness fresh --why
 bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
 bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
-bin/agent-packs skills install ./my-skill --agent codex --mode copy --target ./sandbox
-bin/agent-packs plugins install claude-code-review --mode native --method claude-marketplace --marketplace claude-plugins-official --package code-review --dry-run
+bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
+bin/agent-packs install frontend-engineer --min-trust verified --target ./sandbox
+bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
+bin/agent-packs rollback frontend-engineer pr-review --target ./sandbox
+bin/agent-packs uninstall frontend-engineer pr-review --target ./sandbox
+bin/agent-packs list --target ./sandbox
+bin/agent-packs pin frontend-engineer --target ./sandbox --check
+bin/agent-packs status --target ./sandbox
+bin/agent-packs check --policy ci
+bin/agent-packs update --all
+bin/agent-packs outdated
 bin/agent-packs init --agent codex --mode reference --scope project .
+bin/agent-packs doctor targets
 bin/agent-packs version
 ```
 
-Additional commands:
+Standalone capabilities (no pack wrapper) are managed with `cap <kind>` or the
+per-kind alias:
 
 ```sh
-bin/agent-packs search frontend --json
-bin/agent-packs search --tool codex --scope project --review-status reviewed --details
-bin/agent-packs search --compatible-with codex --compat-status verified --trust community --details
-bin/agent-packs search --recommended --limit 5 --details
-bin/agent-packs search --recommended --guidance --compatible-with codex --limit 5 --details
-bin/agent-packs search backend --freshness fresh --why
-bin/agent-packs show frontend-engineer --json
+bin/agent-packs cap skills install ./my-skill --agent codex --mode copy --target ./sandbox
+bin/agent-packs skills install ./my-skill --agent codex --mode copy --target ./sandbox
+bin/agent-packs plugins install claude-code-review --mode native --method claude-marketplace --marketplace claude-plugins-official --package code-review --dry-run
+```
+
+Authoring, registry, and reporting commands (`agent-packs help --all` lists
+everything, including the experimental surface):
+
+```sh
 bin/agent-packs audit frontend-engineer --json
-bin/agent-packs upgrade frontend-engineer pr-review --target ./sandbox
-bin/agent-packs rollback frontend-engineer pr-review --target ./sandbox
 bin/agent-packs tree eng-leader
-bin/agent-packs publish --check
-bin/agent-packs registry add local /path/to/agent-packs
-bin/agent-packs install local/frontend-engineer --dry-run
-bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
-bin/agent-packs cache
-bin/agent-packs update --all
-bin/agent-packs outdated
-bin/agent-packs scan ~/.codex/skills
-bin/agent-packs import ~/.codex/skills
 bin/agent-packs lint eng-leader
 bin/agent-packs verify eng-leader
 bin/agent-packs resolve eng-leader
@@ -152,15 +171,13 @@ bin/agent-packs policy check eng-leader default
 bin/agent-packs licenses eng-leader
 bin/agent-packs attribution eng-leader
 bin/agent-packs diff frontend-engineer --target ./sandbox
-bin/agent-packs pin frontend-engineer --target ./sandbox
-bin/agent-packs pin frontend-engineer --target ./sandbox --check
 bin/agent-packs compat eng-leader --agent codex
+bin/agent-packs publish --check
+bin/agent-packs registry add local /path/to/agent-packs
+bin/agent-packs install local/frontend-engineer --dry-run
+bin/agent-packs scan ~/.codex/skills
+bin/agent-packs import ~/.codex/skills
 bin/agent-packs cache prune
-bin/agent-packs list --target ./sandbox
-bin/agent-packs uninstall frontend-engineer pr-review --target ./sandbox
-bin/agent-packs doctor
-bin/agent-packs doctor targets
-bin/agent-packs check --policy ci
 ```
 
 ## Team Standardization And CI
@@ -171,12 +188,17 @@ every pull request, the same way lockfiles gate dependency drift:
 1. `agent-packs init` writes `.agent-packs.yaml` project defaults; installs
    write receipts and lockfiles under `.agent-packs/` — commit them.
 2. `agent-packs pin <pack>` resolves each capability's moving ref to a
-   concrete commit and content checksum in the lockfile.
+   concrete commit and a `dirsha256:` content checksum covering every file in
+   the skill tree, recorded in the lockfile.
 3. `agent-packs check` verifies everything in one command: recorded pins still
    match the live sources, no managed file or merged fragment was hand-edited,
    and (with `--policy`) every installed pack satisfies a trust policy. It
    exits nonzero on any failure, so it works directly as a CI gate. Unpinned
-   capabilities and reference-mode installs are reported as warnings.
+   capabilities and reference-mode installs are reported as warnings. The gate
+   fails closed: a pinned source that can no longer be resolved (deleted repo,
+   network failure) is reported `UNVERIFIABLE` and fails the check, and
+   running `check` against a target with no installed packs fails instead of
+   passing vacuously.
 
 ```sh
 agent-packs check                     # pins + drift for every installed pack
@@ -246,6 +268,8 @@ Agent Packs orchestrates native install flows instead of replacing them.
 - Sync modes are explicit: `reference` records sources only, `symlink` links materialized skills, `copy` copies skills plus managed files, and `native` enables native plugin planning.
 - Conflicts are controlled with `--on-conflict skip|overwrite|backup`.
 - Inline plugin install and uninstall commands are preview-safe by default and only run with `--execute-plugins`.
+- `install --min-trust <level>` enforces a minimum pack trust level using the registry taxonomy: `official` > `verified` > `community` > `unknown`.
+- Skill integrity (`integrity.checksum`) is verified against the materialized source before anything is copied or linked into the agent's live directory; `dirsha256:` checksums cover the whole skill tree, `sha256:` covers the entry file.
 - Lifecycle commands accept multiple pack IDs directly: `install`, `upgrade`, `rollback`, and `uninstall` run packs sequentially and fail fast on the first error.
 - Installed packs write receipts under `<target>/receipts/`.
 - Installed packs write lockfiles under `<target>/packs/<pack-id>/agent-pack.lock`.
@@ -260,7 +284,7 @@ Agent Packs supports a basic package-manager lifecycle:
 - `update --all`: refreshes configured registries.
 - `outdated`: lists installed packs with pack-version drift and capability revision drift (`--json` supported).
 - `install <pack...>`: installs one or more packs with shared target, agent, mode, conflict, and plugin execution settings. Use `--only skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools` to install one capability family from a mixed pack.
-- `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings.
+- `upgrade <pack...>`: re-installs one or more packs using each pack's prior receipt settings, including the recorded `--only` capability filter, so mixed packs keep their memory/settings/command capabilities across upgrades.
 - `rollback <pack...>`: restores one or more previous receipt-backed install states when history exists.
 - `uninstall <pack...>`: removes one or more installed packs, including installed inline skill folders, optional plugin cleanup commands, and receipts.
 - `skills install|list|upgrade|uninstall`: manages independent registry or local Agent Skills without wrapping them in a pack. `list` also discovers skills installed outside the standalone path, annotating each with a `source` column: `managed` (standalone receipt), `pack:<id>` (materialized by a pack install), or `external` (present on disk in a tool's skill directory with no receipt).

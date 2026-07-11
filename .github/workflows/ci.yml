@@ -14,7 +14,11 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     steps:
@@ -23,19 +27,45 @@ jobs:
         with:
           go-version: "1.26"
           cache-dependency-path: go.sum
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.x"
-      - name: Install Python test deps
+      - name: gofmt
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          python3 -m venv .venv
-          .venv/bin/pip install -r tests/requirements.txt
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:" && echo "$unformatted" && exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
       - name: Go tests
         run: go test ./...
       - name: Build CLI
         run: go build -o bin/agent-packs ./cmd/agent-packs
+      - name: Smoke test built binary
+        run: ./bin/agent-packs version
+      # The Python integration suite drives the built binary with temp
+      # registries. It exercises POSIX paths/symlinks, so it runs on the
+      # Unix legs of the matrix.
+      - uses: actions/setup-python@v6
+        if: matrix.os != 'windows-latest'
+        with:
+          python-version: "3.x"
+      - name: Install Python test deps
+        if: matrix.os != 'windows-latest'
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r tests/requirements.txt
       - name: Python integration and docs tests
+        if: matrix.os != 'windows-latest'
         run: .venv/bin/python -m unittest discover -s tests
+
+  pages-artifact:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
       - name: Prepare GitHub Pages site
         # The catalog fetches the registry index live from
         # github.com/agent-packs/registry, so no registry data is bundled here.
@@ -51,7 +81,7 @@ jobs:
           path: site
 
   deploy-pages:
-    needs: test
+    needs: pages-artifact
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

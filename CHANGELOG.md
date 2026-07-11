@@ -11,6 +11,63 @@ repository and is versioned independently.
 
 ## [Unreleased]
 
+### Fixed
+- **`pin --check` and `check` now fail closed.** A recorded pin whose source
+  can no longer be resolved (deleted repo, unreachable network) is reported as
+  `UNVERIFIABLE` and fails the gate; previously it silently passed as OK.
+- **`check` fails on an empty target.** Running the CI gate against a target
+  with no installed packs (e.g. from the wrong directory) now exits nonzero
+  instead of passing vacuously.
+- **`--min-trust` uses the registry trust taxonomy.** Enforcement previously
+  ranked a non-existent `core/community/tap/unverified` scale, which scored
+  `official` packs *below* `community`. It now ranks
+  `official > verified > community > unknown` and rejects unknown levels.
+- **`upgrade` no longer drops capability types.** The `--only` filter is
+  recorded in the plan/receipt and replayed on upgrade; previously upgrade
+  guessed from skill/plugin counts and silently removed memory, settings,
+  command, and hook capabilities from mixed packs.
+- **Integrity is verified before files land.** Skill checksums/signatures are
+  checked against the materialized source before copy/symlink, so a mismatch
+  never leaves tampered content in the agent's live skill directory.
+- **An unreachable skill source now fails the install** (exit nonzero) instead
+  of recording a `pending` capability and exiting 0.
+- Opt-in analytics events are sent synchronously with a short timeout; the
+  previous fire-and-forget goroutine raced process exit and rarely delivered.
+
+### Added
+- **Whole-tree skill checksums.** `agent-packs pin` records `dirsha256:`
+  digests covering every file in a skill directory (legacy `sha256:` entry-file
+  pins are still verified in their original format).
+- **Registry provenance.** Receipts and lockfiles record the registry checkout
+  commit (`registryCommit`) each install resolved packs from, and the default
+  registry fetch prefers the latest release tag over the moving default branch
+  when tags exist.
+- `cap <kind> <install|list|upgrade|uninstall>` umbrella command for the
+  standalone capability families (the per-kind commands remain as aliases),
+  plus a reorganized `help` centered on the core workflow and `help --all` for
+  the full surface.
+- Reference-mode installs now print an explicit "recorded only — nothing was
+  materialized" note so the default mode is never mistaken for a file install.
+- CI runs the Go suite on Linux/macOS/Windows with gofmt + `go vet` gates and a
+  built-binary smoke test.
+
+### Changed
+- Source materialization clones once per (repo, ref) and memoizes per run, and
+  pin verification runs with bounded parallelism — `check`/`pin`/`outdated`
+  no longer clone per capability sequentially.
+- `git ls-remote` revision lookups are memoized per run and time-bounded.
+- Flag parsing accepts flags and positionals in any order for every command,
+  driven by each command's registered flag set (replaces the hand-maintained
+  per-command argument reordering lists).
+- `sync`, `freeze`, `export`, `why`, `test-run`, and `analytics` are marked
+  experimental and print a notice; they may change or be removed.
+
+### Removed
+- The `hmac-sha256:` `integrity.signature` format. An HMAC is a shared-secret
+  MAC, not a signature — anyone able to verify could forge — so it granted
+  false assurance. `sha256:` checksums are unaffected; manifests declaring an
+  hmac signature now fail verification with a clear error.
+
 ## [0.9.0] - 2026-06-24
 
 ### Added
