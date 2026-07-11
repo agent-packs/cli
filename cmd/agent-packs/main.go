@@ -45,31 +45,16 @@ func main() {
 	case "show":
 		err = runShow(registry, os.Args[2:])
 	case "test-run":
+		experimentalNotice("test-run")
 		err = runTestRun(registry, defaultTarget, os.Args[2:])
 	case "install":
 		err = runInstall(registry, defaultTarget, os.Args[2:])
-	case "skills":
-		err = runStandaloneLifecycle(registry, defaultTarget, "skills", os.Args[2:])
-	case "plugins":
-		err = runStandaloneLifecycle(registry, defaultTarget, "plugins", os.Args[2:])
-	case "mcp":
-		err = runStandaloneLifecycle(registry, defaultTarget, "mcp", os.Args[2:])
-	case "commands":
-		err = runStandaloneLifecycle(registry, defaultTarget, "commands", os.Args[2:])
-	case "hooks":
-		err = runStandaloneLifecycle(registry, defaultTarget, "hooks", os.Args[2:])
-	case "subagents":
-		err = runStandaloneLifecycle(registry, defaultTarget, "subagents", os.Args[2:])
-	case "prompts":
-		err = runStandaloneLifecycle(registry, defaultTarget, "prompts", os.Args[2:])
-	case "templates":
-		err = runStandaloneLifecycle(registry, defaultTarget, "templates", os.Args[2:])
-	case "tools":
-		err = runStandaloneLifecycle(registry, defaultTarget, "tools", os.Args[2:])
-	case "memory":
-		err = runStandaloneLifecycle(registry, defaultTarget, "memory", os.Args[2:])
-	case "settings":
-		err = runStandaloneLifecycle(registry, defaultTarget, "settings", os.Args[2:])
+	case "cap":
+		err = runCap(registry, defaultTarget, os.Args[2:])
+	case "skills", "plugins", "mcp", "commands", "hooks", "subagents", "prompts", "templates", "tools", "memory", "settings":
+		// Alias for `cap <kind> ...`: the standalone capability families share
+		// one lifecycle and are grouped under a single umbrella command.
+		err = runStandaloneLifecycle(registry, defaultTarget, os.Args[1], os.Args[2:])
 	case "list":
 		err = runList(defaultTarget, os.Args[2:])
 	case "outdated":
@@ -131,14 +116,18 @@ func main() {
 	case "completion":
 		err = runCompletion(os.Args[2:])
 	case "sync":
+		experimentalNotice("sync")
 		err = runSync(registry, defaultTarget, os.Args[2:])
 	case "freeze":
+		experimentalNotice("freeze")
 		err = runFreeze(defaultTarget, os.Args[2:])
 	case "export":
+		experimentalNotice("export")
 		err = runExport(defaultTarget, os.Args[2:])
 	case "target":
 		err = runTarget(defaultTarget, os.Args[2:])
 	case "why":
+		experimentalNotice("why")
 		err = runWhy(defaultTarget, os.Args[2:])
 	case "tap":
 		err = runTap(defaultTarget, os.Args[2:])
@@ -153,7 +142,11 @@ func main() {
 	case "publish":
 		err = runPublish(registry, os.Args[2:])
 	case "help", "--help", "-h":
-		usage()
+		if len(os.Args) > 2 && os.Args[2] == "--all" {
+			usageFull()
+		} else {
+			usage()
+		}
 		return
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
@@ -183,9 +176,48 @@ func extractJSONFlag(args []string) (bool, []string) {
 	return asJSON, remaining
 }
 
+// parseFlags parses args with fs while accepting flags and positionals in any
+// order (stdlib flag stops at the first positional). It is driven by the
+// flags registered on fs itself, so there is no hand-maintained flag list to
+// drift out of sync with the definitions: registered value flags consume the
+// following argument, registered bool flags do not, and "--" ends flag
+// parsing. Unknown flags are passed through for fs.Parse to report.
+func parseFlags(fs *flag.FlagSet, args []string) error {
+	reordered := []string{}
+	positionals := []string{}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			positionals = append(positionals, args[i+1:]...)
+			break
+		}
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			positionals = append(positionals, arg)
+			continue
+		}
+		reordered = append(reordered, arg)
+		name := strings.TrimLeft(arg, "-")
+		if strings.Contains(name, "=") {
+			continue
+		}
+		def := fs.Lookup(name)
+		if def == nil {
+			continue
+		}
+		type boolFlag interface{ IsBoolFlag() bool }
+		if bf, ok := def.Value.(boolFlag); ok && bf.IsBoolFlag() {
+			continue
+		}
+		if i+1 < len(args) {
+			reordered = append(reordered, args[i+1])
+			i++
+		}
+	}
+	return fs.Parse(append(reordered, positionals...))
+}
+
 func runSearch(registry string, args []string) error {
 	asJSON, args := extractJSONFlag(args)
-	args = normalizeSearchArgs(args)
 	flags := flag.NewFlagSet("search", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	tagFilter := flags.String("tag", "", "filter by tag")
@@ -203,7 +235,7 @@ func runSearch(registry string, args []string) error {
 	why := flags.Bool("why", false, "show the first matching metadata or capability snippet")
 	guidance := flags.Bool("guidance", false, "show compatibility-aware install guidance")
 	details := flags.Bool("details", false, "show trust, compatibility, freshness, tools, scope, and install command")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if *compatStatusFilter != "" && *compatibleWithFilter == "" {
@@ -242,49 +274,6 @@ func runSearch(registry string, args []string) error {
 	}
 	printSearchResults(os.Stdout, matches, *details, *compatibleWithFilter, query, *why, *guidance)
 	return nil
-}
-
-func normalizeSearchArgs(args []string) []string {
-	boolFlags := map[string]bool{
-		"--details": true, "--recommended": true, "--why": true, "--guidance": true,
-	}
-	valueFlags := map[string]bool{
-		"--tag": true, "--category": true, "--stability": true, "--tool": true,
-		"--review-status": true, "--scope": true, "--trust": true,
-		"--compatible-with": true, "--compat-status": true, "--freshness": true,
-		"--limit": true,
-	}
-	var flagArgs []string
-	var positional []string
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--" {
-			positional = append(positional, args[i+1:]...)
-			break
-		}
-		if !strings.HasPrefix(arg, "-") || arg == "-" {
-			positional = append(positional, arg)
-			continue
-		}
-		name := arg
-		if idx := strings.Index(arg, "="); idx >= 0 {
-			name = arg[:idx]
-		}
-		if boolFlags[name] {
-			flagArgs = append(flagArgs, arg)
-			continue
-		}
-		if valueFlags[name] {
-			flagArgs = append(flagArgs, arg)
-			if !strings.Contains(arg, "=") && i+1 < len(args) {
-				i++
-				flagArgs = append(flagArgs, args[i])
-			}
-			continue
-		}
-		flagArgs = append(flagArgs, arg)
-	}
-	return append(flagArgs, positional...)
 }
 
 type searchResult struct {
@@ -534,7 +523,6 @@ func runShow(registry string, args []string) error {
 }
 
 func runInstall(registry, defaultTarget string, args []string) error {
-	args = normalizeInstallArgs(args)
 	flags := flag.NewFlagSet("install", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
@@ -550,8 +538,8 @@ func runInstall(registry, defaultTarget string, args []string) error {
 	project := flags.String("project", "", "project directory target")
 	global := flags.Bool("global", false, "install into the configured global target")
 	from := flags.String("from", "", "install packs listed in a YAML export file")
-	minTrust := flags.String("min-trust", "", "minimum trust level: core, community, tap, or unverified")
-	if err := flags.Parse(args); err != nil {
+	minTrust := flags.String("min-trust", "", "minimum trust level: official, verified, community, or unknown")
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -603,14 +591,13 @@ func runInstall(registry, defaultTarget string, args []string) error {
 }
 
 func runTestRun(registry, defaultTarget string, args []string) error {
-	args = normalizeInstallArgs(args)
 	flags := flag.NewFlagSet("test-run", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	agent := flags.String("agent", envOrDefault("AGENT_PACKS_AGENT", "generic"), "target agent/tool ($AGENT_PACKS_AGENT)")
 	command := flags.String("command", "", "command to launch the agent (overrides default agent executable)")
 	mode := flags.String("mode", "copy", "sync mode (defaults to copy for test-run)")
 	allowHooks := flags.Bool("allow-hooks", false, "write hook capabilities in copy mode (the agent may run them automatically)")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -664,11 +651,11 @@ func runTestRun(registry, defaultTarget string, args []string) error {
 }
 
 func runList(defaultTarget string, args []string) error {
-	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	asJSON, args := extractJSONFlag(args)
 	flags := flag.NewFlagSet("list", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if asJSON {
@@ -679,6 +666,23 @@ func runList(defaultTarget string, args []string) error {
 		return output.Encode(os.Stdout, receipts)
 	}
 	return agentpacks.ListInstalled(*target, os.Stdout)
+}
+
+// capKinds are the standalone capability families managed by `cap <kind>` and
+// its per-kind aliases (`agent-packs skills ...` etc.).
+var capKinds = map[string]bool{
+	"skills": true, "plugins": true, "mcp": true, "commands": true,
+	"hooks": true, "subagents": true, "prompts": true, "templates": true,
+	"tools": true, "memory": true, "settings": true,
+}
+
+// runCap is the umbrella for standalone capability lifecycles:
+// agent-packs cap <kind> <install|list|upgrade|uninstall> ...
+func runCap(registry, defaultTarget string, args []string) error {
+	if len(args) < 1 || !capKinds[args[0]] {
+		return fmt.Errorf("usage: agent-packs cap <skills|plugins|commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp> <install|list|upgrade|uninstall> ...")
+	}
+	return runStandaloneLifecycle(registry, defaultTarget, args[0], args[1:])
 }
 
 func runStandaloneLifecycle(registry, defaultTarget, kind string, args []string) error {
@@ -722,7 +726,7 @@ func runStandaloneInstall(registry, defaultTarget, kind string, args []string) e
 	marketplace := flags.String("marketplace", "", "plugin marketplace name")
 	command := flags.String("command", "", "plugin install command")
 	uninstallCommand := flags.String("uninstall-command", "", "plugin uninstall command")
-	if err := flags.Parse(normalizeInstallArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -777,7 +781,7 @@ func runStandaloneList(defaultTarget, kind string, args []string) error {
 	flags := flag.NewFlagSet(kind+" list", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
@@ -791,7 +795,7 @@ func runStandaloneUpgrade(defaultTarget, kind string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -813,7 +817,7 @@ func runStandaloneUninstall(defaultTarget, kind string, args []string) error {
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin uninstall commands")
 	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP uninstall commands")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -868,7 +872,7 @@ func runUninstall(defaultTarget string, args []string) error {
 	target := flags.String("target", defaultTarget, "installation target directory")
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin uninstall commands")
 	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP uninstall commands")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -909,11 +913,11 @@ func runValidate(args []string) error {
 }
 
 func runOutdated(registry, defaultTarget string, args []string) error {
-	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	asJSON, args := extractJSONFlag(args)
 	flags := flag.NewFlagSet("outdated", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if asJSON {
@@ -933,7 +937,7 @@ func runUpgrade(registry, defaultTarget string, args []string) error {
 	executePlugins := flags.Bool("execute-plugins", false, "run native plugin installation commands")
 	executeMCPs := flags.Bool("execute-mcps", false, "run native MCP installation commands")
 	all := flags.Bool("all", false, "upgrade all installed packs")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -970,7 +974,7 @@ func runRollback(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("rollback", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1027,7 +1031,7 @@ func runInit(registry string, args []string) error {
 	target := flags.String("target", ".agent-packs", "default install target")
 	force := flags.Bool("force", false, "overwrite existing config")
 	noDetect := flags.Bool("no-detect", false, "skip project detection; write flag defaults only")
-	if err := flags.Parse(normalizeInitArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	agentExplicit := false
@@ -1077,7 +1081,7 @@ func runNew(args []string) error {
 	name := flags.String("name", "", "display name")
 	dir := flags.String("dir", ".", "output directory")
 	force := flags.Bool("force", false, "overwrite existing files")
-	if err := flags.Parse(normalizeNewArgs(args[1:])); err != nil {
+	if err := parseFlags(flags, args[1:]); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1097,7 +1101,7 @@ func runUpdate(defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	all := flags.Bool("all", true, "update all configured registries")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	// Refresh the fetched default registry (Homebrew-style catalog update) when
@@ -1117,7 +1121,7 @@ func runCache(defaultTarget string, args []string) error {
 		flags := flag.NewFlagSet("cache "+args[0], flag.ContinueOnError)
 		flags.SetOutput(os.Stderr)
 		target := flags.String("target", defaultTarget, "installation target directory")
-		if err := flags.Parse(normalizeTargetArgs(args[1:])); err != nil {
+		if err := parseFlags(flags, args[1:]); err != nil {
 			return err
 		}
 		return agentpacks.CachePrune(*target, args[0] == "clean", os.Stdout)
@@ -1125,7 +1129,7 @@ func runCache(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("cache", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	return agentpacks.CacheInfo(*target, os.Stdout)
@@ -1162,7 +1166,7 @@ func runIndex(registry string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	output := flags.String("output", "", "output index path")
 	check := flags.Bool("check", false, "verify the index at --output is up to date without writing it (exit non-zero on drift)")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
@@ -1226,7 +1230,7 @@ func runPublish(registry string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	check := flags.Bool("check", false, "run contributor publish checks")
 	policyPath := flags.String("policy", filepath.Join(filepath.Dir(registry), "policy", "default.json"), "policy file")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if !*check || len(flags.Args()) != 0 {
@@ -1246,7 +1250,7 @@ func runDiff(registry, defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("diff", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1257,11 +1261,11 @@ func runDiff(registry, defaultTarget string, args []string) error {
 }
 
 func runCompat(registry string, args []string) error {
-	asJSON, args := extractJSONFlag(normalizeAgentArgs(args))
+	asJSON, args := extractJSONFlag(args)
 	flags := flag.NewFlagSet("compat", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	agent := flags.String("agent", "generic", "target agent/tool")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1294,7 +1298,7 @@ func runImport(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("import", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1328,7 +1332,7 @@ func runWhy(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("why", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1353,8 +1357,7 @@ func runRegistry(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("registry "+sub, flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	rest := normalizeTargetArgs(args[1:])
-	if err := flags.Parse(rest); err != nil {
+	if err := parseFlags(flags, args[1:]); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1379,141 +1382,12 @@ func runRegistry(defaultTarget string, args []string) error {
 	}
 }
 
-// normalizeInitArgs reorders `init` args so flags precede the optional
-// positional project directory, since Go's flag parser stops at the first
-// non-flag argument.
-func normalizeInitArgs(args []string) []string {
-	valueFlags := map[string]bool{
-		"--agent": true, "--mode": true, "--on-conflict": true,
-		"--scope": true, "--registry": true, "--target": true,
-	}
-	flags := []string{}
-	positionals := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if valueFlags[arg] {
-			flags = append(flags, arg)
-			if i+1 < len(args) {
-				flags = append(flags, args[i+1])
-				i++
-			}
-			continue
-		}
-		if strings.HasPrefix(arg, "--") {
-			flags = append(flags, arg)
-			continue
-		}
-		positionals = append(positionals, arg)
-	}
-	return append(flags, positionals...)
-}
-
-func normalizeInstallArgs(args []string) []string {
-	flags := []string{}
-	positionals := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--dry-run" || arg == "--execute-plugins" || arg == "--execute-mcps" || arg == "--allow-hooks" || arg == "--global" {
-			flags = append(flags, arg)
-			continue
-		}
-		if arg == "--target" || arg == "--agent" || arg == "--target-tool" || arg == "--only" || arg == "--mode" || arg == "--on-conflict" || arg == "--project" || arg == "--scope" || arg == "--method" || arg == "--package" || arg == "--marketplace" || arg == "--command" || arg == "--uninstall-command" || arg == "--from" || arg == "--min-trust" {
-			flags = append(flags, arg)
-			if i+1 < len(args) {
-				flags = append(flags, args[i+1])
-				i++
-			}
-			continue
-		}
-		if strings.HasPrefix(arg, "--target=") || strings.HasPrefix(arg, "--agent=") || strings.HasPrefix(arg, "--target-tool=") || strings.HasPrefix(arg, "--only=") || strings.HasPrefix(arg, "--mode=") || strings.HasPrefix(arg, "--on-conflict=") || strings.HasPrefix(arg, "--project=") || strings.HasPrefix(arg, "--scope=") || strings.HasPrefix(arg, "--method=") || strings.HasPrefix(arg, "--package=") || strings.HasPrefix(arg, "--marketplace=") || strings.HasPrefix(arg, "--command=") || strings.HasPrefix(arg, "--uninstall-command=") || strings.HasPrefix(arg, "--from=") || strings.HasPrefix(arg, "--min-trust=") {
-			flags = append(flags, arg)
-			continue
-		}
-		positionals = append(positionals, arg)
-	}
-	return append(flags, positionals...)
-}
-
-func normalizeAgentArgs(args []string) []string {
-	flags := []string{}
-	positionals := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--agent" {
-			flags = append(flags, arg)
-			if i+1 < len(args) {
-				flags = append(flags, args[i+1])
-				i++
-			}
-			continue
-		}
-		if strings.HasPrefix(arg, "--agent=") {
-			flags = append(flags, arg)
-			continue
-		}
-		positionals = append(positionals, arg)
-	}
-	return append(flags, positionals...)
-}
-
-func normalizeNewArgs(args []string) []string {
-	flags := []string{}
-	positionals := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--force" {
-			flags = append(flags, arg)
-			continue
-		}
-		if arg == "--name" || arg == "--dir" {
-			flags = append(flags, arg)
-			if i+1 < len(args) {
-				flags = append(flags, args[i+1])
-				i++
-			}
-			continue
-		}
-		if strings.HasPrefix(arg, "--name=") || strings.HasPrefix(arg, "--dir=") {
-			flags = append(flags, arg)
-			continue
-		}
-		positionals = append(positionals, arg)
-	}
-	return append(flags, positionals...)
-}
-
-func normalizeTargetArgs(args []string) []string {
-	flags := []string{}
-	positionals := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--execute-plugins" || arg == "--execute-mcps" || arg == "--check" || arg == "--all" {
-			flags = append(flags, arg)
-			continue
-		}
-		if arg == "--target" {
-			flags = append(flags, arg)
-			if i+1 < len(args) {
-				flags = append(flags, args[i+1])
-				i++
-			}
-			continue
-		}
-		if strings.HasPrefix(arg, "--target=") {
-			flags = append(flags, arg)
-			continue
-		}
-		positionals = append(positionals, arg)
-	}
-	return append(flags, positionals...)
-}
-
 func runPin(registry, defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("pin", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	check := flags.Bool("check", false, "verify the live source still matches recorded pins instead of rewriting them")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1524,11 +1398,11 @@ func runPin(registry, defaultTarget string, args []string) error {
 }
 
 func runStatus(defaultTarget string, args []string) error {
-	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	asJSON, args := extractJSONFlag(args)
 	flags := flag.NewFlagSet("status", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if asJSON {
@@ -1538,12 +1412,12 @@ func runStatus(defaultTarget string, args []string) error {
 }
 
 func runCheck(registry, defaultTarget string, args []string) error {
-	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	asJSON, args := extractJSONFlag(args)
 	flags := flag.NewFlagSet("check", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	policyArg := flags.String("policy", "", "trust policy file or registry preset to enforce on every installed pack")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
@@ -1813,7 +1687,7 @@ func runSync(registry, defaultTarget string, args []string) error {
 	mode := flags.String("mode", envOrDefault("AGENT_PACKS_MODE", "reference"), "sync mode: reference, symlink, copy, or native")
 	project := flags.String("project", ".", "project directory containing .agent-packs.yaml")
 	dryRun := flags.Bool("dry-run", false, "print what would be installed without writing files")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
@@ -1828,7 +1702,7 @@ func runFreeze(defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	project := flags.String("project", ".", "project directory containing .agent-packs.yaml")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
@@ -1842,7 +1716,7 @@ func runExport(defaultTarget string, args []string) error {
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
 	outFile := flags.String("output", "", "output file (default: stdout)")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	if len(flags.Args()) != 0 {
@@ -1860,40 +1734,11 @@ func runExport(defaultTarget string, args []string) error {
 	return agentpacks.ExportPacks(*target, out)
 }
 
-func normalizeTargetCmdArgs(args []string) []string {
-	knownFlags := map[string]bool{
-		"--home": true, "--name": true, "--global": true, "--project": true,
-	}
-	flagsList := []string{}
-	positionals := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if knownFlags[arg] {
-			flagsList = append(flagsList, arg)
-			if i+1 < len(args) {
-				flagsList = append(flagsList, args[i+1])
-				i++
-			}
-			continue
-		}
-		for k := range knownFlags {
-			if strings.HasPrefix(arg, k+"=") {
-				flagsList = append(flagsList, arg)
-				goto next
-			}
-		}
-		positionals = append(positionals, arg)
-	next:
-	}
-	return append(flagsList, positionals...)
-}
-
 func runTarget(defaultTarget string, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: agent-packs target <add|list|remove> ...")
 	}
 	sub := args[0]
-	normalized := normalizeTargetCmdArgs(args[1:])
 	flags := flag.NewFlagSet("target "+sub, flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	home := flags.String("home", defaultTarget, "agent-packs home directory")
@@ -1902,7 +1747,7 @@ func runTarget(defaultTarget string, args []string) error {
 		name := flags.String("name", "", "display name")
 		globalSkills := flags.String("global", "", "global skill directory (required)")
 		projectSkills := flags.String("project", "", "project skill directory (defaults to --global)")
-		if err := flags.Parse(normalized); err != nil {
+		if err := parseFlags(flags, args[1:]); err != nil {
 			return err
 		}
 		remaining := flags.Args()
@@ -1911,7 +1756,7 @@ func runTarget(defaultTarget string, args []string) error {
 		}
 		return agentpacks.AddCustomTarget(*home, remaining[0], *name, *globalSkills, *projectSkills)
 	case "remove":
-		if err := flags.Parse(normalized); err != nil {
+		if err := parseFlags(flags, args[1:]); err != nil {
 			return err
 		}
 		remaining := flags.Args()
@@ -1920,7 +1765,7 @@ func runTarget(defaultTarget string, args []string) error {
 		}
 		return agentpacks.RemoveCustomTarget(*home, remaining[0])
 	case "list":
-		if err := flags.Parse(normalized); err != nil {
+		if err := parseFlags(flags, args[1:]); err != nil {
 			return err
 		}
 		return agentpacks.ListCustomTargets(*home, os.Stdout)
@@ -1933,7 +1778,7 @@ func runTap(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("tap", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "agent-packs home directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1952,7 +1797,7 @@ func runUntap(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("untap", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "agent-packs home directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1963,11 +1808,11 @@ func runUntap(defaultTarget string, args []string) error {
 }
 
 func runInfo(registry, defaultTarget string, args []string) error {
-	asJSON, args := extractJSONFlag(normalizeTargetArgs(args))
+	asJSON, args := extractJSONFlag(args)
 	flags := flag.NewFlagSet("info", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(args); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1984,7 +1829,7 @@ func runHome(registry, defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("home", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "installation target directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -1998,7 +1843,7 @@ func runAnalytics(defaultTarget string, args []string) error {
 	flags := flag.NewFlagSet("analytics", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	target := flags.String("target", defaultTarget, "agent-packs home directory")
-	if err := flags.Parse(normalizeTargetArgs(args)); err != nil {
+	if err := parseFlags(flags, args); err != nil {
 		return err
 	}
 	remaining := flags.Args()
@@ -2090,48 +1935,72 @@ func registryCacheDir() string {
 	return filepath.Join(os.TempDir(), "agent-packs-cache")
 }
 
+// experimentalNotice marks demoted commands that may change or be removed as
+// the surface consolidates around the core workflow.
+func experimentalNotice(name string) {
+	fmt.Fprintf(os.Stderr, "note: %q is experimental and may change or be removed in a future release\n", name)
+}
+
+// usage prints the core workflow: discover, install, pin, verify. The long
+// tail of authoring/registry/experimental commands lives in `help --all`.
 func usage() {
-	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  agent-packs search [query] [--tag t] [--category c] [--stability s] [--tool agent] [--review-status s] [--scope s] [--trust t] [--freshness f] [--compatible-with agent] [--compat-status s] [--recommended] [--limit n] [--why] [--guidance] [--details] [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs show <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs test-run <pack-id> [--agent tool] [--command cmd] [--mode mode] [--allow-hooks]")
-	fmt.Fprintln(os.Stderr, "  agent-packs install <pack-id[@version]>... [--from file] [--target dir] [--agent tool] [--only all|skills|plugins|memory|settings|commands|hooks|subagents|mcp|prompts|templates|tools] [--mode reference|symlink|copy|native] [--on-conflict skip|overwrite|backup] [--dry-run] [--execute-plugins] [--execute-mcps] [--allow-hooks]")
-	fmt.Fprintln(os.Stderr, "  agent-packs sync [--project dir] [--target dir] [--agent tool] [--mode mode]")
-	fmt.Fprintln(os.Stderr, "  agent-packs freeze [--target dir] [--project dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs export [--target dir] [--output file]")
-	fmt.Fprintln(os.Stderr, "  agent-packs skills install|list|upgrade|uninstall ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs plugins install|list|upgrade|uninstall ... [--execute-plugins]")
-	fmt.Fprintln(os.Stderr, "  agent-packs commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp install|list|upgrade|uninstall ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs list [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs update|outdated|upgrade|cache ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs upgrade <pack-id>... [--target dir] [--execute-plugins] [--execute-mcps]")
-	fmt.Fprintln(os.Stderr, "  agent-packs rollback <pack-id>... [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs version [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs init [dir] [--agent tool] [--mode reference|symlink|copy|native] [--no-detect]")
-	fmt.Fprintln(os.Stderr, "  agent-packs new <pack|skill|plugin|command|hook|subagent|prompt|template|tool|memory|settings> <id> [--name name] [--dir dir] [--force]")
-	fmt.Fprintln(os.Stderr, "  agent-packs audit <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs tree|deps <pack-id> [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs publish --check [--policy file] [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs policy check <pack-id> <policy.json|preset>")
-	fmt.Fprintln(os.Stderr, "  agent-packs licenses|attribution|resolve <pack-id>")
-	fmt.Fprintln(os.Stderr, "  agent-packs index [--output path] [--check]")
-	fmt.Fprintln(os.Stderr, "  agent-packs diff <pack-id> [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs pin <pack-id> [--check] [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs compat <pack-id> [--agent tool]")
-	fmt.Fprintln(os.Stderr, "  agent-packs scan [path]")
-	fmt.Fprintln(os.Stderr, "  agent-packs import <skills-dir> [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs lint|verify|resolve <pack-id>")
-	fmt.Fprintln(os.Stderr, "  agent-packs uninstall <pack-id>... [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs doctor [targets]")
-	fmt.Fprintln(os.Stderr, "  agent-packs validate <file-or-directory>")
-	fmt.Fprintln(os.Stderr, "  agent-packs status [--target dir] [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs check [--target dir] [--policy policy.json|preset] [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs target add|list|remove ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs completion <bash|zsh|fish>")
-	fmt.Fprintln(os.Stderr, "  agent-packs registry add|list|remove ...")
-	fmt.Fprintln(os.Stderr, "  agent-packs tap [list|add] [<org/repo>] [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs untap <org/repo|name> [--target dir]")
-	fmt.Fprintln(os.Stderr, "  agent-packs info <pack-id> [--target dir] [--json]")
-	fmt.Fprintln(os.Stderr, "  agent-packs home <pack-id>")
-	fmt.Fprintln(os.Stderr, "  agent-packs analytics <enable|disable|status>")
+	fmt.Fprintln(os.Stderr, "Usage: agent-packs <command> [args]")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Core workflow:")
+	fmt.Fprintln(os.Stderr, "  search [query] [--recommended] [--details] [--json]    find packs in the registry")
+	fmt.Fprintln(os.Stderr, "  show <pack-id> [--json]                                inspect one pack")
+	fmt.Fprintln(os.Stderr, "  install <pack-id>... [--agent tool] [--mode reference|symlink|copy|native]")
+	fmt.Fprintln(os.Stderr, "          [--only filter] [--on-conflict skip|overwrite|backup] [--dry-run]")
+	fmt.Fprintln(os.Stderr, "          [--execute-plugins] [--execute-mcps] [--allow-hooks] [--min-trust level]")
+	fmt.Fprintln(os.Stderr, "  uninstall <pack-id>... [--target dir]                  remove an installed pack")
+	fmt.Fprintln(os.Stderr, "  upgrade <pack-id>... [--target dir]                    re-install from prior receipts")
+	fmt.Fprintln(os.Stderr, "  rollback <pack-id>... [--target dir]                   restore previous install state")
+	fmt.Fprintln(os.Stderr, "  list [--target dir] [--json]                           list installed packs")
+	fmt.Fprintln(os.Stderr, "  pin <pack-id> [--check] [--target dir]                 record (or verify) source pins")
+	fmt.Fprintln(os.Stderr, "  check [--policy preset] [--target dir] [--json]        CI gate: pins + drift + policy")
+	fmt.Fprintln(os.Stderr, "  status [--target dir] [--json]                         managed-file drift report")
+	fmt.Fprintln(os.Stderr, "  update [--all] / outdated                              refresh registries, report drift")
+	fmt.Fprintln(os.Stderr, "  init [dir] [--agent tool]                              write project defaults")
+	fmt.Fprintln(os.Stderr, "  doctor [targets]                                       environment and target matrix")
+	fmt.Fprintln(os.Stderr, "  version [--json]")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Standalone capabilities:")
+	fmt.Fprintln(os.Stderr, "  cap <skills|plugins|commands|hooks|subagents|prompts|templates|tools|memory|settings|mcp>")
+	fmt.Fprintln(os.Stderr, "      <install|list|upgrade|uninstall> ...               manage one capability without a pack")
+	fmt.Fprintln(os.Stderr, "      (per-kind aliases work too: agent-packs skills install ...)")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Run `agent-packs help --all` for authoring, registry, and experimental commands.")
+}
+
+// usageFull prints every command, including authoring/registry tooling and the
+// experimental surface.
+func usageFull() {
+	usage()
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Authoring and registry:")
+	fmt.Fprintln(os.Stderr, "  new <kind> <id> [--name name] [--dir dir] [--force]    scaffold a manifest")
+	fmt.Fprintln(os.Stderr, "  validate <file-or-directory>                           schema-validate manifests")
+	fmt.Fprintln(os.Stderr, "  lint|verify|resolve <pack-id>                          pack metadata and source checks")
+	fmt.Fprintln(os.Stderr, "  audit <pack-id> [--json]                               supply-chain SBOM report")
+	fmt.Fprintln(os.Stderr, "  tree|deps <pack-id> [--json]                           composed pack tree")
+	fmt.Fprintln(os.Stderr, "  diff <pack-id> [--target dir]                          lockfile vs registry diff")
+	fmt.Fprintln(os.Stderr, "  compat <pack-id> [--agent tool]                        compatibility evidence")
+	fmt.Fprintln(os.Stderr, "  policy check <pack-id> <policy.json|preset>            enforce a trust policy")
+	fmt.Fprintln(os.Stderr, "  licenses|attribution <pack-id>                         license and provenance reports")
+	fmt.Fprintln(os.Stderr, "  publish --check [--json]                               contributor pre-flight checks")
+	fmt.Fprintln(os.Stderr, "  index [--output path] [--check]                        generate the registry index")
+	fmt.Fprintln(os.Stderr, "  scan [path] / import <skills-dir>                      discover and import skills")
+	fmt.Fprintln(os.Stderr, "  registry add|list|remove ...                           named remote registries")
+	fmt.Fprintln(os.Stderr, "  tap [list|add] [<org/repo>] / untap <name>             registry shorthands")
+	fmt.Fprintln(os.Stderr, "  target add|list|remove ...                             custom tool targets")
+	fmt.Fprintln(os.Stderr, "  cache [prune|clean]                                    inspect or clear cached state")
+	fmt.Fprintln(os.Stderr, "  completion <bash|zsh|fish>                             shell completions")
+	fmt.Fprintln(os.Stderr, "  info <pack-id> / home <pack-id>                        pack details and homepage")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Experimental (may change or be removed):")
+	fmt.Fprintln(os.Stderr, "  test-run <pack-id> [--agent tool] [--command cmd]      sandboxed pack trial")
+	fmt.Fprintln(os.Stderr, "  sync [--project dir]                                   re-apply project config installs")
+	fmt.Fprintln(os.Stderr, "  freeze [--target dir] / export [--output file]         capture installed state")
+	fmt.Fprintln(os.Stderr, "  why <pack-id>                                          explain why a pack is installed")
+	fmt.Fprintln(os.Stderr, "  analytics <enable|disable|status>                      opt-in usage analytics")
 }

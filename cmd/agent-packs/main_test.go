@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -8,36 +10,53 @@ import (
 	"github.com/agent-packs/cli/internal/agentpacks"
 )
 
-func TestNormalizeInstallArgsMinTrust(t *testing.T) {
-	// Regression: --min-trust and its value were missing from the allowlist,
-	// causing them to be treated as pack IDs instead of a flag+value pair.
-	input := []string{"backend-engineer", "--min-trust", "community", "--dry-run"}
-	got := normalizeInstallArgs(input)
-	want := []string{"--min-trust", "community", "--dry-run", "backend-engineer"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("normalizeInstallArgs(%v) = %v; want %v", input, got, want)
+// parseFlags must accept flags after positionals for any registered flag —
+// including value flags like --min-trust, which the old hand-maintained
+// allowlists once missed (treating the value as a pack ID).
+func TestParseFlagsAcceptsFlagsAfterPositionals(t *testing.T) {
+	newSet := func() (*flag.FlagSet, *string, *bool) {
+		fs := flag.NewFlagSet("install", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		minTrust := fs.String("min-trust", "", "")
+		fs.String("agent", "", "")
+		dryRun := fs.Bool("dry-run", false, "")
+		return fs, minTrust, dryRun
+	}
+
+	fs, minTrust, dryRun := newSet()
+	if err := parseFlags(fs, []string{"backend-engineer", "--min-trust", "community", "--dry-run"}); err != nil {
+		t.Fatal(err)
+	}
+	if *minTrust != "community" || !*dryRun {
+		t.Fatalf("flags not parsed: min-trust=%q dry-run=%v", *minTrust, *dryRun)
+	}
+	if got := fs.Args(); !reflect.DeepEqual(got, []string{"backend-engineer"}) {
+		t.Fatalf("positionals = %v; want [backend-engineer]", got)
+	}
+
+	fs, minTrust, _ = newSet()
+	if err := parseFlags(fs, []string{"backend-engineer", "--min-trust=community"}); err != nil {
+		t.Fatal(err)
+	}
+	if *minTrust != "community" {
+		t.Fatalf("equal-form flag not parsed: %q", *minTrust)
 	}
 }
 
-func TestNormalizeInstallArgsMinTrustEqualForm(t *testing.T) {
-	input := []string{"backend-engineer", "--min-trust=community"}
-	got := normalizeInstallArgs(input)
-	want := []string{"--min-trust=community", "backend-engineer"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("normalizeInstallArgs(%v) = %v; want %v", input, got, want)
+// A bool flag must not swallow the following positional, and "--" must end
+// flag parsing.
+func TestParseFlagsBoolAndTerminator(t *testing.T) {
+	fs := flag.NewFlagSet("x", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	verbose := fs.Bool("verbose", false, "")
+	if err := parseFlags(fs, []string{"--verbose", "pack-a", "--", "--not-a-flag"}); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestNormalizeInstallArgsFlagsBeforePositionals(t *testing.T) {
-	// Standard flags should always be moved before positional pack IDs.
-	input := []string{"my-pack", "--agent", "claude", "--mode", "copy"}
-	got := normalizeInstallArgs(input)
-	// Flags should come first; positionals last.
-	if len(got) == 0 || got[len(got)-1] != "my-pack" {
-		t.Fatalf("pack ID should be last positional, got %v", got)
+	if !*verbose {
+		t.Fatal("bool flag not set")
 	}
-	if got[0] == "my-pack" {
-		t.Fatalf("pack ID should not be first when flags are present, got %v", got)
+	if got := fs.Args(); !reflect.DeepEqual(got, []string{"pack-a", "--not-a-flag"}) {
+		t.Fatalf("positionals = %v", got)
 	}
 }
 
@@ -113,12 +132,21 @@ func TestSearchResultsIncludeGuidanceWhenRequested(t *testing.T) {
 	}
 }
 
-func TestNormalizeSearchArgsAllowsFlagsAfterQuery(t *testing.T) {
-	input := []string{"backend", "--freshness", "fresh", "--why", "--guidance", "--limit=3"}
-	got := normalizeSearchArgs(input)
-	want := []string{"--freshness", "fresh", "--why", "--guidance", "--limit=3", "backend"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("normalizeSearchArgs(%v) = %v; want %v", input, got, want)
+func TestParseFlagsAllowsSearchFlagsAfterQuery(t *testing.T) {
+	fs := flag.NewFlagSet("search", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	freshness := fs.String("freshness", "", "")
+	why := fs.Bool("why", false, "")
+	guidance := fs.Bool("guidance", false, "")
+	limit := fs.Int("limit", 0, "")
+	if err := parseFlags(fs, []string{"backend", "--freshness", "fresh", "--why", "--guidance", "--limit=3"}); err != nil {
+		t.Fatal(err)
+	}
+	if *freshness != "fresh" || !*why || !*guidance || *limit != 3 {
+		t.Fatalf("flags not parsed: freshness=%q why=%v guidance=%v limit=%d", *freshness, *why, *guidance, *limit)
+	}
+	if got := fs.Args(); !reflect.DeepEqual(got, []string{"backend"}) {
+		t.Fatalf("positionals = %v; want [backend]", got)
 	}
 }
 
