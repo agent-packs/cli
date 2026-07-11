@@ -1,6 +1,9 @@
 package targets
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestNormalizeAgentClaudeCodeAlias(t *testing.T) {
 	if got := NormalizeAgent("claude-code"); got != "claude" {
@@ -9,7 +12,8 @@ func TestNormalizeAgentClaudeCodeAlias(t *testing.T) {
 	if !ValidAgent("claude-code") {
 		t.Fatal("claude-code alias should be valid")
 	}
-	if root := SkillTargetRoot("/tmp", "claude-code", "global"); root != "/tmp/.claude/skills" {
-		t.Fatalf("unexpected skill root: %s", root)
+	want := filepath.Join("/tmp", ".claude", "skills")
+	if root := SkillTargetRoot("/tmp", "claude-code", "global"); root != want {
+		t.Fatalf("unexpected skill root: %s (want %s)", root, want)
 	}
 }

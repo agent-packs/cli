@@ -49,8 +49,11 @@ func localSkillPack(source string) model.Pack {
 }
 
 func TestPolicyCheckAllowsLocalSource(t *testing.T) {
-	// Local sources resolve without network and are treated as pinned.
-	packs := writeRegistry(t, localSkillPack("/tmp/local-skill"))
+	// Local sources resolve without network and are treated as pinned. Use an
+	// OS-native absolute path: registry loading rebases sources that are not
+	// absolute on the host platform, so a hardcoded Unix path would be
+	// silently rewritten on Windows.
+	packs := writeRegistry(t, localSkillPack(filepath.Join(t.TempDir(), "local-skill")))
 	policyPath := writePolicy(t, model.TrustPolicy{RequirePinnedRefs: true})
 	var out strings.Builder
 	if err := PolicyCheck(packs, "p", policyPath, &out); err != nil {
@@ -62,8 +65,9 @@ func TestPolicyCheckAllowsLocalSource(t *testing.T) {
 }
 
 func TestPolicyCheckDeniesSource(t *testing.T) {
-	packs := writeRegistry(t, localSkillPack("/tmp/forbidden/skill"))
-	policyPath := writePolicy(t, model.TrustPolicy{DenySources: []string{"/tmp/forbidden"}})
+	forbidden := filepath.Join(t.TempDir(), "forbidden")
+	packs := writeRegistry(t, localSkillPack(filepath.Join(forbidden, "skill")))
+	policyPath := writePolicy(t, model.TrustPolicy{DenySources: []string{forbidden}})
 	var out strings.Builder
 	err := PolicyCheck(packs, "p", policyPath, &out)
 	if err == nil {
@@ -75,8 +79,9 @@ func TestPolicyCheckDeniesSource(t *testing.T) {
 }
 
 func TestPolicyCheckAllowSourcesRejectsUnlisted(t *testing.T) {
-	packs := writeRegistry(t, localSkillPack("/tmp/other/skill"))
-	policyPath := writePolicy(t, model.TrustPolicy{AllowSources: []string{"/tmp/approved"}})
+	base := t.TempDir()
+	packs := writeRegistry(t, localSkillPack(filepath.Join(base, "other", "skill")))
+	policyPath := writePolicy(t, model.TrustPolicy{AllowSources: []string{filepath.Join(base, "approved")}})
 	var out strings.Builder
 	err := PolicyCheck(packs, "p", policyPath, &out)
 	if err == nil {
