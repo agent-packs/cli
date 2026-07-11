@@ -114,7 +114,10 @@ type event struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-// Track fires an install/upgrade/uninstall event. Returns immediately; sends in background.
+// Track fires an install/upgrade/uninstall event. The send is synchronous with
+// a short timeout: a background goroutine would race process exit and the
+// event would almost never be delivered from a short-lived CLI run. Failures
+// are silently ignored — analytics must never break a command.
 func Track(home, eventName, packID, toolID, packVersion string) {
 	cfg, err := LoadConfig(home)
 	if err != nil || !cfg.Enabled || cfg.AnonymousID == "" {
@@ -135,21 +138,19 @@ func Track(home, eventName, packID, toolID, packVersion string) {
 		Arch:        runtime.GOARCH,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
-	go func() {
-		body, err := json.Marshal(e)
-		if err != nil {
-			return
-		}
-		client := &http.Client{Timeout: 3 * time.Second}
-		req, err := http.NewRequest("POST", ep, bytes.NewReader(body))
-		if err != nil {
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			return
-		}
-		resp.Body.Close()
-	}()
+	body, err := json.Marshal(e)
+	if err != nil {
+		return
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	req, err := http.NewRequest("POST", ep, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
 }

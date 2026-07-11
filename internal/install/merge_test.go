@@ -102,7 +102,7 @@ func TestMergeLifecycleInstallDriftUninstall(t *testing.T) {
 	}
 	plan := mergePlan(target, item)
 	result := ExecutePlan(plan, false)
-	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,7 +153,7 @@ func TestTOMLMergeLifecycleInstallDriftUninstall(t *testing.T) {
 	if got := result.Capabilities[0].Status; got != "installed" {
 		t.Fatalf("want installed, got %q: %s", got, result.Capabilities[0].Reason)
 	}
-	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	var clean strings.Builder
@@ -194,7 +194,7 @@ func TestManagedCommandLifecycleInstallDriftUninstall(t *testing.T) {
 	if got.ContentHash == "" {
 		t.Fatal("expected command content hash to be recorded")
 	}
-	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(dest)
@@ -257,7 +257,7 @@ func TestManagedToolDescriptorLifecycle(t *testing.T) {
 	if got.ContentHash == "" {
 		t.Fatal("expected tool content hash to be recorded")
 	}
-	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "mpack"}, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	if data, _ := os.ReadFile(dest); string(data) != item.Content {

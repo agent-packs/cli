@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/agent-packs/cli/internal/merge"
@@ -80,16 +81,23 @@ func InstallWithOptionsAndMinTrust(registryPath, home, packRef, target, agent, o
 		return err
 	}
 	result := ExecutePlan(installPlan, executePlugins)
-	receiptPath, err := WriteReceipt(absTarget, expanded, result)
+	registryCommit := registry.CheckoutCommit(registryPath)
+	receiptPath, err := WriteReceipt(absTarget, expanded, result, registryCommit)
 	if err != nil {
 		return err
 	}
-	if err := WriteLockfile(packDir, expanded); err != nil {
+	if err := WriteLockfile(packDir, expanded, registryCommit); err != nil {
 		return err
 	}
 	plan.PrintPlan(result, out)
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "Receipt: %s\n", receiptPath)
+	if options.Mode == "reference" {
+		// Reference mode is deliberately a record-only install; make that
+		// unmistakable so a first run doesn't read as a silent no-op.
+		fmt.Fprintln(out, "Recorded only (reference mode): no files were installed into the agent.")
+		fmt.Fprintln(out, "Re-run with --mode copy to materialize skills and managed files.")
+	}
 	for _, item := range result.Capabilities {
 		if item.Status == "failed" {
 			return model.ErrInstallFailed
@@ -119,22 +127,14 @@ func Upgrade(registryPath, home, packRef, target string, executePlugins, execute
 		Scope:       receipt.Plan.Scope,
 		ExecuteMCPs: executeMCPs,
 	}
-	only := "all"
-	skillCount, pluginCount := 0, 0
-	for _, item := range receipt.Plan.Capabilities {
-		switch item.Type {
-		case "skill":
-			skillCount++
-		case "plugin":
-			pluginCount++
-		}
+	// Replay the capability filter recorded at install time. Older receipts
+	// predate the field; default to "all" so an upgrade never silently drops
+	// capability types the original install materialized.
+	only := receipt.Plan.Only
+	if only == "" {
+		only = "all"
 	}
-	if skillCount > 0 && pluginCount == 0 {
-		only = "skills"
-	} else if pluginCount > 0 && skillCount == 0 {
-		only = "plugins"
-	}
-	fmt.Fprintf(out, "Upgrading %s (mode=%s, conflict=%s, scope=%s)\n", packRef, options.Mode, options.OnConflict, options.Scope)
+	fmt.Fprintf(out, "Upgrading %s (mode=%s, conflict=%s, scope=%s, only=%s)\n", packRef, options.Mode, options.OnConflict, options.Scope, only)
 	return InstallWithOptions(registryPath, home, packRef, target, receipt.Plan.Agent, only, executePlugins, false, options, out)
 }
 
@@ -177,7 +177,7 @@ func Rollback(target, packID string, out io.Writer) error {
 		}
 	}
 	result := ExecutePlan(previous.Plan, false)
-	if _, err := WriteReceiptWithoutSnapshot(absTarget, previous.Pack, result); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(absTarget, previous.Pack, result, previous.RegistryCommit); err != nil {
 		return err
 	}
 	packDir := filepath.Join(absTarget, "packs", packID)
@@ -187,7 +187,7 @@ func Rollback(target, packID string, out io.Writer) error {
 	if err := util.WriteJSON(filepath.Join(packDir, "agent-pack.json"), previous.Pack); err != nil {
 		return err
 	}
-	if err := WriteLockfile(packDir, previous.Pack); err != nil {
+	if err := WriteLockfile(packDir, previous.Pack, previous.RegistryCommit); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Rolled back %s using %s\n", packID, historyReceipt)
@@ -217,20 +217,25 @@ func ExecutePlan(installPlan model.Plan, executePlugins bool) model.Plan {
 	return installPlan
 }
 
-func WriteReceipt(target string, pack model.Pack, installPlan model.Plan) (string, error) {
+func WriteReceipt(target string, pack model.Pack, installPlan model.Plan, registryCommit string) (string, error) {
 	if err := SnapshotInstall(target, pack.ID); err != nil {
 		return "", err
 	}
-	return WriteReceiptWithoutSnapshot(target, pack, installPlan)
+	return WriteReceiptWithoutSnapshot(target, pack, installPlan, registryCommit)
 }
 
-func WriteReceiptWithoutSnapshot(target string, pack model.Pack, installPlan model.Plan) (string, error) {
+func WriteReceiptWithoutSnapshot(target string, pack model.Pack, installPlan model.Plan, registryCommit string) (string, error) {
 	receiptsDir := filepath.Join(target, "receipts")
 	if err := os.MkdirAll(receiptsDir, 0o755); err != nil {
 		return "", err
 	}
 	receiptPath := filepath.Join(receiptsDir, pack.ID+".json")
-	receipt := model.Receipt{InstalledAt: time.Now().UTC().Format(time.RFC3339Nano), Pack: pack, Plan: installPlan}
+	receipt := model.Receipt{
+		InstalledAt:    time.Now().UTC().Format(time.RFC3339Nano),
+		RegistryCommit: registryCommit,
+		Pack:           pack,
+		Plan:           installPlan,
+	}
 	return receiptPath, util.WriteJSON(receiptPath, receipt)
 }
 
@@ -290,8 +295,13 @@ func LoadReceipt(path string) (model.Receipt, error) {
 	return receipt, nil
 }
 
-func WriteLockfile(packDir string, pack model.Pack) error {
-	lock := model.Lockfile{GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano), Pack: pack.ID, Version: pack.Version}
+func WriteLockfile(packDir string, pack model.Pack, registryCommit string) error {
+	lock := model.Lockfile{
+		GeneratedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+		RegistryCommit: registryCommit,
+		Pack:           pack.ID,
+		Version:        pack.Version,
+	}
 	for _, capability := range pack.Capabilities {
 		entry := model.LockEntry{
 			Type: capability.Type, Name: capability.Name, Source: capability.Source,
@@ -578,12 +588,20 @@ func PackDiff(registryPath, target, packRef string, out io.Writer) error {
 
 // PinStatus is the pin verification state of one locked capability: "ok" when
 // the live source still matches the recorded pin, "unpinned" when no pin was
-// ever recorded, and "changed" when the live revision or checksum drifted.
+// ever recorded, "changed" when the live revision or checksum drifted, and
+// "unverifiable" when a recorded pin could not be re-resolved (unreachable or
+// deleted source). Unverifiable pins fail verification: an attacker who takes
+// a source offline must not produce a passing check.
 type PinStatus struct {
 	Name   string `json:"name"`
 	State  string `json:"state"`
 	Detail string `json:"detail,omitempty"`
 }
+
+// pinCheckWorkers bounds the parallelism of live pin verification. Each check
+// may hit the network (ls-remote, clone), so a small pool keeps a many-
+// capability pack fast without hammering the remotes.
+const pinCheckWorkers = 4
 
 // PinCheckResults re-resolves each locked capability's live source and reports
 // whether it still matches the pins recorded in the pack lockfile.
@@ -596,29 +614,55 @@ func PinCheckResults(registryPath, target, packRef string) ([]PinStatus, error) 
 	for _, capability := range expanded.Capabilities {
 		capByKey[capability.Type+":"+capability.Name] = capability
 	}
-	results := []PinStatus{}
+	results := make([]PinStatus, len(lock.Capabilities))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, pinCheckWorkers)
 	for i := range lock.Capabilities {
 		entry := &lock.Capabilities[i]
 		if entry.Revision == "" && entry.Integrity.Checksum == "" {
-			results = append(results, PinStatus{Name: entry.Name, State: "unpinned",
-				Detail: fmt.Sprintf("run `agent-packs pin %s` to record a pin", expanded.ID)})
+			results[i] = PinStatus{Name: entry.Name, State: "unpinned",
+				Detail: fmt.Sprintf("run `agent-packs pin %s` to record a pin", expanded.ID)}
 			continue
 		}
-		revision, checksum := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
-		var details []string
-		if entry.Revision != "" && revision != "" && revision != entry.Revision {
-			details = append(details, fmt.Sprintf("revision %s → %s", shortHash(entry.Revision), shortHash(revision)))
-		}
-		if entry.Integrity.Checksum != "" && checksum != "" && checksum != entry.Integrity.Checksum {
-			details = append(details, fmt.Sprintf("checksum %s → %s", shortHash(entry.Integrity.Checksum), shortHash(checksum)))
-		}
-		if len(details) > 0 {
-			results = append(results, PinStatus{Name: entry.Name, State: "changed", Detail: strings.Join(details, "; ")})
-		} else {
-			results = append(results, PinStatus{Name: entry.Name, State: "ok"})
-		}
+		wg.Add(1)
+		go func(i int, entry *model.LockEntry) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			results[i] = checkPinEntry(entry, capByKey[entry.Type+":"+entry.Name], target)
+		}(i, entry)
 	}
+	wg.Wait()
 	return results, nil
+}
+
+// checkPinEntry verifies one recorded pin against the live source, failing
+// closed: any recorded value that cannot be re-resolved is "unverifiable".
+func checkPinEntry(entry *model.LockEntry, capability model.Capability, target string) PinStatus {
+	live, resolveErr := resolvePin(entry, capability, target)
+	if resolveErr != nil {
+		return PinStatus{Name: entry.Name, State: "unverifiable",
+			Detail: fmt.Sprintf("recorded pin could not be re-resolved: %v", resolveErr)}
+	}
+	if entry.Revision != "" && live.revision == "" {
+		return PinStatus{Name: entry.Name, State: "unverifiable",
+			Detail: "recorded revision pin, but the live revision could not be resolved"}
+	}
+	if entry.Integrity.Checksum != "" && live.checksum == "" {
+		return PinStatus{Name: entry.Name, State: "unverifiable",
+			Detail: "recorded checksum pin, but the live content could not be fetched"}
+	}
+	var details []string
+	if entry.Revision != "" && live.revision != "" && live.revision != entry.Revision {
+		details = append(details, fmt.Sprintf("revision %s → %s", shortHash(entry.Revision), shortHash(live.revision)))
+	}
+	if entry.Integrity.Checksum != "" && live.checksum != "" && live.checksum != entry.Integrity.Checksum {
+		details = append(details, fmt.Sprintf("checksum %s → %s", shortHash(entry.Integrity.Checksum), shortHash(live.checksum)))
+	}
+	if len(details) > 0 {
+		return PinStatus{Name: entry.Name, State: "changed", Detail: strings.Join(details, "; ")}
+	}
+	return PinStatus{Name: entry.Name, State: "ok"}
 }
 
 func loadPackLock(registryPath, target, packRef string) (model.Pack, model.Lockfile, string, error) {
@@ -651,21 +695,24 @@ func PinPack(registryPath, target, packRef string, check bool, out io.Writer) er
 		if err != nil {
 			return err
 		}
-		drifted := 0
+		failed := 0
 		for _, result := range results {
 			switch result.State {
 			case "unpinned":
 				fmt.Fprintf(out, "UNPINNED %s — %s\n", result.Name, result.Detail)
 			case "changed":
 				fmt.Fprintf(out, "CHANGED  %s — %s\n", result.Name, result.Detail)
-				drifted++
+				failed++
+			case "unverifiable":
+				fmt.Fprintf(out, "UNVERIFIABLE %s — %s\n", result.Name, result.Detail)
+				failed++
 			default:
 				fmt.Fprintf(out, "OK       %s\n", result.Name)
 			}
 		}
 		fmt.Fprintln(out)
-		if drifted > 0 {
-			fmt.Fprintf(out, "%d/%d capabilities drifted from their pins\n", drifted, len(results))
+		if failed > 0 {
+			fmt.Fprintf(out, "%d/%d capabilities drifted from their pins or could not be verified\n", failed, len(results))
 			return model.ErrInstallFailed
 		}
 		fmt.Fprintf(out, "All %d capabilities match their pins\n", len(results))
@@ -682,50 +729,93 @@ func PinPack(registryPath, target, packRef string, check bool, out io.Writer) er
 	}
 
 	pinned := 0
+	var warnings []string
 	for i := range lock.Capabilities {
 		entry := &lock.Capabilities[i]
-		revision, checksum := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
-		if revision != "" {
-			entry.Revision = revision
+		live, err := resolvePin(entry, capByKey[entry.Type+":"+entry.Name], target)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: %v", entry.Name, err))
 		}
-		if checksum != "" {
-			entry.Integrity.Checksum = checksum
+		if live.revision != "" {
+			entry.Revision = live.revision
+		}
+		if live.checksum != "" {
+			entry.Integrity.Checksum = live.checksum
 		}
 		entry.ResolvedAt = time.Now().UTC().Format(time.RFC3339Nano)
 		pinned++
-		fmt.Fprintf(out, "pinned   %s  rev=%s  sha256=%s\n", entry.Name, shortHash(entry.Revision), shortHash(entry.Integrity.Checksum))
+		fmt.Fprintf(out, "pinned   %s  rev=%s  checksum=%s\n", entry.Name, shortHash(entry.Revision), shortHash(entry.Integrity.Checksum))
 	}
 	if err := util.WriteJSON(lockPath, lock); err != nil {
 		return err
 	}
+	for _, warning := range warnings {
+		fmt.Fprintf(out, "WARN  could not fully resolve %s\n", warning)
+	}
 	fmt.Fprintf(out, "\nPinned %d capabilities into %s\n", pinned, lockPath)
+	if len(warnings) > 0 {
+		return fmt.Errorf("%d capability source(s) could not be resolved while pinning: %w", len(warnings), model.ErrInstallFailed)
+	}
 	return nil
 }
 
+// pinResolution carries the live values for one lock entry: the source's
+// current revision and the content checksum of the materialized skill tree.
+type pinResolution struct {
+	revision string
+	checksum string
+}
+
 // resolvePin returns the live revision and content checksum for a lock entry.
-// Both are best-effort: a moving ref resolves to its current commit SHA via
-// `git ls-remote`, and a skill's entry file is hashed after materializing the
-// source. Failures (offline, private repo) yield empty strings rather than error.
-func resolvePin(entry *model.LockEntry, capability model.Capability, target string) (revision, checksum string) {
-	revision = resolve.ResolveSourceLive(entry.Source).Revision
-	if entry.Type != "skill" {
-		return revision, ""
-	}
-	item := capability.Entry
-	if item == "" {
-		item = "SKILL.md"
-	}
-	dir, cleanup, err := resolve.MaterializeSkillSource(entry.Source, util.ExpandHome(target))
+// A moving ref resolves to its current commit SHA via `git ls-remote`; a
+// skill's content is hashed after materializing the source — as a whole-tree
+// dirsha256 digest by default, or as an entry-file sha256 when the recorded
+// pin used that older format. The error reports any live value that could not
+// be resolved so callers can fail closed.
+func resolvePin(entry *model.LockEntry, capability model.Capability, target string) (pinResolution, error) {
+	var live pinResolution
+	var errs []string
+	resolution, err := resolve.ResolveSourceLiveErr(entry.Source)
 	if err != nil {
-		return revision, ""
+		errs = append(errs, fmt.Sprintf("live revision unavailable: %v", err))
+	} else {
+		live.revision = resolution.Revision
 	}
-	if cleanup != nil {
-		defer cleanup()
+	if entry.Type == "skill" {
+		dir, cleanup, err := resolve.MaterializeSkillSource(entry.Source, util.ExpandHome(target))
+		if cleanup != nil {
+			defer cleanup()
+		}
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("source unavailable for checksum: %v", err))
+		} else {
+			live.checksum, err = hashPinContent(dir, capability.Entry, entry.Integrity.Checksum)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("checksum unavailable: %v", err))
+			}
+		}
 	}
-	if sum, err := resolve.HashFile(filepath.Join(dir, item)); err == nil {
-		checksum = sum
+	if len(errs) > 0 {
+		return live, fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
-	return revision, checksum
+	return live, nil
+}
+
+// hashPinContent hashes a materialized skill source in the same format as the
+// recorded pin: legacy sha256: pins hash the entry file only, everything else
+// (including fresh pins) hashes the whole tree so every skill file is covered.
+func hashPinContent(dir, entry, recorded string) (string, error) {
+	if strings.HasPrefix(recorded, "sha256:") {
+		if entry == "" {
+			entry = "SKILL.md"
+		}
+		path := dir
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			path = filepath.Join(dir, entry)
+		}
+		return resolve.HashFile(path)
+	}
+	return resolve.HashTree(dir)
 }
 
 func shortHash(s string) string {
@@ -1022,8 +1112,10 @@ func installSkill(item model.PlanItem, target string) model.PlanItem {
 		defer cleanup()
 	}
 	if err != nil {
-		item.Status = "pending"
-		item.Reason = err.Error()
+		// An unreachable source is a hard failure: a network error must not
+		// let the install exit 0 with nothing materialized.
+		item.Status = "failed"
+		item.Reason = fmt.Sprintf("skill source unavailable: %v", err)
 		return item
 	}
 	if item.Action == "symlink" {
@@ -1040,7 +1132,18 @@ func symlinkSkillFromSource(item model.PlanItem, source string) model.PlanItem {
 		return item
 	}
 	if _, err := os.Stat(source); err != nil {
-		item.Status = "pending"
+		item.Status = "failed"
+		item.Reason = fmt.Sprintf("skill source unavailable: %v", err)
+		return item
+	}
+	entry := item.Entry
+	if entry == "" {
+		entry = "SKILL.md"
+	}
+	// Verify integrity against the source before linking it into the agent's
+	// live skill directory, so tampered content is never exposed to the agent.
+	if err := resolve.VerifySkillIntegrity(source, entry, item.ExpectedChecksum, item.ExpectedSignature); err != nil {
+		item.Status = "failed"
 		item.Reason = err.Error()
 		return item
 	}
@@ -1053,15 +1156,6 @@ func symlinkSkillFromSource(item model.PlanItem, source string) model.PlanItem {
 		return item
 	}
 	if err := os.Symlink(source, destination); err != nil {
-		item.Status = "failed"
-		item.Reason = err.Error()
-		return item
-	}
-	entry := item.Entry
-	if entry == "" {
-		entry = "SKILL.md"
-	}
-	if err := resolve.VerifySkillIntegrity(source, entry, item.ExpectedChecksum, item.ExpectedSignature); err != nil {
 		item.Status = "failed"
 		item.Reason = err.Error()
 		return item
@@ -1079,7 +1173,7 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 	}
 	info, err := os.Stat(source)
 	if err != nil {
-		item.Status = "pending"
+		item.Status = "failed"
 		item.Reason = fmt.Sprintf("skill source unavailable: %v", err)
 		return item
 	}
@@ -1094,6 +1188,14 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 	if _, err := os.Stat(entryPath); err != nil {
 		item.Status = "failed"
 		item.Reason = fmt.Sprintf("skill entry not found: %s", entry)
+		return item
+	}
+	// Verify integrity against the materialized source before any file lands
+	// in the destination, so a checksum mismatch never leaves tampered content
+	// in the agent's live skill directory.
+	if err := resolve.VerifySkillIntegrity(source, entry, item.ExpectedChecksum, item.ExpectedSignature); err != nil {
+		item.Status = "failed"
+		item.Reason = err.Error()
 		return item
 	}
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
@@ -1113,11 +1215,6 @@ func copySkillFromSource(item model.PlanItem, source string) model.PlanItem {
 		}
 	}
 	if err != nil {
-		item.Status = "failed"
-		item.Reason = err.Error()
-		return item
-	}
-	if err := resolve.VerifySkillIntegrity(destination, entry, item.ExpectedChecksum, item.ExpectedSignature); err != nil {
 		item.Status = "failed"
 		item.Reason = err.Error()
 		return item
@@ -1158,15 +1255,20 @@ func handleDestinationConflict(destination, onConflict string, item *model.PlanI
 	}
 }
 
-var trustOrder = map[string]int{"core": 3, "community": 2, "tap": 1, "unverified": 0, "": 0}
+// trustOrder ranks the registry schema's trust taxonomy (see
+// internal/validate/trust.go): official > verified > community > unknown.
+var trustOrder = map[string]int{"official": 3, "verified": 2, "community": 1, "unknown": 0, "": 0}
 
 func checkTrustLevel(pack model.Pack, minTrust string) error {
+	if _, ok := trustOrder[minTrust]; !ok {
+		return fmt.Errorf("invalid --min-trust %q: expected official, verified, community, or unknown", minTrust)
+	}
 	packLevel := trustOrder[pack.Trust]
 	required := trustOrder[minTrust]
 	if packLevel < required {
 		t := pack.Trust
 		if t == "" {
-			t = "unverified"
+			t = "unknown"
 		}
 		return fmt.Errorf("pack %q trust level %q is below required %q", pack.ID, t, minTrust)
 	}

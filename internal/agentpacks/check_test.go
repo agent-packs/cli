@@ -124,13 +124,16 @@ func TestCheckJSONReportsStructuredResults(t *testing.T) {
 	}
 }
 
-func TestCheckPassesQuietlyWithNoInstalledPacks(t *testing.T) {
+// A CI gate must not pass when there is nothing to verify: running check from
+// the wrong directory (or before any install) has to fail loudly, not exit 0.
+func TestCheckFailsWithNoInstalledPacks(t *testing.T) {
 	temp := t.TempDir()
 	var out strings.Builder
-	if err := Check(filepath.Join(temp, "packs"), temp, "", false, &out); err != nil {
-		t.Fatalf("expected empty target to pass, got: %v", err)
+	err := Check(filepath.Join(temp, "packs"), temp, "", false, &out)
+	if err == nil {
+		t.Fatalf("expected empty target to fail the gate, output:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "No installed packs found") {
+	if !strings.Contains(out.String(), "no installed packs found") {
 		t.Fatalf("unexpected output:\n%s", out.String())
 	}
 }

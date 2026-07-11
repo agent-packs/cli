@@ -11,29 +11,43 @@ import (
 )
 
 func TestCheckTrustLevelBlocksBelowMinimum(t *testing.T) {
-	pack := model.Pack{ID: "test-pack", Trust: ""}
-	err := checkTrustLevel(pack, "community")
-	if err == nil {
-		t.Fatal("expected error when trust=unverified and min-trust=community")
+	cases := []struct{ trust, minTrust string }{
+		{"", "community"},
+		{"unknown", "community"},
+		{"community", "verified"},
+		{"verified", "official"},
 	}
-	if !strings.Contains(err.Error(), "unverified") || !strings.Contains(err.Error(), "community") {
-		t.Fatalf("unexpected error message: %v", err)
+	for _, c := range cases {
+		pack := model.Pack{ID: "test-pack", Trust: c.trust}
+		if err := checkTrustLevel(pack, c.minTrust); err == nil {
+			t.Errorf("trust=%q min-trust=%q: expected error", c.trust, c.minTrust)
+		}
 	}
 }
 
 func TestCheckTrustLevelAllowsAtOrAboveMinimum(t *testing.T) {
 	cases := []struct{ trust, minTrust string }{
-		{"core", "core"},
-		{"core", "community"},
+		{"official", "official"},
+		{"official", "verified"},
+		{"official", "community"},
+		{"verified", "verified"},
+		{"verified", "community"},
 		{"community", "community"},
-		{"community", "tap"},
-		{"", "unverified"},
+		{"", "unknown"},
 	}
 	for _, c := range cases {
 		pack := model.Pack{ID: "test-pack", Trust: c.trust}
 		if err := checkTrustLevel(pack, c.minTrust); err != nil {
 			t.Errorf("trust=%q min-trust=%q: unexpected error: %v", c.trust, c.minTrust, err)
 		}
+	}
+}
+
+func TestCheckTrustLevelRejectsUnknownMinTrust(t *testing.T) {
+	pack := model.Pack{ID: "test-pack", Trust: "official"}
+	err := checkTrustLevel(pack, "core")
+	if err == nil || !strings.Contains(err.Error(), "invalid --min-trust") {
+		t.Fatalf("expected invalid --min-trust error, got %v", err)
 	}
 }
 
@@ -90,7 +104,7 @@ func TestDriftCheckReportsReferenceModeInsteadOfEmpty(t *testing.T) {
 			{Type: "skill", Name: "skill-b", Action: "reference", Status: "referenced"},
 		},
 	}
-	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "ref-pack"}, plan); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "ref-pack"}, plan, ""); err != nil {
 		t.Fatal(err)
 	}
 	var out strings.Builder
@@ -126,7 +140,7 @@ func TestDriftCheckFlagsMissingMaterializedCapability(t *testing.T) {
 				Destination: filepath.Join(target, "does-not-exist", "gone")},
 		},
 	}
-	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "copy-pack"}, plan); err != nil {
+	if _, err := WriteReceiptWithoutSnapshot(target, model.Pack{ID: "copy-pack"}, plan, ""); err != nil {
 		t.Fatal(err)
 	}
 	var out strings.Builder
@@ -196,8 +210,44 @@ func TestPinPackRecordsChecksum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := lock.Capabilities[0].Integrity.Checksum; !strings.HasPrefix(got, "sha256:") {
-		t.Fatalf("expected a sha256 checksum to be recorded, got %q", got)
+	// Fresh pins record whole-tree digests so every file in the skill
+	// directory is covered, not just the entry file.
+	if got := lock.Capabilities[0].Integrity.Checksum; !strings.HasPrefix(got, "dirsha256:") {
+		t.Fatalf("expected a dirsha256 tree checksum to be recorded, got %q", got)
+	}
+}
+
+// A pinned capability whose source disappears (repo deleted, network gone)
+// must fail verification, not silently report OK: an attacker who takes a
+// source offline must not produce a passing supply-chain gate.
+func TestPinCheckFailsClosedWhenSourceDisappears(t *testing.T) {
+	registryPacks, target, packID := pinTestSetup(t)
+	if err := PinPack(registryPacks, target, packID, false, &strings.Builder{}); err != nil {
+		t.Fatalf("pin failed: %v", err)
+	}
+
+	lock, err := LoadLockfile(filepath.Join(target, "packs", packID, "agent-pack.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(lock.Capabilities[0].Source); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := PinCheckResults(registryPacks, target, packID)
+	if err != nil {
+		t.Fatalf("pin check errored instead of reporting: %v", err)
+	}
+	if len(results) != 1 || results[0].State != "unverifiable" {
+		t.Fatalf("expected unverifiable state, got %+v", results)
+	}
+
+	var out strings.Builder
+	if err := PinPack(registryPacks, target, packID, true, &out); err == nil {
+		t.Fatalf("expected pin --check to fail, output:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "UNVERIFIABLE") {
+		t.Fatalf("expected UNVERIFIABLE in output, got:\n%s", out.String())
 	}
 }
 
