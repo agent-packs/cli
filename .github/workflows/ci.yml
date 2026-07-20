@@ -23,7 +23,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.26"
           cache-dependency-path: go.sum
@@ -45,7 +45,7 @@ jobs:
       # The Python integration suite drives the built binary with temp
       # registries. It exercises POSIX paths/symlinks, so it runs on the
       # Unix legs of the matrix.
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: matrix.os != 'windows-latest'
         with:
           python-version: "3.x"
