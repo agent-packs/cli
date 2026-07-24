@@ -83,7 +83,7 @@ func TestWriteReceipt(t *testing.T) {
 	plan := BuildInstallPlanWithOptions(pack, temp, "generic", "plugins", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 	result := ExecutePlan(plan, false)
 
-	receiptPath, err := WriteReceipt(temp, pack, result)
+	receiptPath, err := WriteReceipt(temp, pack, result, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestValidatePackRequiresExecutionForPluginUninstallCommands(t *testing.T) {
 func TestWriteLockfile(t *testing.T) {
 	temp := t.TempDir()
 	pack := testPack("/tmp/example-skill")
-	if err := WriteLockfile(temp, pack); err != nil {
+	if err := WriteLockfile(temp, pack, ""); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(temp, "agent-pack.lock"))
@@ -347,7 +347,7 @@ func TestUninstallRemovesInstalledSkillAndReceipt(t *testing.T) {
 	pack := testPack(skill)
 	plan := BuildInstallPlanWithOptions(pack, temp, "codex", "skills", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 	result := ExecutePlan(plan, false)
-	if _, err := WriteReceipt(temp, pack, result); err != nil {
+	if _, err := WriteReceipt(temp, pack, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	installed := filepath.Join(temp, ".codex", "skills", "example-skill")
@@ -383,7 +383,7 @@ func TestUninstallExecutesPluginCleanupWhenOptedIn(t *testing.T) {
 	}
 	plan := BuildInstallPlanWithOptions(pack, temp, "codex", "plugins", InstallOptions{Mode: "copy", OnConflict: "overwrite"})
 	result := ExecutePlan(plan, false)
-	if _, err := WriteReceipt(temp, pack, result); err != nil {
+	if _, err := WriteReceipt(temp, pack, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("AGENT_PACKS_PLUGIN_CWD", temp)
@@ -467,7 +467,7 @@ func TestListStandaloneDiscoversPackAndExternalSkills(t *testing.T) {
 		{Type: "skill", Name: "Debugging Workflow", Version: "0.4.0"},
 		{Type: "plugin", Name: "Distribution Plugin", Version: "0.9.0"},
 	}}
-	if _, err := WriteReceipt(temp, pack, packPlan); err != nil {
+	if _, err := WriteReceipt(temp, pack, packPlan, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -718,13 +718,13 @@ func TestRollbackRestoresPreviousReceipt(t *testing.T) {
 	pack.Skills = CapabilityRefs{{ID: "remote", Source: "https://example.com/skill", Format: "agent-skill"}}
 	plan := BuildInstallPlanWithOptions(pack, temp, "generic", "skills", InstallOptions{Mode: "reference", OnConflict: "skip"})
 	result := ExecutePlan(plan, false)
-	if _, err := WriteReceipt(temp, pack, result); err != nil {
+	if _, err := WriteReceipt(temp, pack, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	pack.Version = "0.2.0"
 	plan = BuildInstallPlanWithOptions(pack, temp, "generic", "skills", InstallOptions{Mode: "reference", OnConflict: "skip"})
 	result = ExecutePlan(plan, false)
-	if _, err := WriteReceipt(temp, pack, result); err != nil {
+	if _, err := WriteReceipt(temp, pack, result, ""); err != nil {
 		t.Fatal(err)
 	}
 	var output strings.Builder

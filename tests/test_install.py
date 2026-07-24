@@ -235,8 +235,9 @@ class InstallCommandTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("==> Upgrading first (1/2)", result.stdout)
             self.assertIn("==> Upgrading second (2/2)", result.stdout)
-            self.assertIn("Upgrading first (mode=copy, conflict=skip, scope=target)", result.stdout)
-            self.assertIn("Upgrading second (mode=copy, conflict=skip, scope=target)", result.stdout)
+            # Upgrade replays the capability filter recorded at install time.
+            self.assertIn("Upgrading first (mode=copy, conflict=skip, scope=target, only=skills)", result.stdout)
+            self.assertIn("Upgrading second (mode=copy, conflict=skip, scope=target, only=skills)", result.stdout)
             self.assertTrue((target / "receipts" / "first.json").exists())
             self.assertTrue((target / "receipts" / "second.json").exists())
 

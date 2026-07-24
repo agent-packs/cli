@@ -150,14 +150,16 @@ func UninstallWithOptions(target, packID string, executePlugins, executeMCPs boo
 	return install.UninstallWithOptions(target, packID, executePlugins, executeMCPs, out)
 }
 func ExecutePlan(p Plan, executePlugins bool) Plan { return install.ExecutePlan(p, executePlugins) }
-func WriteReceipt(target string, pack Pack, p Plan) (string, error) {
-	return install.WriteReceipt(target, pack, p)
+func WriteReceipt(target string, pack Pack, p Plan, registryCommit string) (string, error) {
+	return install.WriteReceipt(target, pack, p, registryCommit)
 }
 func WriteStandaloneReceipt(target, kind, id string, pack Pack, p Plan) (string, error) {
 	return install.WriteStandaloneReceipt(target, kind, id, pack, p)
 }
-func LoadReceipt(path string) (Receipt, error)         { return install.LoadReceipt(path) }
-func WriteLockfile(packDir string, pack Pack) error    { return install.WriteLockfile(packDir, pack) }
+func LoadReceipt(path string) (Receipt, error) { return install.LoadReceipt(path) }
+func WriteLockfile(packDir string, pack Pack, registryCommit string) error {
+	return install.WriteLockfile(packDir, pack, registryCommit)
+}
 func LoadLockfile(path string) (Lockfile, error)       { return install.LoadLockfile(path) }
 func ListInstalled(target string, out io.Writer) error { return install.ListInstalled(target, out) }
 func ListInstalledReceipts(target string) ([]InstalledSummary, error) {

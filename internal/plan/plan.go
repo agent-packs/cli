@@ -19,6 +19,9 @@ func BuildInstallPlan(pack model.Pack, target, agent, only string) model.Plan {
 
 func BuildInstallPlanWithOptions(pack model.Pack, target, agent, only string, options model.InstallOptions) model.Plan {
 	options = normalizeInstallOptions(options)
+	if only == "" {
+		only = "all"
+	}
 	items := []model.PlanItem{}
 	for _, capability := range selectCapabilities(pack.Capabilities, only) {
 		items = append(items, planCapability(pack.ID, capability, target, agent, options))
@@ -26,7 +29,7 @@ func BuildInstallPlanWithOptions(pack model.Pack, target, agent, only string, op
 	return model.Plan{
 		Pack: pack.ID, Version: pack.Version, Agent: agent, Target: target,
 		Mode: options.Mode, OnConflict: options.OnConflict, Scope: options.Scope,
-		Capabilities: items,
+		Only: only, Capabilities: items,
 	}
 }
 

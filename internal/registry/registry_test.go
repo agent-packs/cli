@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func mustJSON(t *testing.T, value any) []byte {
@@ -434,7 +435,10 @@ func TestGenerateIndexRestampsWhenContentChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Adding a pack changes content, so generatedAt must advance.
+	// Adding a pack changes content, so generatedAt must advance. Sleep past
+	// the coarsest clock granularity (Windows ticks at up to ~15.6ms) so two
+	// back-to-back generations cannot land on the same timestamp.
+	time.Sleep(25 * time.Millisecond)
 	writeMinimalPack(t, dir, "gamma")
 	if err := GenerateIndex(dir, out, io.Discard); err != nil {
 		t.Fatal(err)

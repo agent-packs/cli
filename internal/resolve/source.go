@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"regexp"
 	"strings"
 
@@ -85,7 +85,7 @@ func parseGitHubTree(source string) (repo, branch, subpath string) {
 	}
 	subpath = ""
 	if len(parts) > 4 {
-		subpath = filepath.Join(parts[4:]...)
+		subpath = path.Join(parts[4:]...)
 	}
 	return "https://github.com/" + parts[0] + "/" + parts[1] + ".git", parts[3], subpath
 }
@@ -104,7 +104,7 @@ func parseGitHubCommit(source string) (repo, commit, subpath string) {
 	}
 	sub := ""
 	if len(parts) > 4 {
-		sub = filepath.Join(parts[4:]...)
+		sub = path.Join(parts[4:]...)
 	}
 	return "https://github.com/" + parts[0] + "/" + parts[1] + ".git", parts[3], sub
 }
@@ -120,7 +120,7 @@ func parseGitLabTree(source string) (repo, branch, subpath string) {
 			project := strings.Join(parts[:i], "/")
 			branch = parts[i+2]
 			if i+3 < len(parts) {
-				subpath = filepath.Join(parts[i+3:]...)
+				subpath = path.Join(parts[i+3:]...)
 			}
 			scheme := u.Scheme
 			if scheme == "" {

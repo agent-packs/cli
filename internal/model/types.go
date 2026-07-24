@@ -223,13 +223,16 @@ type InstallOptions struct {
 }
 
 type Plan struct {
-	Pack         string     `json:"pack"`
-	Version      string     `json:"version"`
-	Agent        string     `json:"agent"`
-	Target       string     `json:"target"`
-	Mode         string     `json:"mode"`
-	OnConflict   string     `json:"onConflict"`
-	Scope        string     `json:"scope"`
+	Pack       string `json:"pack"`
+	Version    string `json:"version"`
+	Agent      string `json:"agent"`
+	Target     string `json:"target"`
+	Mode       string `json:"mode"`
+	OnConflict string `json:"onConflict"`
+	Scope      string `json:"scope"`
+	// Only records the capability filter the plan was built with so upgrade
+	// can replay the same selection instead of guessing from plan contents.
+	Only         string     `json:"only,omitempty"`
 	Capabilities []PlanItem `json:"capabilities"`
 }
 
@@ -273,15 +276,21 @@ type PlanItem struct {
 
 type Receipt struct {
 	InstalledAt string `json:"installed_at"`
-	Pack        Pack   `json:"pack"`
-	Plan        Plan   `json:"plan"`
+	// RegistryCommit records the commit of the registry checkout the pack was
+	// resolved from, so an install can be traced back to exact registry state.
+	RegistryCommit string `json:"registryCommit,omitempty"`
+	Pack           Pack   `json:"pack"`
+	Plan           Plan   `json:"plan"`
 }
 
 type Lockfile struct {
-	GeneratedAt  string      `json:"generated_at"`
-	Pack         string      `json:"pack"`
-	Version      string      `json:"version"`
-	Capabilities []LockEntry `json:"capabilities"`
+	GeneratedAt string `json:"generated_at"`
+	// RegistryCommit records the registry checkout commit the lock was
+	// generated from (see Receipt.RegistryCommit).
+	RegistryCommit string      `json:"registryCommit,omitempty"`
+	Pack           string      `json:"pack"`
+	Version        string      `json:"version"`
+	Capabilities   []LockEntry `json:"capabilities"`
 }
 
 type LockEntry struct {

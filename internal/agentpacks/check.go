@@ -28,6 +28,9 @@ type CheckReport struct {
 	Failures int                 `json:"failures"`
 	Warnings int                 `json:"warnings"`
 	OK       bool                `json:"ok"`
+	// Note carries a target-level failure explanation, e.g. when no packs are
+	// installed at the target and the gate has nothing to verify.
+	Note string `json:"note,omitempty"`
 }
 
 // BuildCheckReport runs every gate that `agent-packs check` enforces:
@@ -42,6 +45,14 @@ func BuildCheckReport(registry, target, policyPath string) (CheckReport, error) 
 	if err != nil {
 		return report, err
 	}
+	// An empty target fails closed: a CI gate that silently passes when run
+	// from the wrong directory (or before any install) verifies nothing.
+	if len(installed) == 0 {
+		report.Note = fmt.Sprintf("no installed packs found at %s — nothing to verify (wrong --target?)", target)
+		report.Failures++
+		report.OK = false
+		return report, nil
+	}
 	for _, summary := range installed {
 		packReport := CheckPackReport{ID: summary.ID}
 		pins, err := install.PinCheckResults(registry, target, summary.ID)
@@ -52,7 +63,7 @@ func BuildCheckReport(registry, target, policyPath string) (CheckReport, error) 
 			packReport.Pins = pins
 			for _, pin := range pins {
 				switch pin.State {
-				case "changed":
+				case "changed", "unverifiable":
 					report.Failures++
 				case "unpinned":
 					report.Warnings++
@@ -108,8 +119,8 @@ func Check(registry, target, policyPath string, asJSON bool, out io.Writer) erro
 	}
 
 	if len(report.Packs) == 0 {
-		fmt.Fprintln(out, "No installed packs found")
-		return nil
+		fmt.Fprintf(out, "check failed: %s\n", report.Note)
+		return checkFailed(report)
 	}
 
 	fmt.Fprintln(out, "Pins")
@@ -122,6 +133,8 @@ func Check(registry, target, policyPath string, asJSON bool, out io.Writer) erro
 			switch pin.State {
 			case "changed":
 				fmt.Fprintf(out, "  CHANGED  %s/%s — %s\n", pack.ID, pin.Name, pin.Detail)
+			case "unverifiable":
+				fmt.Fprintf(out, "  UNVERIFIABLE %s/%s — %s\n", pack.ID, pin.Name, pin.Detail)
 			case "unpinned":
 				fmt.Fprintf(out, "  UNPINNED %s/%s — %s\n", pack.ID, pin.Name, pin.Detail)
 			default:
