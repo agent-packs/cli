@@ -156,6 +156,9 @@ func MaterializeSkillSource(source, target string) (string, func(), error) {
 	}
 	materializeMu.Unlock()
 	entry.once.Do(func() {
+		if (kind == "github-commit" || isCommitSHA(ref)) && cachedCommitMatches(cache, ref) {
+			return
+		}
 		entry.err = materializeGitSource(repo, ref, kind, cache)
 	})
 	if entry.err != nil {
@@ -173,8 +176,6 @@ func materializeGitSource(repo, ref, kind, cache string) error {
 	tmp := cache + ".tmp"
 	_ = os.RemoveAll(tmp)
 	var cloneErr error
-	// A tree URL whose ref is a commit SHA (a pinned source) cannot be cloned
-	// with --branch; fetch the commit directly like github-commit sources.
 	if kind == "github-commit" || isCommitSHA(ref) {
 		cloneErr = cloneCommit(repo, ref, tmp)
 	} else {
@@ -190,6 +191,14 @@ func materializeGitSource(repo, ref, kind, cache string) error {
 		return fmt.Errorf("failed to update source cache: %w", err)
 	}
 	return nil
+}
+
+func cachedCommitMatches(cache, sha string) bool {
+	out, err := exec.Command("git", "-C", cache, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(string(out)), sha)
 }
 
 // cloneCommit fetches a single commit by SHA without cloning the full history,

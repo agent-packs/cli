@@ -43,7 +43,7 @@ func TestMetadataCoverageCountsRequirementsRefsAndFreshness(t *testing.T) {
 		},
 	}
 
-	report := MetadataCoverage(packs, now)
+	report := MetadataCoverage(t.TempDir(), packs, now)
 	if report.Packs != 4 {
 		t.Fatalf("packs = %d; want 4", report.Packs)
 	}
@@ -71,7 +71,7 @@ func packRefFromJSON(t *testing.T, raw string) model.CapabilityRef {
 }
 
 func TestMetadataChecksWarnWithoutFailingPublishReport(t *testing.T) {
-	report := MetadataCoverage([]model.Pack{{
+	report := MetadataCoverage(t.TempDir(), []model.Pack{{
 		ID:           "missing-requirements",
 		LastVerified: "2026-06-01",
 		Skills: model.CapabilityRefs{

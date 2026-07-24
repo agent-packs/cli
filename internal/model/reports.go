@@ -75,7 +75,17 @@ type MetadataCoverageReport struct {
 	Packs     int                       `json:"packs"`
 	Fields    []MetadataFieldCoverage   `json:"fields"`
 	Refs      MetadataRefCoverage       `json:"refs"`
+	Pinning   MetadataPinningCoverage   `json:"pinning"`
 	Freshness MetadataFreshnessCoverage `json:"freshness"`
+}
+
+// MetadataPinningCoverage reports provenance the CLI computed from manifest
+// sources (commit-pinned or checksummed), as opposed to self-asserted labels.
+type MetadataPinningCoverage struct {
+	FullyPinned   int      `json:"fullyPinned"` // every remote source pinned, or no remote sources
+	Partial       int      `json:"partial"`
+	Unpinned      int      `json:"unpinned"`
+	UnpinnedPacks []string `json:"unpinnedPacks,omitempty"`
 }
 
 type MetadataFieldCoverage struct {

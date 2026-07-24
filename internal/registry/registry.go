@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/resolve"
 	"github.com/agent-packs/cli/internal/targets"
 	"github.com/agent-packs/cli/internal/util"
 )
@@ -73,6 +74,20 @@ func FindPack(registry, id string) (model.Pack, error) {
 }
 
 func ResolvePack(defaultRegistry, home, ref string) (model.Pack, string, error) {
+	// A ref that names a manifest file on disk (e.g. ./agent-pack.json from
+	// `agent-packs snapshot`) installs that pack directly; bare refs inside it
+	// resolve against the manifest's directory.
+	if strings.HasSuffix(ref, ".json") {
+		if abs, err := filepath.Abs(util.ExpandHome(ref)); err == nil {
+			if info, statErr := os.Stat(abs); statErr == nil && !info.IsDir() {
+				pack, err := LoadPack(abs)
+				if err != nil {
+					return model.Pack{}, "", err
+				}
+				return pack, filepath.Dir(abs), nil
+			}
+		}
+	}
 	packID, versionPin := splitVersionPin(ref)
 	if !strings.Contains(packID, "/") {
 		pack, err := FindPack(defaultRegistry, packID)
@@ -116,7 +131,15 @@ func Search(registry, query string, out io.Writer) error {
 		return model.ErrNotFound
 	}
 	for _, pack := range matches {
-		fmt.Fprintf(out, "%s\t%s\t%s\n", pack.ID, pack.Name, strings.Join(pack.Tags, ", "))
+		marker := ""
+		if pack.Deprecated || pack.Stability == "deprecated" {
+			marker = " [DEPRECATED"
+			if pack.Replacement != "" {
+				marker += " → " + pack.Replacement
+			}
+			marker += "]"
+		}
+		fmt.Fprintf(out, "%s%s\t%s\t%s\n", pack.ID, marker, pack.Name, strings.Join(pack.Tags, ", "))
 	}
 	return nil
 }
@@ -247,7 +270,7 @@ func Show(registry, id string, out io.Writer) error {
 	fmt.Fprintf(out, "Version: %s\n", pack.Version)
 	fmt.Fprintf(out, "License: %s\n", license)
 	fmt.Fprintf(out, "Tags: %s\n", strings.Join(pack.Tags, ", "))
-	printTrustSnapshot(out, buildTrustSnapshot(pack))
+	printTrustSnapshot(out, buildTrustSnapshot(registry, pack))
 	if len(pack.UseCases) > 0 {
 		fmt.Fprintln(out, "Use cases:")
 		for _, useCase := range pack.UseCases {
@@ -623,7 +646,7 @@ func freshnessStatus(lastVerified string, now time.Time) string {
 	return "fresh"
 }
 
-func buildTrustSnapshot(pack model.Pack) TrustSnapshot {
+func buildTrustSnapshot(registryPath string, pack model.Pack) TrustSnapshot {
 	return TrustSnapshot{
 		Trust:         trustOrUnknown(pack.Trust),
 		ReviewStatus:  pack.ReviewStatus,
@@ -632,7 +655,7 @@ func buildTrustSnapshot(pack model.Pack) TrustSnapshot {
 		Tools:         pack.Tools,
 		Scope:         pack.Scope,
 		Compatibility: pack.Compatibility,
-		Provenance:    provenanceSummary(pack),
+		Provenance:    ComputeProvenance(registryPath, pack),
 	}
 }
 
@@ -649,12 +672,22 @@ func provenanceSummary(pack model.Pack) ProvenanceSummary {
 		PluginRefs:         len(pack.Plugins),
 		InlineCapabilities: len(pack.Capabilities),
 	}
+	countRemote := func(source string, hasIntegrity bool) {
+		if source == "" || util.IsLocalSource(source) {
+			return
+		}
+		summary.RemoteSources++
+		if resolve.ResolveSource(source).Pinned || hasIntegrity {
+			summary.PinnedSources++
+		}
+	}
 	for _, ref := range pack.Skills {
 		if ref.IsObjectRef() {
 			summary.ObjectSkillRefs++
 		} else {
 			summary.BareSkillRefs++
 		}
+		countRemote(ref.Source, false)
 	}
 	for _, ref := range pack.Plugins {
 		if ref.IsObjectRef() {
@@ -662,8 +695,53 @@ func provenanceSummary(pack model.Pack) ProvenanceSummary {
 		} else {
 			summary.BarePluginRefs++
 		}
+		countRemote(ref.Source, false)
 	}
+	for _, capability := range pack.Capabilities {
+		countRemote(capability.Source, capability.Integrity.Checksum != "" || capability.Integrity.Signature != "")
+	}
+	summary.PinStatus = pinStatus(summary.PinnedSources, summary.RemoteSources)
 	return summary
+}
+
+// ComputeProvenance reports what the CLI can prove about a pack's sources —
+// pinned commits and integrity checksums — independent of any self-asserted
+// trust or review labels in the manifest. Refs are expanded through the
+// registry so a bare ref whose skill manifest points at a remote repository
+// is classified by that underlying source, not as registry-owned.
+func ComputeProvenance(registryPath string, pack model.Pack) ProvenanceSummary {
+	summary := provenanceSummary(pack)
+	expanded, err := ExpandPack(registryPath, pack, map[string]bool{})
+	if err != nil {
+		return summary
+	}
+	summary.RemoteSources = 0
+	summary.PinnedSources = 0
+	for _, capability := range expanded.Capabilities {
+		if capability.Source == "" || util.IsLocalSource(capability.Source) {
+			continue
+		}
+		summary.RemoteSources++
+		if resolve.ResolveSource(capability.Source).Pinned ||
+			capability.Integrity.Checksum != "" || capability.Integrity.Signature != "" {
+			summary.PinnedSources++
+		}
+	}
+	summary.PinStatus = pinStatus(summary.PinnedSources, summary.RemoteSources)
+	return summary
+}
+
+func pinStatus(pinned, remote int) string {
+	switch {
+	case remote == 0:
+		return "registry"
+	case pinned == remote:
+		return "pinned"
+	case pinned == 0:
+		return "unpinned"
+	default:
+		return "partial"
+	}
 }
 
 func printTrustSnapshot(out io.Writer, snapshot TrustSnapshot) {
@@ -709,7 +787,13 @@ func formatCompatibility(compat model.Compatibility) string {
 }
 
 func formatProvenance(summary ProvenanceSummary) string {
-	return fmt.Sprintf("skills %d (%d object, %d bare), plugins %d (%d object, %d bare), inline %d",
+	pin := "no remote sources (registry-owned)"
+	if summary.RemoteSources > 0 {
+		pin = fmt.Sprintf("%s (%d/%d remote sources pinned or checksummed)",
+			summary.PinStatus, summary.PinnedSources, summary.RemoteSources)
+	}
+	return fmt.Sprintf("%s; skills %d (%d object, %d bare), plugins %d (%d object, %d bare), inline %d",
+		pin,
 		summary.SkillRefs,
 		summary.ObjectSkillRefs,
 		summary.BareSkillRefs,
@@ -1172,6 +1256,13 @@ type ProvenanceSummary struct {
 	ObjectPluginRefs   int `json:"objectPluginRefs"`
 	BarePluginRefs     int `json:"barePluginRefs"`
 	InlineCapabilities int `json:"inlineCapabilities"`
+
+	// Computed from the manifest's sources, not from self-asserted labels:
+	// a remote source counts as pinned when it names a commit SHA or carries
+	// an integrity checksum/signature the CLI can verify.
+	RemoteSources int    `json:"remoteSources"`
+	PinnedSources int    `json:"pinnedSources"`
+	PinStatus     string `json:"pinStatus"`
 }
 
 func Info(registryPath, home, packRef string, out io.Writer) error {
@@ -1284,7 +1375,7 @@ func buildInfoResult(registryPath, home, packRef string) (InfoResult, error) {
 	if err != nil {
 		return InfoResult{}, err
 	}
-	result := InfoResult{Pack: pack, TrustSnapshot: buildTrustSnapshot(pack)}
+	result := InfoResult{Pack: pack, TrustSnapshot: buildTrustSnapshot(registryPath, pack)}
 	receiptsDir := filepath.Join(util.ExpandHome(home), "receipts")
 	receiptPath := filepath.Join(receiptsDir, pack.ID+".json")
 	if data, err := os.ReadFile(receiptPath); err == nil {

@@ -724,7 +724,7 @@ func PublishReport(registryPath, policyPath string) (model.PublishReport, error)
 	if err != nil {
 		return report, err
 	}
-	metadata := MetadataCoverage(packs, time.Now().UTC())
+	metadata := MetadataCoverage(registryPath, packs, time.Now().UTC())
 	report.Metadata = &metadata
 	for _, check := range metadataChecks(metadata) {
 		report.Checks = append(report.Checks, check)
@@ -785,7 +785,7 @@ func publishQualityScore(report model.PublishReport, packs []model.Pack, indexOK
 	}
 	metadataScore := metadataQualityScore(*report.Metadata)
 	freshnessScore := freshnessQualityScore(report.Metadata.Freshness, len(packs))
-	provenanceScore := provenanceQualityScore(report.Metadata.Refs, len(packs))
+	provenanceScore := provenanceQualityScore(report.Metadata.Pinning, len(packs))
 	compatScore := compatibilityQualityScore(packs)
 	indexScore := 0
 	if indexOK {
@@ -818,8 +818,12 @@ func freshnessQualityScore(freshness model.MetadataFreshnessCoverage, total int)
 	return percent(freshness.Fresh, total)
 }
 
-func provenanceQualityScore(refs model.MetadataRefCoverage, total int) int {
-	return 100 - percent(refs.PacksWithBareRefs, total)
+// provenanceQualityScore rates what the CLI can verify about sources: full
+// credit for packs whose remote sources are all commit-pinned or checksummed
+// (or that have no remote sources), half credit for partially pinned packs.
+// Self-asserted trust and review labels deliberately carry no weight.
+func provenanceQualityScore(pinning model.MetadataPinningCoverage, total int) int {
+	return percent(pinning.FullyPinned*2+pinning.Partial, total*2)
 }
 
 func compatibilityQualityScore(packs []model.Pack) int {
@@ -846,7 +850,7 @@ func qualityTopFixes(metadata, freshness, provenance, compatibility, index int) 
 	}{
 		{metadata, "fill missing useCases, examplePrompts, requirements, trust, and compatibility metadata"},
 		{freshness, "refresh stale or missing lastVerified dates"},
-		{provenance, "replace bare skill/plugin refs with trusted object refs"},
+		{provenance, "pin remote skill/plugin sources to commit SHAs (agent-packs pin)"},
 		{compatibility, "add compatibility evidence for Codex and Claude Code"},
 		{index, "regenerate index.json with agent-packs index --output index.json"},
 	}

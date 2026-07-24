@@ -3,6 +3,7 @@ package install
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -104,7 +105,7 @@ func DriftCheck(target string, out io.Writer) error {
 	fmt.Fprintln(out)
 	if drifted > 0 {
 		fmt.Fprintf(out, "%d/%d capabilities drifted or missing\n", drifted, len(items))
-		return model.ErrInstallFailed
+		return errors.New("drift detected")
 	}
 	materialized := len(items) - referenced
 	if materialized == 0 {

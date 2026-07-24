@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/agent-packs/cli/internal/model"
+	"github.com/agent-packs/cli/internal/registry"
 )
 
 const metadataFreshnessThresholdDays = 90
 
-func MetadataCoverage(packs []model.Pack, now time.Time) model.MetadataCoverageReport {
+func MetadataCoverage(registryPath string, packs []model.Pack, now time.Time) model.MetadataCoverageReport {
 	report := model.MetadataCoverageReport{
 		Packs: len(packs),
 		Fields: []model.MetadataFieldCoverage{
@@ -40,6 +41,16 @@ func MetadataCoverage(packs []model.Pack, now time.Time) model.MetadataCoverageR
 		if hasBare {
 			report.Refs.PacksWithBareRefs++
 			report.Refs.Packs = append(report.Refs.Packs, pack.ID)
+		}
+		switch registry.ComputeProvenance(registryPath, pack).PinStatus {
+		case "pinned", "registry":
+			report.Pinning.FullyPinned++
+		case "partial":
+			report.Pinning.Partial++
+			report.Pinning.UnpinnedPacks = append(report.Pinning.UnpinnedPacks, pack.ID)
+		default:
+			report.Pinning.Unpinned++
+			report.Pinning.UnpinnedPacks = append(report.Pinning.UnpinnedPacks, pack.ID)
 		}
 		addFreshness(&report.Freshness, pack, now)
 	}
@@ -113,6 +124,16 @@ func metadataChecks(report model.MetadataCoverageReport) []model.CheckEntry {
 		Target:  "provenance",
 		Status:  refStatus,
 		Message: fmt.Sprintf("%d/%d packs use bare skill/plugin refs", report.Refs.PacksWithBareRefs, report.Packs),
+	})
+	pinStatus := "OK"
+	if report.Pinning.FullyPinned < report.Packs {
+		pinStatus = "WARN"
+	}
+	checks = append(checks, model.CheckEntry{
+		Kind:    "metadata",
+		Target:  "pinning",
+		Status:  pinStatus,
+		Message: fmt.Sprintf("%d/%d packs pin every remote source to a commit or checksum", report.Pinning.FullyPinned, report.Packs),
 	})
 	freshStatus := "OK"
 	if report.Freshness.Stale > 0 || report.Freshness.Invalid > 0 || report.Freshness.Missing > 0 {
