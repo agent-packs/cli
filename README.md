@@ -165,6 +165,7 @@ bin/agent-packs search --tool codex --scope project --review-status reviewed --d
 bin/agent-packs search --compatible-with codex --compat-status verified --trust community --details
 bin/agent-packs search --recommended --guidance --compatible-with codex --limit 5 --details
 bin/agent-packs search backend --freshness fresh --why
+bin/agent-packs search legacy-workflow --include-deprecated --details
 bin/agent-packs install frontend-engineer pr-review popular-engineering-skills --target ./sandbox
 bin/agent-packs install frontend-engineer --agent codex --only skills --dry-run
 bin/agent-packs install eng-leader --target-tool codex --mode symlink --on-conflict backup --project .
@@ -614,6 +615,10 @@ Registry entries can include catalog metadata such as `maintainers`, `stability`
 `recommendation`, `useCases`, and `examplePrompts`. These fields power registry
 search, install guidance, publish checks, starter-path grouping, and the static
 catalog.
+
+Deprecated packs are excluded from default CLI and catalog discovery. Use
+`search --include-deprecated` or the catalog's availability filter when auditing
+legacy installations or finding a declared `replacement`.
 
 ## Examples
 

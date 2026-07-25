@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/agent-packs/cli/internal/model"
 )
 
 func mustJSON(t *testing.T, value any) []byte {
@@ -37,6 +39,41 @@ func writePack(t *testing.T, dir, id, body string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, id+".json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestResolveLocalPluginKeepsManagedSourceAndReferenceMetadata(t *testing.T) {
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "plugins", "leadership-workflows")
+	manifestDir := filepath.Join(pluginRoot, ".claude-plugin")
+	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{
+  "name": "leadership-workflows",
+  "displayName": "Leadership Workflows",
+  "version": "1.0.0",
+  "repository": "https://github.com/example/registry",
+  "license": "Apache-2.0"
+}`
+	if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	capability, err := ResolveCapabilityRef(filepath.Join(root, "packs"), "plugin", model.CapabilityRef{
+		ID: "leadership-workflows", Trust: "official", License: "Apache-2.0",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capability.Source != pluginRoot {
+		t.Fatalf("expected local managed source %q, got %q", pluginRoot, capability.Source)
+	}
+	if capability.Repository != "https://github.com/example/registry" {
+		t.Fatalf("expected repository attribution to be preserved, got %q", capability.Repository)
+	}
+	if capability.Trust != "official" {
+		t.Fatalf("expected reference trust overlay, got %q", capability.Trust)
 	}
 }
 
@@ -185,6 +222,52 @@ func TestFilteredMatchPacksRecommendedStarterPath(t *testing.T) {
 	}
 	if len(matches) != 1 || matches[0].ID != "backend-engineer" {
 		t.Fatalf("expected only recommended starter packs, got %#v", matches)
+	}
+}
+
+func TestFilteredMatchPacksOrdersRecommendationsAndHidesDeprecatedByDefault(t *testing.T) {
+	dir := t.TempDir()
+	writePack(t, dir, "later", `{
+  "id": "later",
+  "name": "Later",
+  "version": "0.1.0",
+  "description": "Later recommendation.",
+  "recommendation": {"path":"starter","order":30,"reason":"Later in the path."},
+  "capabilities": []
+}`)
+	writePack(t, dir, "first", `{
+  "id": "first",
+  "name": "First",
+  "version": "0.1.0",
+  "description": "First recommendation.",
+  "recommendation": {"path":"starter","order":10,"reason":"First in the path."},
+  "capabilities": []
+}`)
+	writePack(t, dir, "retired", `{
+  "id": "retired",
+  "name": "Retired",
+  "version": "0.1.0",
+  "description": "Deprecated recommendation.",
+  "deprecated": true,
+  "replacement": "first",
+  "recommendation": {"path":"starter","order":1,"reason":"No longer recommended."},
+  "capabilities": []
+}`)
+
+	matches, err := FilteredMatchPacks(dir, "", SearchFilter{Recommended: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 || matches[0].ID != "first" || matches[1].ID != "later" {
+		t.Fatalf("expected active recommendations in configured order, got %#v", matches)
+	}
+
+	matches, err = FilteredMatchPacks(dir, "", SearchFilter{Recommended: true, IncludeDeprecated: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 3 || matches[0].ID != "retired" {
+		t.Fatalf("expected explicit deprecated search to include retired pack in configured order, got %#v", matches)
 	}
 }
 

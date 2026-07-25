@@ -234,6 +234,7 @@ func runSearch(registry string, args []string) error {
 	freshnessFilter := flags.String("freshness", "", "filter by freshness (fresh|stale|invalid|missing)")
 	limit := flags.Int("limit", 0, "limit number of search results")
 	recommended := flags.Bool("recommended", false, "show the recommended starter path shortlist")
+	includeDeprecated := flags.Bool("include-deprecated", false, "include deprecated packs in search results")
 	why := flags.Bool("why", false, "show the first matching metadata or capability snippet")
 	guidance := flags.Bool("guidance", false, "show compatibility-aware install guidance")
 	details := flags.Bool("details", false, "show trust, compatibility, freshness, tools, scope, and install command")
@@ -245,17 +246,18 @@ func runSearch(registry string, args []string) error {
 	}
 	query := strings.Join(flags.Args(), " ")
 	f := agentpacks.SearchFilter{
-		Tag:            *tagFilter,
-		Category:       *categoryFilter,
-		Stability:      *stabilityFilter,
-		Tool:           *toolFilter,
-		ReviewStatus:   *reviewStatusFilter,
-		Scope:          *scopeFilter,
-		Trust:          *trustFilter,
-		CompatibleWith: *compatibleWithFilter,
-		CompatStatus:   *compatStatusFilter,
-		Freshness:      *freshnessFilter,
-		Recommended:    *recommended,
+		Tag:               *tagFilter,
+		Category:          *categoryFilter,
+		Stability:         *stabilityFilter,
+		Tool:              *toolFilter,
+		ReviewStatus:      *reviewStatusFilter,
+		Scope:             *scopeFilter,
+		Trust:             *trustFilter,
+		CompatibleWith:    *compatibleWithFilter,
+		CompatStatus:      *compatStatusFilter,
+		Freshness:         *freshnessFilter,
+		Recommended:       *recommended,
+		IncludeDeprecated: *includeDeprecated,
 	}
 	matches, err := agentpacks.FilteredMatchPacks(registry, query, f)
 	if err != nil {

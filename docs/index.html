@@ -872,7 +872,7 @@
     }[ch]));
   }
 
-  fetch('https://raw.githubusercontent.com/agent-packs/registry/main/index.json')
+  fetch('index.json')
     .then(r => r.json())
     .then(data => {
       const packs = data.packs || [];

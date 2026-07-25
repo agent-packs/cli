@@ -66,15 +66,19 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Check out immutable registry snapshot for this deployment
+        uses: actions/checkout@v7
+        with:
+          repository: agent-packs/registry
+          path: registry-snapshot
       - name: Prepare GitHub Pages site
-        # The catalog fetches the registry index live from
-        # github.com/agent-packs/registry, so no registry data is bundled here.
         run: |
           mkdir -p site
           cp docs/index.html site/index.html
           cp docs/catalog.html site/catalog.html
           cp docs/og.png site/og.png
           cp docs/favicon.svg site/favicon.svg
+          cp registry-snapshot/index.json site/index.json
       - name: Upload catalog artifact
         uses: actions/upload-pages-artifact@v5
         with:

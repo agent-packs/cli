@@ -84,6 +84,26 @@ class DocumentationExamplesTest(unittest.TestCase):
         self.assertIn("pack.recommendation", catalog)
         self.assertIn("FALLBACK_STARTER_IDS", catalog)
 
+    def test_pages_bundle_a_registry_snapshot(self):
+        landing = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
+        catalog = (ROOT / "docs" / "catalog.html").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("fetch('index.json')", landing)
+        self.assertIn("fetch('index.json')", catalog)
+        self.assertNotIn("raw.githubusercontent.com/agent-packs/registry/main/index.json", landing)
+        self.assertNotIn("raw.githubusercontent.com/agent-packs/registry/main/index.json", catalog)
+        self.assertIn("repository: agent-packs/registry", workflow)
+        self.assertIn("cp registry-snapshot/index.json site/index.json", workflow)
+
+    def test_catalog_has_mobile_filters_and_deprecation_controls(self):
+        catalog = (ROOT / "docs" / "catalog.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="filter-toggle"', catalog)
+        self.assertIn('id="deprecated-filter"', catalog)
+        self.assertIn("recommendation.order", catalog)
+        self.assertIn("replacement", catalog)
+
 
 if __name__ == "__main__":
     unittest.main()

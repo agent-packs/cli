@@ -98,7 +98,8 @@ operator repair, but release tags are the normal automation path.
 flowchart LR
   signals["Project or user intent"] --> search["search --recommended --guidance"]
   registry["Registry manifests"] --> index["index.json with recommendation metadata"]
-  index --> catalog["Static catalog starter path"]
+  index --> artifact["Pages artifact with immutable registry snapshot"]
+  artifact --> catalog["Static catalog starter path"]
   index --> search
   search --> command["agent-packs install <pack> --agent <tool>"]
 
@@ -113,8 +114,9 @@ evidence is missing, partial, unknown, or unsupported.
 
 `recommendation` lives in registry manifests and is projected into `index.json`
 as both the structured object and a simple `recommended` boolean. The catalog
-uses that index metadata for the starter path, with only a compatibility
-fallback for older indexes.
+and CLI order recommendations by its `order` value. Deprecated packs are hidden
+from default discovery and remain available through an explicit opt-in, with
+their replacement metadata shown when present.
 
 `new pack` emits richer draft metadata (`requirements`, `useCases`,
 `examplePrompts`, categories, tools, scope, and trust-bearing refs), but it does
@@ -124,12 +126,18 @@ should only be added after real validation.
 ## Catalog And CI
 
 CLI CI (`.github/workflows/ci.yml`) runs Go tests, builds the CLI, runs Python
-integration/docs tests, prepares the static catalog, and deploys GitHub Pages.
-Registry CI runs registry schema/index tests; release/publish readiness also
-uses CLI-backed `validate`, `index --check`, and `publish --check` gates before
-pushing registry changes.
+integration/docs tests, checks out the registry, bundles its exact `index.json`
+into the Pages artifact, and deploys GitHub Pages. The deployed catalog never
+depends on a mutable runtime fetch from the registry's default branch.
 
-`docs/catalog.html` renders `registry/index.json` as a lightweight catalog.
+Registry CI checks out and builds the CLI, then runs schema tests, CLI-backed
+`validate`, `lint --all`, `verify --all`, `publish --check`, `index --check`, and
+flagship dry-run installs. This makes the registry-to-CLI contract a required
+change gate.
+
+`docs/catalog.html` renders the bundled registry snapshot as a lightweight
+catalog with recommendation ordering, mobile filters, and explicit deprecated
+pack discovery.
 
 ## Security Posture
 

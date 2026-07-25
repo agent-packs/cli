@@ -73,6 +73,7 @@
       background: rgba(99,102,241,.08);
       color: var(--indigo);
     }
+    #filter-toggle { display: none; }
 
     /* ── Layout ── */
     .layout { display: flex; align-items: flex-start; }
@@ -126,6 +127,7 @@
     .badge-unknown { background: #f3f4f6; color: #4b5563; }
     .badge-stable { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
     .badge-experimental { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .badge-deprecated { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .pack-id { font-family: var(--mono); font-size: .69rem; color: var(--slate-500); margin-bottom: .55rem; }
     .pack-desc { font-size: .855rem; color: var(--slate-600); line-height: 1.58; margin-bottom: .8rem; }
     .pack-usecases { display: grid; gap: .35rem; margin-bottom: .85rem; }
@@ -163,6 +165,9 @@
 
     @media (max-width: 768px) {
       .sidebar { display: none; }
+      .sidebar.open { display: block; position: static; width: 100%; max-height: none; border-right: 0; border-bottom: 1px solid var(--slate-200); }
+      .layout { flex-direction: column; }
+      #filter-toggle { display: inline-flex; align-items: center; }
       .main { padding: 1rem; }
       #packs-grid { grid-template-columns: 1fr; }
       .search-bar { padding: .75rem 1rem; }
@@ -196,10 +201,15 @@
     Showing <strong id="result-count">–</strong> of <strong id="total-count">–</strong> packs
   </div>
   <button id="starter-filter" class="quick-filter" type="button" onclick="toggleStarterPath()">Starter path</button>
+  <button id="filter-toggle" class="quick-filter" type="button" aria-controls="catalog-filters" aria-expanded="false" onclick="toggleFilters()">Filters</button>
 </div>
 
 <div class="layout">
-  <aside class="sidebar">
+  <aside id="catalog-filters" class="sidebar">
+    <div class="filter-group">
+      <div class="filter-title">Availability</div>
+      <label class="filter-opt"><input id="deprecated-filter" type="checkbox" onchange="applyFilters()"><span>Include deprecated packs</span></label>
+    </div>
     <div class="filter-group">
       <div class="filter-title">
         Tool
@@ -237,6 +247,7 @@
   const activeTools = new Set();
   const activeStability = new Set();
   let starterOnly = false;
+  let includeDeprecated = false;
   let hasRecommendedMetadata = false;
 
   const POPULAR_TAGS = [
@@ -259,7 +270,7 @@
     }[ch]));
   }
 
-  fetch('https://raw.githubusercontent.com/agent-packs/registry/main/index.json')
+  fetch('index.json')
     .then(r => r.json())
     .then(data => {
       ALL_PACKS = data.packs || [];
@@ -302,16 +313,25 @@
     applyFilters();
   }
 
+  function toggleFilters() {
+    const sidebar = document.getElementById('catalog-filters');
+    const button = document.getElementById('filter-toggle');
+    const open = sidebar.classList.toggle('open');
+    button.setAttribute('aria-expanded', String(open));
+  }
+
   function applyFilters() {
     activeTools.clear();
     activeStability.clear();
     activeTags.clear();
+    includeDeprecated = document.getElementById('deprecated-filter').checked;
     document.querySelectorAll('[data-group="tools"]:checked').forEach(e => activeTools.add(e.value));
     document.querySelectorAll('[data-group="stability"]:checked').forEach(e => activeStability.add(e.value));
     document.querySelectorAll('[data-group="tags"]:checked').forEach(e => activeTags.add(e.value));
 
     const q = document.getElementById('search').value.toLowerCase().trim();
     const filtered = ALL_PACKS.filter(p => {
+      if (!includeDeprecated && (p.deprecated || p.stability === 'deprecated')) return false;
       if (starterOnly && !isStarterPack(p)) return false;
       if (q) {
         const hay = [
@@ -327,6 +347,16 @@
       if (activeStability.size && !activeStability.has(p.stability)) return false;
       if (activeTags.size && !(p.tags||[]).some(t => activeTags.has(t))) return false;
       return true;
+    }).sort((a, b) => {
+      if (starterOnly) {
+        const left = a.recommendation && a.recommendation.order ? a.recommendation.order : Number.MAX_SAFE_INTEGER;
+        const right = b.recommendation && b.recommendation.order ? b.recommendation.order : Number.MAX_SAFE_INTEGER;
+        if (left !== right) return left - right;
+      }
+      const leftDeprecated = Boolean(a.deprecated || a.stability === 'deprecated');
+      const rightDeprecated = Boolean(b.deprecated || b.stability === 'deprecated');
+      if (leftDeprecated !== rightDeprecated) return leftDeprecated ? 1 : -1;
+      return String(a.name || a.id).localeCompare(String(b.name || b.id));
     });
 
     document.getElementById('result-count').textContent = filtered.length;
@@ -356,11 +386,12 @@
             ${p.trust === 'verified' ? '<span class="badge badge-verified">verified</span>' : ''}
             ${p.trust === 'community' ? '<span class="badge badge-community">community</span>' : ''}
             ${!p.trust || p.trust === 'unknown' ? '<span class="badge badge-unknown">unknown</span>' : ''}
-            <span class="badge ${p.stability === 'stable' ? 'badge-stable' : 'badge-experimental'}">${esc(p.stability || 'experimental')}</span>
+            <span class="badge ${p.deprecated || p.stability === 'deprecated' ? 'badge-deprecated' : p.stability === 'stable' ? 'badge-stable' : 'badge-experimental'}">${esc(p.deprecated ? 'deprecated' : p.stability || 'experimental')}</span>
           </div>
         </div>
         <div class="pack-id">${esc(p.id)} &middot; v${esc(p.version)}</div>
         <div class="pack-desc">${esc(p.description)}</div>
+        ${p.replacement ? `<div class="pack-prompt"><span class="prompt-label">Replacement</span>${esc(p.replacement)}</div>` : ''}
         ${(p.useCases||[]).length ? `
           <div class="pack-usecases">
             ${(p.useCases||[]).slice(0,2).map(u => `<div class="usecase-item">${esc(u)}</div>`).join('')}

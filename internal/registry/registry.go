@@ -146,17 +146,18 @@ func Search(registry, query string, out io.Writer) error {
 
 // SearchFilter holds optional facet filters for MatchPacks.
 type SearchFilter struct {
-	Tag            string
-	Category       string
-	Stability      string
-	Tool           string
-	ReviewStatus   string
-	Scope          string
-	Trust          string
-	CompatibleWith string
-	CompatStatus   string
-	Freshness      string
-	Recommended    bool
+	Tag               string
+	Category          string
+	Stability         string
+	Tool              string
+	ReviewStatus      string
+	Scope             string
+	Trust             string
+	CompatibleWith    string
+	CompatStatus      string
+	Freshness         string
+	Recommended       bool
+	IncludeDeprecated bool
 }
 
 func MatchPacks(registry, query string) ([]model.Pack, error) {
@@ -171,6 +172,9 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 	query = strings.ToLower(strings.TrimSpace(query))
 	var matches []model.Pack
 	for _, pack := range packs {
+		if !f.IncludeDeprecated && f.Stability == "" && (pack.Deprecated || strings.EqualFold(pack.Stability, "deprecated")) {
+			continue
+		}
 		if f.Recommended && !packRecommended(pack) {
 			continue
 		}
@@ -211,6 +215,21 @@ func FilteredMatchPacks(registry, query string, f SearchFilter) ([]model.Pack, e
 			continue
 		}
 		matches = append(matches, pack)
+	}
+	if f.Recommended {
+		sort.SliceStable(matches, func(i, j int) bool {
+			left, right := matches[i].Recommendation, matches[j].Recommendation
+			if left != nil && right != nil && left.Order != right.Order {
+				return left.Order < right.Order
+			}
+			if left != nil && right == nil {
+				return true
+			}
+			if left == nil && right != nil {
+				return false
+			}
+			return matches[i].ID < matches[j].ID
+		})
 	}
 	return matches, nil
 }
@@ -425,7 +444,42 @@ func ResolveCapabilityRef(registry, capabilityType string, ref model.CapabilityR
 	}
 	if ref.Source == "" {
 		kind := pluralCapabilityKind(capabilityType)
-		return FindCapability(registry, kind, ref.ID)
+		capability, err := FindCapability(registry, kind, ref.ID)
+		if err != nil {
+			return model.Capability{}, err
+		}
+		if ref.Name != "" {
+			capability.Name = ref.Name
+		}
+		if ref.UpstreamSource != "" {
+			capability.UpstreamSource = ref.UpstreamSource
+		}
+		if ref.Format != "" {
+			capability.Format = ref.Format
+		}
+		if ref.Version != "" {
+			capability.Version = ref.Version
+		}
+		if ref.Entry != "" {
+			capability.Entry = ref.Entry
+		}
+		if ref.Homepage != "" {
+			capability.Homepage = ref.Homepage
+		}
+		if ref.Repository != "" {
+			capability.Repository = ref.Repository
+		}
+		if ref.License != "" {
+			capability.License = ref.License
+		}
+		if ref.Install != nil {
+			capability.Install = ref.Install
+		}
+		if ref.Trust != "" {
+			capability.Trust = ref.Trust
+		}
+		capability.Reference = true
+		return capability, nil
 	}
 	name := ref.Name
 	if name == "" {
@@ -559,15 +613,8 @@ func PluginCapability(id, root string, manifest model.PluginManifest) model.Capa
 	if name == "" {
 		name = manifest.Name
 	}
-	source := manifest.Repository
-	if source == "" {
-		source = manifest.Homepage
-	}
-	if source == "" {
-		source = root
-	}
 	return model.Capability{
-		Type: "plugin", Name: name, Source: source, Format: "anthropic-plugin",
+		Type: "plugin", Name: name, Source: root, Format: "anthropic-plugin",
 		Entry: ".claude-plugin/plugin.json", Version: manifest.Version,
 		Homepage: manifest.Homepage, Repository: manifest.Repository, License: manifest.License,
 		Install: map[string]string{"method": "manual", "package": manifest.Name}, Reference: true,
